@@ -39,15 +39,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ files });
     }
 
-    // POST - Save/update a file (requires access code)
+    // POST - Save/update a file
     if (req.method === 'POST') {
-      const { filename, content, accessCode } = req.body;
-
-      // Validate access code
-      const validAccessCode = process.env.ACCESS_CODE;
-      if (!accessCode || accessCode !== validAccessCode) {
-        return res.status(401).json({ error: 'Invalid access code' });
-      }
+      const { filename, content } = req.body;
 
       // Validate input
       if (!filename || typeof filename !== 'string') {
@@ -68,16 +62,9 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: true, filename, url: blob.url });
     }
 
-    // DELETE - Remove a file (requires access code)
+    // DELETE - Remove a file
     if (req.method === 'DELETE') {
       const { filename } = req.query;
-      const { accessCode } = req.body || {};
-
-      // Validate access code
-      const validAccessCode = process.env.ACCESS_CODE;
-      if (!accessCode || accessCode !== validAccessCode) {
-        return res.status(401).json({ error: 'Invalid access code' });
-      }
 
       // Validate input
       if (!filename || typeof filename !== 'string') {

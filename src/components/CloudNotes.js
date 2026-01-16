@@ -4,8 +4,6 @@ const NOTES_FILENAME = 'notes.txt';
 
 function CloudNotes({ isOpen, onClose }) {
   const [content, setContent] = useState('');
-  const [accessCode, setAccessCode] = useState('');
-  const [isUnlocked, setIsUnlocked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState('');
@@ -28,11 +26,6 @@ function CloudNotes({ isOpen, onClose }) {
 
   // Save notes to API
   const saveNotes = async () => {
-    if (!isUnlocked || !accessCode) {
-      setStatus('Unlock first');
-      return;
-    }
-
     setSaving(true);
     setStatus('Saving...');
 
@@ -42,8 +35,7 @@ function CloudNotes({ isOpen, onClose }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           filename: NOTES_FILENAME,
-          content: content,
-          accessCode: accessCode
+          content: content
         })
       });
 
@@ -56,26 +48,6 @@ function CloudNotes({ isOpen, onClose }) {
       setStatus('Save failed');
     } finally {
       setSaving(false);
-    }
-  };
-
-  // Unlock with access code
-  const handleUnlock = async () => {
-    if (!accessCode) return;
-    try {
-      const response = await fetch('/api/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessCode })
-      });
-      if (response.ok) {
-        setIsUnlocked(true);
-        setStatus('Unlocked');
-      } else {
-        setStatus('Invalid code');
-      }
-    } catch (err) {
-      setStatus('Auth failed');
     }
   };
 
@@ -98,32 +70,19 @@ function CloudNotes({ isOpen, onClose }) {
           <button className="cloud-notes-close" onClick={onClose}>×</button>
         </div>
 
-        <div className="cloud-notes-unlock">
-          <input
-            type="password"
-            placeholder="Access code"
-            value={accessCode}
-            onChange={(e) => setAccessCode(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleUnlock()}
-          />
-          <button onClick={handleUnlock} disabled={isUnlocked}>
-            {isUnlocked ? '🔓' : '🔒'}
-          </button>
-        </div>
-
         <textarea
           className="cloud-notes-textarea"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder={isUnlocked ? "Write notes here..." : "Unlock to edit"}
-          disabled={!isUnlocked || loading}
+          placeholder="Write notes here..."
+          disabled={loading}
         />
 
         <div className="cloud-notes-footer">
           <button
             className="cloud-notes-save"
             onClick={saveNotes}
-            disabled={!isUnlocked || saving}
+            disabled={saving}
           >
             Save
           </button>

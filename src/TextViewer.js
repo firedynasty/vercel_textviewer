@@ -11,7 +11,6 @@ function TextViewer() {
   const [fontSize, setFontSize] = useState(18);
   const [darkMode, setDarkMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [textContent, setTextContent] = useState('');
 
   const tts = useTTS();
   const [editContent, setEditContent] = useState('');
@@ -133,16 +132,15 @@ function TextViewer() {
           if (currentFile.originalName && isRtfFile(currentFile.originalName)) {
             text = rtfToPlainText(text);
           }
-          setTextContent(text);
           tts.loadText(text);
         })
         .catch(err => {
           console.error('Error loading file for TTS:', err);
         });
     } else {
-      setTextContent('');
       tts.loadText('');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentFile]);
 
   // Keyboard navigation

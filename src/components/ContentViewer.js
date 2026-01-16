@@ -10,7 +10,8 @@ function ContentViewer({
   onEditChange,
   imagePathToBlobUrl,
   onPrev,
-  onNext
+  onNext,
+  onPlayFromSelection
 }) {
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
@@ -131,6 +132,14 @@ function ContentViewer({
           <div
             className="preview-text"
             style={{ fontSize: `${fontSize}px` }}
+            onDoubleClick={() => {
+              const selection = window.getSelection().toString();
+              console.log('Double-click detected, selection:', selection);
+              if (selection && onPlayFromSelection) {
+                console.log('Calling onPlayFromSelection');
+                onPlayFromSelection(selection);
+              }
+            }}
           >
             <div className="content-title">{file.key}</div>
             <pre>{textContent}</pre>
@@ -151,6 +160,14 @@ function ContentViewer({
             className="preview-markdown"
             style={{ fontSize: `${fontSize}px` }}
             dangerouslySetInnerHTML={{ __html: `<div class="content-title">${file.key}</div>${markdownHtml}` }}
+            onDoubleClick={() => {
+              const selection = window.getSelection().toString();
+              console.log('Double-click detected, selection:', selection);
+              if (selection && onPlayFromSelection) {
+                console.log('Calling onPlayFromSelection');
+                onPlayFromSelection(selection);
+              }
+            }}
           />
         )}
 

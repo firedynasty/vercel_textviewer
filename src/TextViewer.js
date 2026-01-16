@@ -218,6 +218,7 @@ function TextViewer() {
           imagePathToBlobUrl={imagePathToBlobUrl}
           onPrev={handlePrev}
           onNext={handleNext}
+          onPlayFromSelection={tts.playFromSelection}
         />
       </div>
     </div>

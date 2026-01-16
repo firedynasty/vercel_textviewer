@@ -188,8 +188,27 @@ function ControlBar({
 
         <button
           className={`tts-play-btn ${tts.isPlaying ? 'playing' : ''}`}
-          onClick={tts.isPlaying ? tts.stop : tts.play}
-          title={tts.isPlaying ? 'Stop' : 'Play'}
+          onClick={() => {
+            if (tts.isPlaying) {
+              tts.stop();
+            } else {
+              // Check if there's selected text
+              const selection = window.getSelection().toString().trim();
+              console.log('Play clicked, selection:', selection);
+              if (selection && selection.length > 1) {
+                // Try to play from selection
+                const found = tts.playFromSelection(selection);
+                if (!found) {
+                  // Fallback to regular play if no match found
+                  console.log('No match, using regular play');
+                  tts.play();
+                }
+              } else {
+                tts.play();
+              }
+            }
+          }}
+          title={tts.isPlaying ? 'Stop' : 'Play (select text first to start from there)'}
         >
           {tts.isPlaying ? '⏹' : '▶️'}
         </button>
@@ -219,14 +238,30 @@ function ControlBar({
           <option value="zh-CN">Mandarin</option>
         </select>
 
-        <input
-          type="number"
-          className="tts-count-input"
-          value={tts.sentenceCount}
-          onChange={(e) => tts.setSentenceCount(Math.max(1, parseInt(e.target.value) || 1))}
-          min="1"
-          title="Sentences to read"
-        />
+        <div className="tts-count-controls">
+          <button
+            className="tts-count-btn"
+            onClick={() => tts.setSentenceCount(Math.max(1, tts.sentenceCount - 1))}
+            title="Decrease sentence count"
+          >
+            -
+          </button>
+          <input
+            type="number"
+            className="tts-count-input"
+            value={tts.sentenceCount}
+            onChange={(e) => tts.setSentenceCount(Math.max(1, parseInt(e.target.value) || 1))}
+            min="1"
+            title="Sentences to read"
+          />
+          <button
+            className="tts-count-btn"
+            onClick={() => tts.setSentenceCount(tts.sentenceCount + 1)}
+            title="Increase sentence count"
+          >
+            +
+          </button>
+        </div>
 
         <div className="tts-repeat-toggle">
           <label className="tts-radio-label">

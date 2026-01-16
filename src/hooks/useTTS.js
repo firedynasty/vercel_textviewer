@@ -137,6 +137,103 @@ export function useTTS() {
     setCurrentSentenceIndex(prev => Math.min(sentences.length - 1, prev + 1));
   }, [stop, sentences.length]);
 
+  // Find sentence containing selected text and play from there
+  const playFromSelection = useCallback((selectedText) => {
+    console.log('playFromSelection called with:', selectedText);
+    console.log('sentences count:', sentences.length);
+
+    if (!selectedText || sentences.length === 0) {
+      console.log('Early return: no text or no sentences');
+      return false;
+    }
+
+    // Clean up selection - remove extra whitespace, newlines
+    const trimmedSelection = selectedText.trim().replace(/\s+/g, ' ');
+    console.log('trimmed selection:', trimmedSelection);
+
+    if (trimmedSelection.length < 2) {
+      console.log('Selection too short');
+      return false;
+    }
+
+    // Try exact substring match first
+    let foundIndex = sentences.findIndex(sentence => {
+      const cleanSentence = sentence.trim();
+      return cleanSentence.includes(trimmedSelection) || trimmedSelection.includes(cleanSentence);
+    });
+
+    console.log('Exact match index:', foundIndex);
+
+    // Try character-by-character match for Chinese text
+    if (foundIndex === -1) {
+      const selectionChars = trimmedSelection.replace(/\s/g, '');
+      foundIndex = sentences.findIndex(sentence => {
+        const sentenceChars = sentence.replace(/\s/g, '');
+        return sentenceChars.includes(selectionChars) || selectionChars.includes(sentenceChars);
+      });
+      console.log('Character match index:', foundIndex);
+    }
+
+    // Try finding first few characters match
+    if (foundIndex === -1 && trimmedSelection.length >= 3) {
+      const firstChars = trimmedSelection.substring(0, Math.min(10, trimmedSelection.length)).replace(/\s/g, '');
+      foundIndex = sentences.findIndex(sentence => {
+        const sentenceChars = sentence.replace(/\s/g, '');
+        return sentenceChars.includes(firstChars);
+      });
+      console.log('First chars match index:', foundIndex, 'looking for:', firstChars);
+    }
+
+    if (foundIndex !== -1) {
+      console.log('Found sentence:', sentences[foundIndex]);
+      stop();
+      setCurrentSentenceIndex(foundIndex);
+      setIsPlaying(true);
+      sentencesReadRef.current = 0;
+      startIndexRef.current = foundIndex;
+      setTimeout(() => {
+        speakSentence(foundIndex);
+      }, 100);
+      return true;
+    }
+
+    // Try partial match - find sentence with most character overlap
+    let bestMatch = -1;
+    let bestScore = 0;
+    const selectionChars = [...trimmedSelection.replace(/\s/g, '')];
+
+    sentences.forEach((sentence, idx) => {
+      const sentenceChars = sentence.replace(/\s/g, '');
+      let matchCount = 0;
+      selectionChars.forEach(char => {
+        if (sentenceChars.includes(char)) matchCount++;
+      });
+      const score = matchCount / selectionChars.length;
+      if (score > bestScore && score > 0.5) {
+        bestScore = score;
+        bestMatch = idx;
+      }
+    });
+
+    console.log('Best partial match:', bestMatch, 'score:', bestScore);
+
+    if (bestMatch !== -1) {
+      console.log('Using partial match sentence:', sentences[bestMatch]);
+      stop();
+      setCurrentSentenceIndex(bestMatch);
+      setIsPlaying(true);
+      sentencesReadRef.current = 0;
+      startIndexRef.current = bestMatch;
+      setTimeout(() => {
+        speakSentence(bestMatch);
+      }, 100);
+      return true;
+    }
+
+    console.log('No match found');
+    return false;
+  }, [sentences, stop, speakSentence]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -167,6 +264,7 @@ export function useTTS() {
     stop,
     prevSentence,
     nextSentence,
+    playFromSelection,
     setSpeed,
     setLanguage,
     setSentenceCount,

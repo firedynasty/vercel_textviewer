@@ -1,11 +1,10 @@
 // Vercel Serverless Function for File Storage with Blob
 // Environment variables (set in Vercel dashboard):
 // - BLOB_READ_WRITE_TOKEN: Vercel Blob token (auto-added when you create a Blob store)
-// - ACCESS_CODE: Password to unlock edit/save operations
 
-import { put, list, del } from '@vercel/blob';
+const { put, list, del } = require('@vercel/blob');
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');

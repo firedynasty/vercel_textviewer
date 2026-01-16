@@ -11,14 +11,23 @@ function CloudNotes({ isOpen, onClose }) {
   // Load notes from API
   const loadNotes = useCallback(async () => {
     setLoading(true);
+    setStatus('Loading...');
     try {
       const response = await fetch('/api/files');
+      console.log('Load response status:', response.status);
       if (response.ok) {
         const data = await response.json();
+        console.log('Loaded data:', data);
         setContent(data.files?.[NOTES_FILENAME] || '');
+        setStatus('');
+      } else {
+        const errorText = await response.text();
+        console.error('Load error:', response.status, errorText);
+        setStatus(`Load failed: ${response.status}`);
       }
     } catch (err) {
-      setStatus('Failed to load');
+      console.error('Load exception:', err);
+      setStatus('Failed to load: ' + err.message);
     } finally {
       setLoading(false);
     }

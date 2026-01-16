@@ -7,16 +7,24 @@
       "config": {
         "distDir": "build"
       }
+    },
+    {
+      "src": "api/*.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
     {
       "src": "^/static/(.*)",
       "headers": { "cache-control": "public, max-age=31536000, immutable" },
       "dest": "/static/$1"
     },
     {
-      "src": "/(.*\\.(js|css|svg|png|jpg|jpeg|gif|ico))",
+      "src": "/(.*\\.(js|css|svg|png|jpg|jpeg|gif|ico|json))",
       "dest": "/$1"
     },
     {

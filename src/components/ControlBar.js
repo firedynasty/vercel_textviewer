@@ -11,7 +11,8 @@ function ControlBar({
   onSave,
   onCancel,
   onFilesLoaded,
-  tts
+  tts,
+  onOpenCloudNotes
 }) {
   const folderInputRef = useRef(null);
 
@@ -159,6 +160,13 @@ function ControlBar({
           title={darkMode ? 'Light Mode' : 'Dark Mode'}
         >
           {darkMode ? '☀' : '☾'}
+        </button>
+        <button
+          className="cloud-notes-btn"
+          onClick={onOpenCloudNotes}
+          title="Cloud Notes"
+        >
+          ☁️
         </button>
       </div>
 

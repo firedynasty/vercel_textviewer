@@ -244,6 +244,25 @@ body {
   transform: scale(1.05);
 }
 
+.cloud-notes-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(59, 130, 246, 0.9);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cloud-notes-btn:hover {
+  background: rgba(37, 99, 235, 1);
+  transform: scale(1.05);
+}
+
 /* TTS Controls */
 .tts-controls {
   display: flex;
@@ -762,4 +781,152 @@ body {
 .text-viewer.dark-mode .preview-text::-webkit-scrollbar-thumb:hover,
 .text-viewer.dark-mode .preview-markdown::-webkit-scrollbar-thumb:hover {
   background: #777;
+}
+
+/* Cloud Notes Modal */
+.cloud-notes-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.cloud-notes-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 800px;
+  height: 80%;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+
+.cloud-notes-header {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  gap: 12px;
+}
+
+.cloud-notes-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #333;
+}
+
+.cloud-notes-status {
+  flex: 1;
+  font-size: 14px;
+  color: #666;
+}
+
+.cloud-notes-status .error {
+  color: #dc2626;
+}
+
+.cloud-notes-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0 8px;
+}
+
+.cloud-notes-close:hover {
+  color: #333;
+}
+
+.cloud-notes-unlock {
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.cloud-notes-unlock input {
+  flex: 1;
+  max-width: 200px;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.cloud-notes-unlock button {
+  padding: 8px 16px;
+  background: #4b5563;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cloud-notes-unlock button:disabled {
+  background: #10b981;
+}
+
+.cloud-notes-textarea {
+  flex: 1;
+  margin: 0;
+  padding: 20px;
+  border: none;
+  resize: none;
+  font-family: 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.cloud-notes-textarea:focus {
+  outline: none;
+}
+
+.cloud-notes-textarea:disabled {
+  background: #f9f9f9;
+  color: #999;
+}
+
+.cloud-notes-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-top: 1px solid #e0e0e0;
+  background: #f5f5f5;
+}
+
+.cloud-notes-footer button {
+  padding: 10px 24px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.cloud-notes-footer button:hover {
+  background: #059669;
+}
+
+.cloud-notes-footer button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.cloud-notes-footer span {
+  color: #666;
+  font-size: 13px;
 }

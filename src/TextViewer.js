@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ContentViewer from './components/ContentViewer';
 import ControlBar from './components/ControlBar';
+import CloudNotes from './components/CloudNotes';
 import { processFiles, rtfToPlainText, isRtfFile } from './utils/fileUtils';
 import { useTTS } from './hooks/useTTS';
 
@@ -11,6 +12,7 @@ function TextViewer() {
   const [fontSize, setFontSize] = useState(18);
   const [darkMode, setDarkMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [cloudNotesOpen, setCloudNotesOpen] = useState(false);
 
   const tts = useTTS();
   const [editContent, setEditContent] = useState('');
@@ -207,6 +209,7 @@ function TextViewer() {
           onCancel={handleCancel}
           onFilesLoaded={handleFilesLoaded}
           tts={tts}
+          onOpenCloudNotes={() => setCloudNotesOpen(true)}
         />
 
         <ContentViewer
@@ -221,6 +224,11 @@ function TextViewer() {
           onPlayFromSelection={tts.playFromSelection}
         />
       </div>
+
+      <CloudNotes
+        isOpen={cloudNotesOpen}
+        onClose={() => setCloudNotesOpen(false)}
+      />
     </div>
   );
 }

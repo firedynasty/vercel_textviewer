@@ -2,9 +2,9 @@
 // Environment variables (set in Vercel dashboard):
 // - BLOB_READ_WRITE_TOKEN: Vercel Blob token (auto-added when you create a Blob store)
 
-const { put, list, del } = require('@vercel/blob');
+import { put, list, del } from '@vercel/blob';
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');

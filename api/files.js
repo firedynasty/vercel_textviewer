@@ -1,6 +1,7 @@
 // Vercel Serverless Function for File Storage with Blob
 // Environment variables (set in Vercel dashboard):
 // - BLOB_READ_WRITE_TOKEN: Vercel Blob token (auto-added when you create a Blob store)
+// - ACCESS_CODE: Password to access files
 
 import { put, list, del } from '@vercel/blob';
 
@@ -9,15 +10,23 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST,DELETE');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, x-access-code');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
     return;
   }
 
+  // Validate access code for all requests
+  const accessCode = req.headers['x-access-code'];
+  const validAccessCode = process.env.ACCESS_CODE;
+
+  if (!accessCode || accessCode !== validAccessCode) {
+    return res.status(401).json({ error: 'Invalid access code' });
+  }
+
   try {
-    // GET - List all files and their contents (no auth required)
+    // GET - List all files and their contents
     if (req.method === 'GET') {
       const { blobs } = await list({ prefix: 'docs/' });
 

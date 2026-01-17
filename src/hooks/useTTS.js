@@ -1,10 +1,17 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
+// Remove content in curly brackets (e.g., {romanization}, {pronunciation guides})
+function stripCurlyBrackets(text) {
+  return text.replace(/\{[^}]*\}/g, '').replace(/\s+/g, ' ').trim();
+}
+
 // Split text into sentences
 function splitIntoSentences(text) {
   if (!text) return [];
+  // Remove curly bracket content before splitting
+  const cleanedText = stripCurlyBrackets(text);
   // Split on Chinese/English punctuation and newlines
-  const sentences = text
+  const sentences = cleanedText
     .split(/[。！？.!?\n]+/)
     .map(s => s.trim())
     .filter(s => s.length > 0);

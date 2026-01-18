@@ -246,6 +246,7 @@ function ControlBar({
           <option value="zh-CN">Mandarin</option>
           <option value="es-ES">Spanish</option>
           <option value="he-IL">Hebrew</option>
+          <option value="ko-KR">Korean</option>
         </select>
 
         <div className="tts-count-controls">

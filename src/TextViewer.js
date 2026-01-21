@@ -21,6 +21,9 @@ function TextViewer() {
   // PDF state
   const [pdfState, setPdfState] = useState(null);
 
+  // Reading aids state
+  const [readingAidsEnabled, setReadingAidsEnabled] = useState(false);
+
   const currentFile = files[currentIndex] || null;
 
   const handleFilesLoaded = useCallback((fileList) => {
@@ -193,6 +196,21 @@ function TextViewer() {
     };
   }, []);
 
+  // Reading guide mouse tracking
+  useEffect(() => {
+    if (!readingAidsEnabled) return;
+
+    const handleMouseMove = (e) => {
+      const guide = document.getElementById('reading-guide');
+      if (guide) {
+        guide.style.top = e.clientY + 'px';
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [readingAidsEnabled]);
+
   return (
     <div className={`text-viewer ${darkMode ? 'dark-mode' : ''}`}>
       <Sidebar
@@ -217,6 +235,8 @@ function TextViewer() {
           onOpenCloudNotes={() => setCloudNotesOpen(true)}
           pdfState={pdfState}
           onPdfStateChange={setPdfState}
+          readingAidsEnabled={readingAidsEnabled}
+          onToggleReadingAids={() => setReadingAidsEnabled(prev => !prev)}
         />
 
         <ContentViewer
@@ -238,6 +258,15 @@ function TextViewer() {
         isOpen={cloudNotesOpen}
         onClose={() => setCloudNotesOpen(false)}
       />
+
+      {/* Reading Guide Ruler */}
+      {readingAidsEnabled && (
+        <div
+          id="reading-guide"
+          className="reading-guide"
+          style={{ display: 'block' }}
+        />
+      )}
     </div>
   );
 }

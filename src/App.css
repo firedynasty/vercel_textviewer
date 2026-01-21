@@ -263,6 +263,46 @@ body {
   transform: scale(1.05);
 }
 
+/* Reading Aids Button */
+.reading-aids-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(155, 89, 182, 0.9);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reading-aids-btn:hover {
+  background: rgba(142, 68, 173, 1);
+  transform: scale(1.05);
+}
+
+.reading-aids-btn.active {
+  background: rgba(46, 204, 113, 0.9);
+}
+
+.reading-aids-btn.active:hover {
+  background: rgba(39, 174, 96, 1);
+}
+
+/* Reading Guide Ruler */
+.reading-guide {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 165, 0, 0.8);
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 0 10px rgba(255, 165, 0, 0.5), 0 0 20px rgba(255, 165, 0, 0.3);
+}
+
 /* TTS Controls */
 .tts-controls {
   display: flex;

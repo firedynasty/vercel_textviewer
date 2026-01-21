@@ -15,7 +15,10 @@ function ControlBar({
   onOpenCloudNotes,
   // PDF props
   pdfState,
-  onPdfStateChange
+  onPdfStateChange,
+  // Reading aids props
+  readingAidsEnabled,
+  onToggleReadingAids
 }) {
   const folderInputRef = useRef(null);
   const pageInputRef = useRef(null);
@@ -270,6 +273,13 @@ function ControlBar({
           title="Cloud Notes"
         >
           ☁️
+        </button>
+        <button
+          className={`reading-aids-btn ${readingAidsEnabled ? 'active' : ''}`}
+          onClick={onToggleReadingAids}
+          title="Toggle Reading Ruler"
+        >
+          {readingAidsEnabled ? '📏' : '📐'}
         </button>
       </div>
 

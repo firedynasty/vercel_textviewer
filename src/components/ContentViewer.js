@@ -43,7 +43,7 @@ function ContentViewer({
       onPdfStateChange({
         totalPages: pdf.numPages,
         currentPage: 1,
-        scale: pdfState?.scale || 1.5,
+        scale: pdfState?.scale || 2.1,
         thumbnailMode: false
       });
       setLoading(false);
@@ -80,18 +80,37 @@ function ContentViewer({
     renderPage();
   }, [pdfDoc, pdfState?.currentPage, pdfState?.scale, pdfState?.thumbnailMode]);
 
-  // Keyboard handler for PDF - spacebar for next page
+  // Keyboard handler for PDF - spacebar scrolls down, then next page at bottom
   useEffect(() => {
-    if (!file || file.type !== 'pdf' || !pdfState) return;
+    if (!file || file.type !== 'pdf' || !pdfState || pdfState.thumbnailMode) return;
 
     const handleKeyDown = (e) => {
       // Only handle if not in an input field
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
 
       if (e.key === ' ' || e.code === 'Space') {
-        e.preventDefault(); // Prevent page scroll
-        if (pdfState.currentPage < pdfState.totalPages) {
-          onPdfStateChange({ ...pdfState, currentPage: pdfState.currentPage + 1 });
+        e.preventDefault(); // Prevent default page scroll
+
+        const container = pdfContainerRef.current;
+        if (!container) return;
+
+        const scrollTop = container.scrollTop;
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = container.clientHeight;
+        const scrollAmount = clientHeight * 0.85; // Scroll 85% of visible height
+        const bottomThreshold = 10; // pixels from bottom to consider "at bottom"
+
+        // Check if we're at or very near the bottom
+        const isAtBottom = scrollTop + clientHeight >= scrollHeight - bottomThreshold;
+
+        if (isAtBottom) {
+          // At bottom - go to next page if available
+          if (pdfState.currentPage < pdfState.totalPages) {
+            onPdfStateChange({ ...pdfState, currentPage: pdfState.currentPage + 1 });
+          }
+        } else {
+          // Not at bottom - scroll down
+          container.scrollBy({ top: scrollAmount, behavior: 'smooth' });
         }
       }
     };
@@ -108,6 +127,9 @@ function ContentViewer({
     const thumbScale = 0.3;
 
     for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
+      // Check if container still exists (user may have switched modes)
+      if (!thumbnailContainerRef.current) return;
+
       const page = await pdfDoc.getPage(pageNum);
       const viewport = page.getViewport({ scale: thumbScale });
 
@@ -120,6 +142,9 @@ function ContentViewer({
         canvasContext: thumbCtx,
         viewport: viewport
       }).promise;
+
+      // Check again after async render
+      if (!thumbnailContainerRef.current) return;
 
       const thumbItem = document.createElement('div');
       thumbItem.className = `thumbnail-item ${pageNum === pdfState?.currentPage ? 'current' : ''}`;

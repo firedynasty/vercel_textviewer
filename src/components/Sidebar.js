@@ -19,7 +19,8 @@ function Sidebar({ files, currentIndex, onFileSelect }) {
                  file.type === 'rtf' ? 'RTF' :
                  file.type === 'text' ? 'TXT' :
                  file.type === 'video' ? 'VID' :
-                 file.type === 'image' ? 'IMG' : ''}
+                 file.type === 'image' ? 'IMG' :
+                 file.type === 'pdf' ? 'PDF' : ''}
               </span>
             )}
           </div>

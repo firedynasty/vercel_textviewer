@@ -4,6 +4,7 @@ const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.m4v
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg'];
 const TEXT_EXTENSIONS = ['.txt', '.rtf'];
 const MARKDOWN_EXTENSIONS = ['.md'];
+const PDF_EXTENSIONS = ['.pdf'];
 
 export function isVideoFile(filename) {
   const lower = filename.toLowerCase();
@@ -25,12 +26,17 @@ export function isMarkdownFile(filename) {
   return MARKDOWN_EXTENSIONS.some(ext => lower.endsWith(ext));
 }
 
+export function isPdfFile(filename) {
+  const lower = filename.toLowerCase();
+  return PDF_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
 export function isRtfFile(filename) {
   return filename.toLowerCase().endsWith('.rtf');
 }
 
 export function isValidFile(filename) {
-  return isVideoFile(filename) || isImageFile(filename) || isTextFile(filename) || isMarkdownFile(filename);
+  return isVideoFile(filename) || isImageFile(filename) || isTextFile(filename) || isMarkdownFile(filename) || isPdfFile(filename);
 }
 
 export function getFileType(filename) {
@@ -39,6 +45,7 @@ export function getFileType(filename) {
   if (isTextFile(filename)) return 'text';
   if (isVideoFile(filename)) return 'video';
   if (isImageFile(filename)) return 'image';
+  if (isPdfFile(filename)) return 'pdf';
   return 'unknown';
 }
 

@@ -18,6 +18,9 @@ function TextViewer() {
   const [editContent, setEditContent] = useState('');
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
 
+  // PDF state
+  const [pdfState, setPdfState] = useState(null);
+
   const currentFile = files[currentIndex] || null;
 
   const handleFilesLoaded = useCallback((fileList) => {
@@ -33,6 +36,7 @@ function TextViewer() {
     setCurrentIndex(0);
     setIsEditing(false);
     setEditContent('');
+    setPdfState(null); // Reset PDF state when loading new files
   }, []);
 
   const handleFileSelect = useCallback((index) => {
@@ -44,6 +48,7 @@ function TextViewer() {
     setCurrentIndex(index);
     setIsEditing(false);
     setEditContent('');
+    setPdfState(null); // Reset PDF state when changing files
   }, [isEditing]);
 
   const handlePrev = useCallback(() => {
@@ -210,6 +215,8 @@ function TextViewer() {
           onFilesLoaded={handleFilesLoaded}
           tts={tts}
           onOpenCloudNotes={() => setCloudNotesOpen(true)}
+          pdfState={pdfState}
+          onPdfStateChange={setPdfState}
         />
 
         <ContentViewer
@@ -222,6 +229,8 @@ function TextViewer() {
           onPrev={handlePrev}
           onNext={handleNext}
           onPlayFromSelection={tts.playFromSelection}
+          pdfState={pdfState}
+          onPdfStateChange={setPdfState}
         />
       </div>
 

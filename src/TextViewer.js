@@ -162,7 +162,7 @@ function TextViewer() {
 
       if (e.key === 'ArrowLeft') {
         handlePrev();
-      } else if (e.key === 'ArrowRight') {
+      } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
         handleNext();
       } else if (e.key === '[') {
         // TTS previous sentence

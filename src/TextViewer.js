@@ -211,6 +211,39 @@ function TextViewer() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [readingAidsEnabled]);
 
+  // Update TTS indicator when text is highlighted/selected in content area
+  useEffect(() => {
+    let timeoutId = null;
+
+    const handleSelectionChange = () => {
+      // Debounce to avoid too many updates
+      if (timeoutId) clearTimeout(timeoutId);
+
+      timeoutId = setTimeout(() => {
+        const sel = window.getSelection();
+        const selection = sel.toString().trim();
+
+        // Only update if selection is in content area and has meaningful length
+        if (selection && selection.length > 2) {
+          const anchorNode = sel.anchorNode;
+          if (anchorNode) {
+            const contentArea = document.querySelector('.content-area, .preview-text, .preview-markdown');
+            if (contentArea && contentArea.contains(anchorNode)) {
+              console.log('Selection in content area:', selection.substring(0, 30));
+              tts.updateFromSelection(selection);
+            }
+          }
+        }
+      }, 300);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [tts]);
+
   return (
     <div className={`text-viewer ${darkMode ? 'dark-mode' : ''}`}>
       <Sidebar

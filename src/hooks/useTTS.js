@@ -144,23 +144,17 @@ export function useTTS() {
     setCurrentSentenceIndex(prev => Math.min(sentences.length - 1, prev + 1));
   }, [stop, sentences.length]);
 
-  // Find sentence containing selected text and play from there
-  const playFromSelection = useCallback((selectedText) => {
-    console.log('playFromSelection called with:', selectedText);
-    console.log('sentences count:', sentences.length);
-
+  // Find sentence index from selected text (helper function)
+  const findSentenceIndex = useCallback((selectedText) => {
     if (!selectedText || sentences.length === 0) {
-      console.log('Early return: no text or no sentences');
-      return false;
+      return -1;
     }
 
     // Clean up selection - remove extra whitespace, newlines
     const trimmedSelection = selectedText.trim().replace(/\s+/g, ' ');
-    console.log('trimmed selection:', trimmedSelection);
 
     if (trimmedSelection.length < 2) {
-      console.log('Selection too short');
-      return false;
+      return -1;
     }
 
     // Try exact substring match first
@@ -169,8 +163,6 @@ export function useTTS() {
       return cleanSentence.includes(trimmedSelection) || trimmedSelection.includes(cleanSentence);
     });
 
-    console.log('Exact match index:', foundIndex);
-
     // Try character-by-character match for Chinese text
     if (foundIndex === -1) {
       const selectionChars = trimmedSelection.replace(/\s/g, '');
@@ -178,7 +170,6 @@ export function useTTS() {
         const sentenceChars = sentence.replace(/\s/g, '');
         return sentenceChars.includes(selectionChars) || selectionChars.includes(sentenceChars);
       });
-      console.log('Character match index:', foundIndex);
     }
 
     // Try finding first few characters match
@@ -188,20 +179,10 @@ export function useTTS() {
         const sentenceChars = sentence.replace(/\s/g, '');
         return sentenceChars.includes(firstChars);
       });
-      console.log('First chars match index:', foundIndex, 'looking for:', firstChars);
     }
 
     if (foundIndex !== -1) {
-      console.log('Found sentence:', sentences[foundIndex]);
-      stop();
-      setCurrentSentenceIndex(foundIndex);
-      setIsPlaying(true);
-      sentencesReadRef.current = 0;
-      startIndexRef.current = foundIndex;
-      setTimeout(() => {
-        speakSentence(foundIndex);
-      }, 100);
-      return true;
+      return foundIndex;
     }
 
     // Try partial match - find sentence with most character overlap
@@ -222,24 +203,41 @@ export function useTTS() {
       }
     });
 
-    console.log('Best partial match:', bestMatch, 'score:', bestScore);
+    return bestMatch;
+  }, [sentences]);
 
-    if (bestMatch !== -1) {
-      console.log('Using partial match sentence:', sentences[bestMatch]);
+  // Update indicator when text is selected (without playing)
+  const updateFromSelection = useCallback((selectedText) => {
+    const foundIndex = findSentenceIndex(selectedText);
+    if (foundIndex !== -1) {
+      setCurrentSentenceIndex(foundIndex);
+      return true;
+    }
+    return false;
+  }, [findSentenceIndex]);
+
+  // Find sentence containing selected text and play from there
+  const playFromSelection = useCallback((selectedText) => {
+    console.log('playFromSelection called with:', selectedText);
+
+    const foundIndex = findSentenceIndex(selectedText);
+
+    if (foundIndex !== -1) {
+      console.log('Found sentence:', sentences[foundIndex]);
       stop();
-      setCurrentSentenceIndex(bestMatch);
+      setCurrentSentenceIndex(foundIndex);
       setIsPlaying(true);
       sentencesReadRef.current = 0;
-      startIndexRef.current = bestMatch;
+      startIndexRef.current = foundIndex;
       setTimeout(() => {
-        speakSentence(bestMatch);
+        speakSentence(foundIndex);
       }, 100);
       return true;
     }
 
     console.log('No match found');
     return false;
-  }, [sentences, stop, speakSentence]);
+  }, [sentences, findSentenceIndex, stop, speakSentence]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -272,6 +270,7 @@ export function useTTS() {
     prevSentence,
     nextSentence,
     playFromSelection,
+    updateFromSelection,
     setSpeed,
     setLanguage,
     setSentenceCount,

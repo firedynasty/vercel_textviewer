@@ -18,7 +18,8 @@ function ContentViewer({
   onPlayFromSelection,
   // PDF-specific props
   pdfState,
-  onPdfStateChange
+  onPdfStateChange,
+  onPdfDocumentLoad
 }) {
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
@@ -34,12 +35,14 @@ function ContentViewer({
   useEffect(() => {
     if (!file || file.type !== 'pdf') {
       setPdfDoc(null);
+      if (onPdfDocumentLoad) onPdfDocumentLoad(null);
       return;
     }
 
     setLoading(true);
     pdfjsLib.getDocument(file.url).promise.then(pdf => {
       setPdfDoc(pdf);
+      if (onPdfDocumentLoad) onPdfDocumentLoad(pdf);
       onPdfStateChange({
         totalPages: pdf.numPages,
         currentPage: 1,
@@ -51,7 +54,8 @@ function ContentViewer({
       console.error('Error loading PDF:', err);
       setLoading(false);
     });
-  }, [file]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file, onPdfDocumentLoad]);
 
   // Render current PDF page
   useEffect(() => {
@@ -78,7 +82,7 @@ function ContentViewer({
     };
 
     renderPage();
-  }, [pdfDoc, pdfState?.currentPage, pdfState?.scale, pdfState?.thumbnailMode]);
+  }, [pdfDoc, pdfState]);
 
   // Keyboard handler for PDF - spacebar scrolls down, then next page at bottom
   useEffect(() => {

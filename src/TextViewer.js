@@ -20,6 +20,7 @@ function TextViewer() {
 
   // PDF state
   const [pdfState, setPdfState] = useState(null);
+  const [pdfDocument, setPdfDocument] = useState(null);
 
   // Reading aids state
   const [readingAidsEnabled, setReadingAidsEnabled] = useState(false);
@@ -131,6 +132,61 @@ function TextViewer() {
     setIsEditing(false);
     setEditContent('');
   }, []);
+
+  // Copy current PDF page text to clipboard
+  const handleCopyPageText = useCallback(async () => {
+    if (!pdfDocument || !pdfState) {
+      console.log('No PDF document loaded');
+      return;
+    }
+
+    try {
+      const page = await pdfDocument.getPage(pdfState.currentPage);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+
+      if (!pageText) {
+        console.log('No text content available on current page');
+        return;
+      }
+
+      await navigator.clipboard.writeText(pageText);
+      console.log('Page text copied to clipboard:', pageText.length, 'characters');
+    } catch (error) {
+      console.error('Failed to copy text:', error);
+      alert('Failed to copy text to clipboard');
+    }
+  }, [pdfDocument, pdfState]);
+
+  // Read text from clipboard and speak it using TTS
+  const handleReadClipboard = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        // Stop any current TTS
+        tts.stop();
+
+        // Load the clipboard text and play it
+        tts.loadText(text);
+        setTimeout(() => {
+          tts.play();
+        }, 100);
+
+        console.log('Reading clipboard text:', text.length, 'characters');
+      } else {
+        console.log('Clipboard is empty');
+      }
+    } catch (error) {
+      console.error('Failed to read clipboard:', error);
+      alert('Failed to read clipboard. Please check permissions.');
+    }
+  }, [tts]);
+
+  // Stop TTS
+  const handleStopTTS = useCallback(() => {
+    tts.stop();
+    console.log('TTS stopped');
+  }, [tts]);
 
   // Load text content for TTS when file changes
   useEffect(() => {
@@ -268,6 +324,9 @@ function TextViewer() {
           onOpenCloudNotes={() => setCloudNotesOpen(true)}
           pdfState={pdfState}
           onPdfStateChange={setPdfState}
+          onCopyPageText={handleCopyPageText}
+          onReadClipboard={handleReadClipboard}
+          onStopTTS={handleStopTTS}
           readingAidsEnabled={readingAidsEnabled}
           onToggleReadingAids={() => setReadingAidsEnabled(prev => !prev)}
         />
@@ -284,6 +343,7 @@ function TextViewer() {
           onPlayFromSelection={tts.playFromSelection}
           pdfState={pdfState}
           onPdfStateChange={setPdfState}
+          onPdfDocumentLoad={setPdfDocument}
         />
       </div>
 

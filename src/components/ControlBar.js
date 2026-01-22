@@ -16,6 +16,9 @@ function ControlBar({
   // PDF props
   pdfState,
   onPdfStateChange,
+  onCopyPageText,
+  onReadClipboard,
+  onStopTTS,
   // Reading aids props
   readingAidsEnabled,
   onToggleReadingAids
@@ -114,13 +117,6 @@ function ControlBar({
         onPdfStateChange({ ...pdfState, currentPage: pageNum });
       }
       e.target.blur();
-    }
-  };
-
-  const handlePageInputChange = (e) => {
-    const value = e.target.value;
-    if (value === '' || (parseInt(value) >= 1 && parseInt(value) <= pdfState?.totalPages)) {
-      // Allow typing
     }
   };
 
@@ -228,6 +224,33 @@ function ControlBar({
             title="Next Page"
           >
             ▶
+          </button>
+
+          {/* Copy Page Text button */}
+          <button
+            className="pdf-copy-btn"
+            onClick={onCopyPageText}
+            title="Copy all text from current page to clipboard"
+          >
+            📄 Copy Text
+          </button>
+
+          {/* Read Clipboard button */}
+          <button
+            className="pdf-read-clipboard-btn"
+            onClick={onReadClipboard}
+            title="Read text from clipboard with TTS"
+          >
+            📋 Read Clipboard
+          </button>
+
+          {/* Stop TTS button */}
+          <button
+            className="pdf-stop-tts-btn"
+            onClick={onStopTTS}
+            title="Stop text-to-speech"
+          >
+            🛑 Stop
           </button>
         </div>
       )}

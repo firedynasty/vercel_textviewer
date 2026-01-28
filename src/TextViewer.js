@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ContentViewer from './components/ContentViewer';
 import ControlBar from './components/ControlBar';
 import CloudNotes from './components/CloudNotes';
-import { processFiles, rtfToPlainText, isRtfFile } from './utils/fileUtils';
-import { useTTS } from './hooks/useTTS';
+import { processFiles } from './utils/fileUtils';
 
 function TextViewer() {
   const [files, setFiles] = useState([]);
@@ -14,9 +13,13 @@ function TextViewer() {
   const [isEditing, setIsEditing] = useState(false);
   const [cloudNotesOpen, setCloudNotesOpen] = useState(false);
 
-  const tts = useTTS();
   const [editContent, setEditContent] = useState('');
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
+
+  // Audio state
+  const [currentAudioIndex, setCurrentAudioIndex] = useState(null);
+  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+  const audioRef = useRef(null);
 
   // PDF state
   const [pdfState, setPdfState] = useState(null);
@@ -158,56 +161,49 @@ function TextViewer() {
     }
   }, [pdfDocument, pdfState]);
 
-  // Read text from clipboard and speak it using TTS
-  const handleReadClipboard = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        // Stop any current TTS
-        tts.stop();
+  // Audio file selection handler
+  const handleAudioSelect = useCallback((index) => {
+    const audioFile = files[index];
+    if (!audioFile || audioFile.type !== 'audio') return;
 
-        // Load the clipboard text and play it
-        tts.loadText(text);
-        setTimeout(() => {
-          tts.play();
-        }, 100);
+    setCurrentAudioIndex(index);
 
-        console.log('Reading clipboard text:', text.length, 'characters');
-      } else {
-        console.log('Clipboard is empty');
-      }
-    } catch (error) {
-      console.error('Failed to read clipboard:', error);
-      alert('Failed to read clipboard. Please check permissions.');
+    // If audio element exists, load and play the new audio
+    if (audioRef.current) {
+      audioRef.current.src = audioFile.url;
+      audioRef.current.load();
+      audioRef.current.play().then(() => {
+        setIsAudioPlaying(true);
+      }).catch(err => {
+        console.error('Error playing audio:', err);
+      });
     }
-  }, [tts]);
+  }, [files]);
 
-  // Stop TTS
-  const handleStopTTS = useCallback(() => {
-    tts.stop();
-    console.log('TTS stopped');
-  }, [tts]);
+  // Audio play/pause toggle
+  const handleAudioPlayPause = useCallback(() => {
+    if (!audioRef.current) return;
 
-  // Load text content for TTS when file changes
-  useEffect(() => {
-    if (currentFile && (currentFile.type === 'text' || currentFile.type === 'rtf' || currentFile.type === 'markdown')) {
-      fetch(currentFile.url)
-        .then(res => res.text())
-        .then(text => {
-          // Convert RTF to plain text if needed
-          if (currentFile.originalName && isRtfFile(currentFile.originalName)) {
-            text = rtfToPlainText(text);
-          }
-          tts.loadText(text);
-        })
-        .catch(err => {
-          console.error('Error loading file for TTS:', err);
-        });
+    if (isAudioPlaying) {
+      audioRef.current.pause();
+      setIsAudioPlaying(false);
     } else {
-      tts.loadText('');
+      audioRef.current.play().then(() => {
+        setIsAudioPlaying(true);
+      }).catch(err => {
+        console.error('Error playing audio:', err);
+      });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentFile]);
+  }, [isAudioPlaying]);
+
+  // Audio stop
+  const handleAudioStop = useCallback(() => {
+    if (!audioRef.current) return;
+
+    audioRef.current.pause();
+    audioRef.current.currentTime = 0;
+    setIsAudioPlaying(false);
+  }, []);
 
   // Keyboard navigation
   useEffect(() => {
@@ -220,18 +216,12 @@ function TextViewer() {
         handlePrev();
       } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
         handleNext();
-      } else if (e.key === '[') {
-        // TTS previous sentence
-        tts.prevSentence();
-      } else if (e.key === ']') {
-        // TTS next sentence
-        tts.nextSentence();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrev, handleNext, isEditing, tts]);
+  }, [handlePrev, handleNext, isEditing]);
 
   // Global drag and drop
   useEffect(() => {
@@ -267,38 +257,20 @@ function TextViewer() {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [readingAidsEnabled]);
 
-  // Update TTS indicator when text is highlighted/selected in content area
+  // Handle audio ended event
   useEffect(() => {
-    let timeoutId = null;
+    const audio = audioRef.current;
+    if (!audio) return;
 
-    const handleSelectionChange = () => {
-      // Debounce to avoid too many updates
-      if (timeoutId) clearTimeout(timeoutId);
-
-      timeoutId = setTimeout(() => {
-        const sel = window.getSelection();
-        const selection = sel.toString().trim();
-
-        // Only update if selection is in content area and has meaningful length
-        if (selection && selection.length > 2) {
-          const anchorNode = sel.anchorNode;
-          if (anchorNode) {
-            const contentArea = document.querySelector('.content-area, .preview-text, .preview-markdown');
-            if (contentArea && contentArea.contains(anchorNode)) {
-              console.log('Selection in content area:', selection.substring(0, 30));
-              tts.updateFromSelection(selection);
-            }
-          }
-        }
-      }, 300);
+    const handleEnded = () => {
+      setIsAudioPlaying(false);
     };
 
-    document.addEventListener('selectionchange', handleSelectionChange);
-    return () => {
-      document.removeEventListener('selectionchange', handleSelectionChange);
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [tts]);
+    audio.addEventListener('ended', handleEnded);
+    return () => audio.removeEventListener('ended', handleEnded);
+  }, []);
+
+  const currentAudioFile = currentAudioIndex !== null ? files[currentAudioIndex] : null;
 
   return (
     <div className={`text-viewer ${darkMode ? 'dark-mode' : ''}`}>
@@ -306,6 +278,8 @@ function TextViewer() {
         files={files}
         currentIndex={currentIndex}
         onFileSelect={handleFileSelect}
+        onAudioSelect={handleAudioSelect}
+        currentAudioIndex={currentAudioIndex}
       />
 
       <div className="main-content">
@@ -320,15 +294,16 @@ function TextViewer() {
           onSave={handleSave}
           onCancel={handleCancel}
           onFilesLoaded={handleFilesLoaded}
-          tts={tts}
           onOpenCloudNotes={() => setCloudNotesOpen(true)}
           pdfState={pdfState}
           onPdfStateChange={setPdfState}
           onCopyPageText={handleCopyPageText}
-          onReadClipboard={handleReadClipboard}
-          onStopTTS={handleStopTTS}
           readingAidsEnabled={readingAidsEnabled}
           onToggleReadingAids={() => setReadingAidsEnabled(prev => !prev)}
+          audioFile={currentAudioFile}
+          isAudioPlaying={isAudioPlaying}
+          onAudioPlayPause={handleAudioPlayPause}
+          onAudioStop={handleAudioStop}
         />
 
         <ContentViewer
@@ -340,11 +315,13 @@ function TextViewer() {
           imagePathToBlobUrl={imagePathToBlobUrl}
           onPrev={handlePrev}
           onNext={handleNext}
-          onPlayFromSelection={tts.playFromSelection}
           pdfState={pdfState}
           onPdfStateChange={setPdfState}
           onPdfDocumentLoad={setPdfDocument}
         />
+
+        {/* Hidden audio element for playing audio files */}
+        <audio ref={audioRef} style={{ display: 'none' }} />
       </div>
 
       <CloudNotes

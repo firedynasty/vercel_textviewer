@@ -1,0 +1,52 @@
+Reference Buttons Pagination System
+====================================
+
+File: bible_to_literature/codepenBible/bibleSearchable/bibleSearchable.html
+
+State Variables (line 2779-2781)
+--------------------------------
+let allRefButtons = [];   // Array of {label, bookIndex, chapter, verseStart, color}
+let currentRefIndex = 0;  // Which reference is currently displayed
+
+
+Flow
+----
+1. User enters a reference -> handleReferenceInput() parses it
+
+2. renderRefButtons(parsedRef) (line 3323) resets allRefButtons array and currentRefIndex to 0
+
+3. collectRefButtonData(parsedRef, colorOffset) (line 3169) builds the array:
+   - Creates main reference entry with label like "Psalms 119:9-11"
+   - Adds additional chapters if present
+   - Assigns cycling colors from refButtonColors array
+
+4. updateRefButtonDisplay() (line 3206) renders the UI:
+   - Left arrow < - disabled when currentRefIndex === 0
+   - Current reference button - shows allRefButtons[currentRefIndex].label
+   - Counter - shows "1/5" format (currentRefIndex + 1 / total)
+   - Right arrow > - disabled when at last item
+   - Audio buttons - always shown
+
+5. Navigation - clicking arrows:
+   - Decrements/increments currentRefIndex
+   - Calls updateRefButtonDisplay() to re-render
+   - Calls navigateToCurrentRef() to jump to that Bible reference
+
+
+CSS (lines 551-620)
+-------------------
+- Container is fixed positioned at top center with blur backdrop
+- Nav buttons are circular (28px), disabled state has 0.3 opacity
+- Counter shows in small 11px font
+
+
+Example HTML Output
+-------------------
+<div id="refButtonsContainer" class="has-refs">
+  <button class="ref-nav-btn" disabled>◀</button>
+  <button class="ref-btn active" style="background: ...">Psalms 119</button>
+  <span class="ref-counter">1/1</span>
+  <button class="ref-nav-btn" disabled>▶</button>
+  <button id="toolbarAudioBtn">🔊 ⏸</button>
+  <button id="toolbarSkipBtn">+20s</button>
+</div>

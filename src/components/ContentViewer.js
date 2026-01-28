@@ -15,7 +15,6 @@ function ContentViewer({
   imagePathToBlobUrl,
   onPrev,
   onNext,
-  onPlayFromSelection,
   // PDF-specific props
   pdfState,
   onPdfStateChange,
@@ -47,7 +46,8 @@ function ContentViewer({
         totalPages: pdf.numPages,
         currentPage: 1,
         scale: pdfState?.scale || 2.1,
-        thumbnailMode: false
+        thumbnailMode: false,
+        rotation: pdfState?.rotation || 0
       });
       setLoading(false);
     }).catch(err => {
@@ -63,7 +63,10 @@ function ContentViewer({
 
     const renderPage = async () => {
       const page = await pdfDoc.getPage(pdfState.currentPage);
-      const viewport = page.getViewport({ scale: pdfState.scale });
+      const viewport = page.getViewport({
+        scale: pdfState.scale,
+        rotation: pdfState.rotation || 0
+      });
 
       const canvas = canvasRef.current;
       const context = canvas.getContext('2d');

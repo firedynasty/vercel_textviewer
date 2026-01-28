@@ -1070,6 +1070,46 @@ body {
   font-weight: bold;
 }
 
+.pdf-copy-btn {
+  padding: 8px 12px;
+  background: rgba(59, 130, 246, 0.9);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pdf-copy-btn:hover {
+  background: rgba(37, 99, 235, 1);
+  transform: scale(1.05);
+}
+
+.pdf-rotate-btn {
+  width: 36px;
+  height: 36px;
+  background: rgba(156, 39, 176, 0.9);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pdf-rotate-btn:hover {
+  background: rgba(142, 36, 170, 1);
+  transform: scale(1.05);
+}
+
 /* PDF Viewer Styles */
 .pdf-viewer {
   flex: 1;
@@ -1181,4 +1221,149 @@ body {
 
 .thumbnail-container::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.7);
+}
+
+/* Audio Controls */
+.audio-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  margin-left: 10px;
+}
+
+.audio-label {
+  color: white;
+  font-size: 13px;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.audio-play-btn {
+  width: 36px;
+  height: 36px;
+  background: rgba(16, 185, 129, 0.9);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.audio-play-btn:hover {
+  background: rgba(5, 150, 105, 1);
+}
+
+.audio-play-btn.playing {
+  background: rgba(245, 158, 11, 0.9);
+}
+
+.audio-play-btn.playing:hover {
+  background: rgba(217, 119, 6, 1);
+}
+
+.audio-stop-btn {
+  width: 36px;
+  height: 36px;
+  background: rgba(239, 68, 68, 0.9);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-size: 16px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.audio-stop-btn:hover {
+  background: rgba(220, 38, 38, 1);
+}
+
+/* Sidebar Audio Active State */
+.sidebar-item.audio-active {
+  background-color: #10b981;
+}
+
+.sidebar-item.audio-active .sidebar-item-label {
+  color: white;
+}
+
+.sidebar-item.audio-active .sidebar-item-type {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* Audio Recording Controls */
+.recording-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  margin-left: 10px;
+}
+
+.record-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(239, 68, 68, 0.9);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.record-btn:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 1);
+  transform: scale(1.1);
+}
+
+.record-btn:disabled {
+  background: rgba(100, 100, 100, 0.5);
+  cursor: not-allowed;
+}
+
+.record-btn.recording {
+  background: rgba(239, 68, 68, 1);
+  animation: pulse-record 1s infinite;
+}
+
+@keyframes pulse-record {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+  }
+}
+
+.recording-indicator {
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: bold;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.processing-indicator {
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: bold;
 }

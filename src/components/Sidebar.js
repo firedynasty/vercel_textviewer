@@ -1,14 +1,24 @@
 import React from 'react';
 
-function Sidebar({ files, currentIndex, onFileSelect }) {
+function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudioIndex }) {
+  const handleClick = (file, index) => {
+    if (file.type === 'divider') return;
+
+    if (file.type === 'audio') {
+      onAudioSelect(index);
+    } else {
+      onFileSelect(index);
+    }
+  };
+
   return (
     <div className="sidebar">
       <div className="sidebar-content">
         {files.map((file, index) => (
           <div
             key={file.key}
-            className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}`}
-            onClick={() => file.type !== 'divider' && onFileSelect(index)}
+            className={`sidebar-item ${index === currentIndex && file.type !== 'audio' ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''} ${file.type === 'audio' && index === currentAudioIndex ? 'audio-active' : ''}`}
+            onClick={() => handleClick(file, index)}
           >
             <span className="sidebar-item-label">
               {file.type === 'divider' ? file.key : file.key}
@@ -20,7 +30,8 @@ function Sidebar({ files, currentIndex, onFileSelect }) {
                  file.type === 'text' ? 'TXT' :
                  file.type === 'video' ? 'VID' :
                  file.type === 'image' ? 'IMG' :
-                 file.type === 'pdf' ? 'PDF' : ''}
+                 file.type === 'pdf' ? 'PDF' :
+                 file.type === 'audio' ? '🔊' : ''}
               </span>
             )}
           </div>

@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { useAudioRecorder } from '../hooks/useAudioRecorder';
 
 function ControlBar({
   currentFile,
@@ -11,18 +12,21 @@ function ControlBar({
   onSave,
   onCancel,
   onFilesLoaded,
-  tts,
   onOpenCloudNotes,
   // PDF props
   pdfState,
   onPdfStateChange,
   onCopyPageText,
-  onReadClipboard,
-  onStopTTS,
   // Reading aids props
   readingAidsEnabled,
-  onToggleReadingAids
+  onToggleReadingAids,
+  // Audio props
+  audioFile,
+  isAudioPlaying,
+  onAudioPlayPause,
+  onAudioStop
 }) {
+  const { isRecording, isProcessing, startRecording, stopRecording } = useAudioRecorder();
   const folderInputRef = useRef(null);
   const pageInputRef = useRef(null);
 
@@ -235,22 +239,16 @@ function ControlBar({
             📄 Copy Text
           </button>
 
-          {/* Read Clipboard button */}
+          {/* Rotate button */}
           <button
-            className="pdf-read-clipboard-btn"
-            onClick={onReadClipboard}
-            title="Read text from clipboard with TTS"
+            className="pdf-rotate-btn"
+            onClick={() => {
+              const newRotation = ((pdfState.rotation || 0) + 90) % 360;
+              onPdfStateChange({ ...pdfState, rotation: newRotation });
+            }}
+            title="Rotate 90°"
           >
-            📋 Read Clipboard
-          </button>
-
-          {/* Stop TTS button */}
-          <button
-            className="pdf-stop-tts-btn"
-            onClick={onStopTTS}
-            title="Stop text-to-speech"
-          >
-            🛑 Stop
+            🔄
           </button>
         </div>
       )}
@@ -306,133 +304,50 @@ function ControlBar({
         </button>
       </div>
 
-      {/* TTS Controls - HIDE for PDF */}
-      {!isPdf && (
-        <div className="tts-controls">
+      {/* Audio Recording Controls */}
+      <div className="recording-controls">
+        {!isRecording ? (
           <button
-            className="tts-nav-btn"
-            onClick={tts.prevSentence}
-            disabled={tts.currentSentenceIndex === 0}
-            title="Previous Sentence [ "
+            className="record-btn"
+            onClick={startRecording}
+            disabled={isProcessing}
+            title="Start Recording"
           >
-            [
+            🎙️
           </button>
+        ) : (
+          <button
+            className="record-btn recording"
+            onClick={stopRecording}
+            title="Stop & Save Recording"
+          >
+            ⏹️
+          </button>
+        )}
+        {isRecording && <span className="recording-indicator">REC</span>}
+        {isProcessing && <span className="processing-indicator">Saving...</span>}
+      </div>
 
-          <span className="tts-indicator">
-            {tts.sentenceIndicator}
+      {/* Audio Player Controls */}
+      {audioFile && (
+        <div className="audio-controls">
+          <span className="audio-label" title={audioFile.key}>
+            🔊 {audioFile.key.length > 20 ? audioFile.key.substring(0, 20) + '...' : audioFile.key}
           </span>
-
           <button
-            className="tts-nav-btn"
-            onClick={tts.nextSentence}
-            disabled={tts.currentSentenceIndex >= tts.sentences.length - 1}
-            title="Next Sentence ]"
+            className={`audio-play-btn ${isAudioPlaying ? 'playing' : ''}`}
+            onClick={onAudioPlayPause}
+            title={isAudioPlaying ? 'Pause' : 'Play'}
           >
-            ]
+            {isAudioPlaying ? '⏸' : '▶️'}
           </button>
-
           <button
-            className={`tts-play-btn ${tts.isPlaying ? 'playing' : ''}`}
-            onClick={() => {
-              if (tts.isPlaying) {
-                tts.stop();
-              } else {
-                // Check if there's selected text
-                const selection = window.getSelection().toString().trim();
-                console.log('Play clicked, selection:', selection);
-                if (selection && selection.length > 1) {
-                  // Try to play from selection
-                  const found = tts.playFromSelection(selection);
-                  if (!found) {
-                    // Fallback to regular play if no match found
-                    console.log('No match, using regular play');
-                    tts.play();
-                  }
-                } else {
-                  tts.play();
-                }
-              }
-            }}
-            title={tts.isPlaying ? 'Stop' : 'Play (select text first to start from there)'}
+            className="audio-stop-btn"
+            onClick={onAudioStop}
+            title="Stop"
           >
-            {tts.isPlaying ? '⏹' : '▶️'}
+            ⏹
           </button>
-
-          <select
-            className="tts-select"
-            value={tts.speed}
-            onChange={(e) => tts.setSpeed(parseFloat(e.target.value))}
-            title="Speed"
-          >
-            <option value="0.5">0.5x</option>
-            <option value="0.75">0.75x</option>
-            <option value="1">1x</option>
-            <option value="1.25">1.25x</option>
-            <option value="1.5">1.5x</option>
-            <option value="2">2x</option>
-          </select>
-
-          <select
-            className="tts-select"
-            value={tts.language}
-            onChange={(e) => tts.setLanguage(e.target.value)}
-            title="Language"
-          >
-            <option value="en-US">English</option>
-            <option value="zh-HK">Cantonese</option>
-            <option value="zh-CN">Mandarin</option>
-            <option value="es-ES">Spanish</option>
-            <option value="he-IL">Hebrew</option>
-            <option value="ko-KR">Korean</option>
-          </select>
-
-          <div className="tts-count-controls">
-            <button
-              className="tts-count-btn"
-              onClick={() => tts.setSentenceCount(Math.max(1, tts.sentenceCount - 1))}
-              title="Decrease sentence count"
-            >
-              -
-            </button>
-            <input
-              type="number"
-              className="tts-count-input"
-              value={tts.sentenceCount}
-              onChange={(e) => tts.setSentenceCount(Math.max(1, parseInt(e.target.value) || 1))}
-              min="1"
-              title="Sentences to read"
-            />
-            <button
-              className="tts-count-btn"
-              onClick={() => tts.setSentenceCount(tts.sentenceCount + 1)}
-              title="Increase sentence count"
-            >
-              +
-            </button>
-          </div>
-
-          <div className="tts-repeat-toggle">
-            <label className="tts-radio-label">
-              <input
-                type="radio"
-                name="repeatMode"
-                value="continue"
-                checked={tts.repeatMode === 'continue'}
-                onChange={() => tts.setRepeatMode('continue')}
-              />
-              <span>→ next</span>
-            </label>
-            <label className="tts-radio-label">
-              <input
-                type="radio"
-                name="repeatMode"
-                value="repeat"
-                checked={tts.repeatMode === 'repeat'}
-                onChange={() => tts.setRepeatMode('repeat')}
-              />
-              <span>↻ repeat</span>
-            </label>
-          </div>
         </div>
       )}
 

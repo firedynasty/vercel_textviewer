@@ -8,6 +8,7 @@ import { processFiles } from './utils/fileUtils';
 function TextViewer() {
   const [files, setFiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [displayedFileIndex, setDisplayedFileIndex] = useState(0); // Tracks which non-audio file to display
   const [fontSize, setFontSize] = useState(18);
   const [darkMode, setDarkMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -29,6 +30,7 @@ function TextViewer() {
   const [readingAidsEnabled, setReadingAidsEnabled] = useState(false);
 
   const currentFile = files[currentIndex] || null;
+  const displayedFile = files[displayedFileIndex] || null;
 
   const handleFilesLoaded = useCallback((fileList) => {
     const result = processFiles(fileList);
@@ -38,15 +40,31 @@ function TextViewer() {
       return;
     }
 
+    // Find first displayable (non-audio, non-divider) file
+    const firstDisplayableIndex = result.files.findIndex(
+      f => f.type !== 'audio' && f.type !== 'divider'
+    );
+
     setFiles(result.files);
     setImagePathToBlobUrl(result.imagePathToBlobUrl || {});
     setCurrentIndex(0);
+    setDisplayedFileIndex(firstDisplayableIndex >= 0 ? firstDisplayableIndex : 0);
+    setCurrentAudioIndex(null);
+    setIsAudioPlaying(false);
     setIsEditing(false);
     setEditContent('');
     setPdfState(null); // Reset PDF state when loading new files
   }, []);
 
   const handleFileSelect = useCallback((index) => {
+    const selectedFile = files[index];
+
+    // If selecting an audio file, don't interrupt editing or reset PDF
+    if (selectedFile && selectedFile.type === 'audio') {
+      setCurrentIndex(index);
+      return;
+    }
+
     if (isEditing) {
       if (!window.confirm('You have unsaved changes. Discard them?')) {
         return;
@@ -56,29 +74,37 @@ function TextViewer() {
     setIsEditing(false);
     setEditContent('');
     setPdfState(null); // Reset PDF state when changing files
-  }, [isEditing]);
+  }, [isEditing, files]);
 
   const handlePrev = useCallback(() => {
     if (files.length === 0) return;
-    if (isEditing) {
+    const nextIndex = currentIndex > 0 ? currentIndex - 1 : files.length - 1;
+    const nextFile = files[nextIndex];
+
+    // Only prompt about editing if navigating to a non-audio file
+    if (isEditing && nextFile && nextFile.type !== 'audio') {
       if (!window.confirm('You have unsaved changes. Discard them?')) {
         return;
       }
       setIsEditing(false);
     }
-    setCurrentIndex((prev) => (prev > 0 ? prev - 1 : files.length - 1));
-  }, [files.length, isEditing]);
+    setCurrentIndex(nextIndex);
+  }, [files, currentIndex, isEditing]);
 
   const handleNext = useCallback(() => {
     if (files.length === 0) return;
-    if (isEditing) {
+    const nextIndex = currentIndex < files.length - 1 ? currentIndex + 1 : 0;
+    const nextFile = files[nextIndex];
+
+    // Only prompt about editing if navigating to a non-audio file
+    if (isEditing && nextFile && nextFile.type !== 'audio') {
       if (!window.confirm('You have unsaved changes. Discard them?')) {
         return;
       }
       setIsEditing(false);
     }
-    setCurrentIndex((prev) => (prev < files.length - 1 ? prev + 1 : 0));
-  }, [files.length, isEditing]);
+    setCurrentIndex(nextIndex);
+  }, [files, currentIndex, isEditing]);
 
   const handleFontSizeChange = useCallback((delta) => {
     setFontSize((prev) => Math.max(10, Math.min(40, prev + delta)));
@@ -89,10 +115,10 @@ function TextViewer() {
   }, []);
 
   const handleEdit = useCallback(() => {
-    if (!currentFile || (currentFile.type !== 'text' && currentFile.type !== 'markdown')) return;
+    if (!displayedFile || (displayedFile.type !== 'text' && displayedFile.type !== 'markdown')) return;
 
     // Fetch current content
-    fetch(currentFile.url)
+    fetch(displayedFile.url)
       .then(res => res.text())
       .then(text => {
         setEditContent(text);
@@ -102,10 +128,10 @@ function TextViewer() {
         console.error('Error loading file for edit:', err);
         alert('Error loading file for editing');
       });
-  }, [currentFile]);
+  }, [displayedFile]);
 
   const handleSave = useCallback(() => {
-    if (!currentFile || !isEditing) return;
+    if (!displayedFile || !isEditing) return;
 
     // Create a new blob with the edited content
     const blob = new Blob([editContent], { type: 'text/plain' });
@@ -114,8 +140,8 @@ function TextViewer() {
     // Update the file in the array
     setFiles(prevFiles => {
       const newFiles = [...prevFiles];
-      newFiles[currentIndex] = {
-        ...newFiles[currentIndex],
+      newFiles[displayedFileIndex] = {
+        ...newFiles[displayedFileIndex],
         url: newUrl
       };
       return newFiles;
@@ -124,12 +150,12 @@ function TextViewer() {
     // Download the file
     const a = document.createElement('a');
     a.href = newUrl;
-    a.download = currentFile.originalName || `${currentFile.key}.txt`;
+    a.download = displayedFile.originalName || `${displayedFile.key}.txt`;
     a.click();
 
     setIsEditing(false);
     setEditContent('');
-  }, [currentFile, currentIndex, editContent, isEditing]);
+  }, [displayedFile, displayedFileIndex, editContent, isEditing]);
 
   const handleCancel = useCallback(() => {
     setIsEditing(false);
@@ -214,14 +240,21 @@ function TextViewer() {
 
       if (e.key === 'ArrowLeft') {
         handlePrev();
-      } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+      } else if (e.key === 'ArrowRight') {
         handleNext();
+      } else if (e.key === 'Enter') {
+        // If audio is loaded in navbar, toggle play/pause
+        if (currentAudioIndex !== null) {
+          handleAudioPlayPause();
+        } else {
+          handleNext();
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrev, handleNext, isEditing]);
+  }, [handlePrev, handleNext, isEditing, currentAudioIndex, handleAudioPlayPause]);
 
   // Global drag and drop
   useEffect(() => {
@@ -270,6 +303,33 @@ function TextViewer() {
     return () => audio.removeEventListener('ended', handleEnded);
   }, []);
 
+  // Handle navigation to different file types
+  useEffect(() => {
+    if (!currentFile) return;
+
+    if (currentFile.type === 'audio') {
+      // Load audio into player
+      setCurrentAudioIndex(currentIndex);
+      if (audioRef.current) {
+        // Stop any currently playing audio before loading new
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        audioRef.current.src = currentFile.url;
+        audioRef.current.load();
+        audioRef.current.play().then(() => {
+          setIsAudioPlaying(true);
+        }).catch(err => {
+          console.error('Error playing audio:', err);
+          setIsAudioPlaying(false);
+        });
+      }
+      // Don't update displayedFileIndex - keep showing previous content
+    } else if (currentFile.type !== 'divider') {
+      // Non-audio, non-divider file - update displayed content
+      setDisplayedFileIndex(currentIndex);
+    }
+  }, [currentIndex, currentFile]);
+
   const currentAudioFile = currentAudioIndex !== null ? files[currentAudioIndex] : null;
 
   return (
@@ -284,7 +344,7 @@ function TextViewer() {
 
       <div className="main-content">
         <ControlBar
-          currentFile={currentFile}
+          currentFile={displayedFile}
           fontSize={fontSize}
           onFontSizeChange={handleFontSizeChange}
           darkMode={darkMode}
@@ -307,7 +367,7 @@ function TextViewer() {
         />
 
         <ContentViewer
-          file={currentFile}
+          file={displayedFile}
           fontSize={fontSize}
           isEditing={isEditing}
           editContent={editContent}

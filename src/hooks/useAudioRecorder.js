@@ -63,7 +63,18 @@ export function useAudioRecorder() {
   }, []);
 
   const downloadMp3 = useCallback((blob) => {
-    const filename = 'recording-' + new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-') + '.mp3';
+    // Format: Screenshot 2026-01-28 at 8.44.00 AM.mp3 (matches macOS screenshot naming)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const seconds = String(now.getSeconds()).padStart(2, '0');
+    const isPM = hours >= 12;
+    hours = hours % 12 || 12; // Convert to 12-hour format
+
+    const filename = `Screenshot ${year}-${month}-${day} at ${hours}.${minutes}.${seconds} ${isPM ? 'PM' : 'AM'}.mp3`;
     const url = URL.createObjectURL(blob);
 
     const link = document.createElement('a');

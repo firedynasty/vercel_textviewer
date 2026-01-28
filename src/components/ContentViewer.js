@@ -260,7 +260,7 @@ function ContentViewer({
           <h2>Text Viewer</h2>
           <p>Drag and drop a folder to get started</p>
           <p className="supported-formats">
-            Supports: .txt, .rtf, .md, .pdf, .jpg, .png, .gif, .mp4, .webm
+            Supports: .txt, .rtf, .md, .pdf, .jpg, .png, .gif, .mp4, .webm, .mp3, .wav, .m4a
           </p>
         </div>
       </div>

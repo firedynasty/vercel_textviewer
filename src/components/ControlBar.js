@@ -360,7 +360,7 @@ function ControlBar({
           <button
             className={`audio-play-btn ${isAudioPlaying ? 'playing' : ''}`}
             onClick={onAudioPlayPause}
-            title={isAudioPlaying ? 'Pause' : 'Play'}
+            title={isAudioPlaying ? 'Pause ⏎' : 'Play ⏎'}
           >
             {isAudioPlaying ? '⏸' : '▶️'}
           </button>

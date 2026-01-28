@@ -28,7 +28,26 @@ function ContentViewer({
   const canvasRef = useRef(null);
   const thumbnailContainerRef = useRef(null);
   const pdfContainerRef = useRef(null);
+  const textPreviewRef = useRef(null);
+  const markdownPreviewRef = useRef(null);
   const [pdfDoc, setPdfDoc] = useState(null);
+
+  // Auto-focus content area when file changes so spacebar scrolls content, not sidebar
+  useEffect(() => {
+    if (file && file.type !== 'divider') {
+      // Small delay to ensure DOM is ready
+      const timer = setTimeout(() => {
+        if (file.type === 'pdf' && pdfContainerRef.current) {
+          pdfContainerRef.current.focus();
+        } else if ((file.type === 'text' || file.type === 'rtf') && textPreviewRef.current) {
+          textPreviewRef.current.focus();
+        } else if (file.type === 'markdown' && markdownPreviewRef.current) {
+          markdownPreviewRef.current.focus();
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [file]);
 
   // Load PDF document
   useEffect(() => {
@@ -282,7 +301,7 @@ function ContentViewer({
               </svg>
             </button>
 
-            <div className="pdf-canvas-container" ref={pdfContainerRef}>
+            <div className="pdf-canvas-container" ref={pdfContainerRef} tabIndex={-1}>
               <canvas ref={canvasRef} className="pdf-canvas" />
             </div>
 
@@ -337,6 +356,8 @@ function ContentViewer({
           <div
             className="preview-text"
             style={{ fontSize: `${fontSize}px` }}
+            ref={textPreviewRef}
+            tabIndex={-1}
           >
             <div className="content-title">{file.key}</div>
             <pre>{textContent}</pre>
@@ -356,6 +377,8 @@ function ContentViewer({
           <div
             className="preview-markdown"
             style={{ fontSize: `${fontSize}px` }}
+            ref={markdownPreviewRef}
+            tabIndex={-1}
             dangerouslySetInnerHTML={{ __html: `<div class="content-title">${file.key}</div>${markdownHtml}` }}
           />
         )}

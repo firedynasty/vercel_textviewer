@@ -28,6 +28,7 @@ function ControlBar({
 }) {
   const { isRecording, isProcessing, startRecording, stopRecording } = useAudioRecorder();
   const folderInputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const pageInputRef = useRef(null);
 
   const handleDragOver = (e) => {
@@ -114,6 +115,12 @@ function ControlBar({
     }
   };
 
+  const handleFileSelect = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      onFilesLoaded(e.target.files);
+    }
+  };
+
   const handlePageInputKeyDown = (e) => {
     if (e.key === 'Enter') {
       const pageNum = parseInt(e.target.value);
@@ -147,6 +154,22 @@ function ControlBar({
         directory=""
         multiple
         onChange={handleFolderSelect}
+      />
+
+      <button
+        className="select-files-btn"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        Select Files
+      </button>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        style={{ display: 'none' }}
+        multiple
+        accept=".txt,.rtf,.md,.pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,.mp4,.webm,.ogg,.mov,.mp3,.wav,.m4a"
+        onChange={handleFileSelect}
       />
 
       {/* Edit controls - hide for PDF */}

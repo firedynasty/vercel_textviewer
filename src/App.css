@@ -148,6 +148,23 @@ body {
   transform: scale(1.1);
 }
 
+.select-files-btn {
+  background: rgba(33, 150, 243, 0.9);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.select-files-btn:hover {
+  background: rgba(30, 136, 229, 1);
+  transform: scale(1.05);
+}
+
 .edit-controls {
   display: flex;
   gap: 8px;
@@ -555,6 +572,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  outline: none; /* Hide focus outline for programmatic focus */
 }
 
 .preview-image {
@@ -582,6 +600,7 @@ body {
   line-height: 1.6;
   text-align: left;
   box-sizing: border-box;
+  outline: none; /* Hide focus outline for programmatic focus */
 }
 
 .preview-text pre {
@@ -621,6 +640,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
   line-height: 1.6;
   text-align: left;
+  outline: none; /* Hide focus outline for programmatic focus */
 }
 
 .content-title {
@@ -1127,6 +1147,7 @@ body {
   display: flex;
   align-items: flex-start;
   justify-content: center;
+  outline: none; /* Hide focus outline for programmatic focus */
 }
 
 .pdf-canvas {

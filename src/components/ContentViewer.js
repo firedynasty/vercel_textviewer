@@ -308,11 +308,7 @@ function ContentViewer({
       <div className="content-viewer pdf-viewer">
         {!pdfState?.thumbnailMode ? (
           <>
-            <button className="nav-btn prev-btn" onClick={() => {
-              if (pdfState?.currentPage > 1) {
-                onPdfStateChange({ ...pdfState, currentPage: pdfState.currentPage - 1 });
-              }
-            }} aria-label="Previous Page">
+            <button className="nav-btn prev-btn" onClick={onPrev} aria-label="Previous">
               <svg width="64" height="64" viewBox="0 0 64 64">
                 <path d="M44 8 L20 32 L44 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
@@ -322,11 +318,7 @@ function ContentViewer({
               <canvas ref={canvasRef} className="pdf-canvas" />
             </div>
 
-            <button className="nav-btn next-btn" onClick={() => {
-              if (pdfState?.currentPage < pdfState?.totalPages) {
-                onPdfStateChange({ ...pdfState, currentPage: pdfState.currentPage + 1 });
-              }
-            }} aria-label="Next Page">
+            <button className="nav-btn next-btn" onClick={onNext} aria-label="Next">
               <svg width="64" height="64" viewBox="0 0 64 64">
                 <path d="M20 8 L44 32 L20 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>

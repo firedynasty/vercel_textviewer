@@ -32,6 +32,9 @@ function TextViewer() {
   // Syntax highlighting state
   const [syntaxHighlightEnabled, setSyntaxHighlightEnabled] = useState(false);
 
+  // Sidebar visibility state
+  const [showSidebar, setShowSidebar] = useState(true);
+
   const currentFile = files[currentIndex] || null;
   const displayedFile = files[displayedFileIndex] || null;
 
@@ -343,12 +346,16 @@ function TextViewer() {
         onFileSelect={handleFileSelect}
         onAudioSelect={handleAudioSelect}
         currentAudioIndex={currentAudioIndex}
+        isOpen={showSidebar}
+        onClose={() => setShowSidebar(false)}
       />
 
       <div className="main-content">
         <ControlBar
           currentFile={displayedFile}
           fontSize={fontSize}
+          showSidebar={showSidebar}
+          onToggleSidebar={() => setShowSidebar(prev => !prev)}
           onFontSizeChange={handleFontSizeChange}
           darkMode={darkMode}
           onDarkModeToggle={handleDarkModeToggle}

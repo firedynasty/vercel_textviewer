@@ -1,6 +1,6 @@
 import React from 'react';
 
-function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudioIndex }) {
+function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudioIndex, isOpen, onClose }) {
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
 
@@ -11,8 +11,16 @@ function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudi
     }
   };
 
+  if (!isOpen) return null;
+
   return (
     <div className="sidebar">
+      <div className="sidebar-header">
+        <span className="sidebar-header-title">Files</span>
+        <button className="sidebar-close-btn" onClick={onClose} title="Close sidebar">
+          &times;
+        </button>
+      </div>
       <div className="sidebar-content">
         {files.map((file, index) => (
           <div

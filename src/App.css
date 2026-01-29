@@ -31,10 +31,72 @@ body {
   background-color: #f5f5f5;
   border-right: 1px solid #ddd;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border-bottom: 1px solid #ddd;
+  background-color: #eee;
+  flex-shrink: 0;
+}
+
+.sidebar-header-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+
+.sidebar-close-btn {
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.sidebar-close-btn:hover {
+  background-color: #ddd;
+  color: #333;
 }
 
 .sidebar-content {
   padding: 10px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Hamburger Button */
+.hamburger-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(100, 100, 100, 0.9);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-size: 20px;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburger-btn:hover {
+  background: rgba(80, 80, 80, 1);
+  transform: scale(1.05);
 }
 
 .sidebar-item {

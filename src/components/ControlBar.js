@@ -27,7 +27,10 @@ function ControlBar({
   audioFile,
   isAudioPlaying,
   onAudioPlayPause,
-  onAudioStop
+  onAudioStop,
+  // Sidebar props
+  showSidebar,
+  onToggleSidebar
 }) {
   const { isRecording, isProcessing, startRecording, stopRecording } = useAudioRecorder();
   const folderInputRef = useRef(null);
@@ -140,6 +143,16 @@ function ControlBar({
 
   return (
     <div className="control-bar">
+      {!showSidebar && (
+        <button
+          className="hamburger-btn"
+          onClick={onToggleSidebar}
+          title="Open sidebar"
+        >
+          &#9776;
+        </button>
+      )}
+
       <button
         className="drop-folder-btn"
         onClick={() => folderInputRef.current?.click()}

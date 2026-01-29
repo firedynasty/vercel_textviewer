@@ -698,6 +698,9 @@ body {
   padding: 16px;
   overflow: auto;
   margin-bottom: 16px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  word-break: break-all;
 }
 
 .preview-markdown pre code {

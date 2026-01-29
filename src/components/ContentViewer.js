@@ -1,10 +1,32 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { marked } from 'marked';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/github.css';
 import { rtfToPlainText, isRtfFile } from '../utils/fileUtils';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure PDF.js worker - use unpkg to match the installed version
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+
+// Configure marked to use highlight.js for code blocks
+marked.setOptions({
+  highlight: function(code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang }).value;
+      } catch (err) {
+        console.error('Highlight error:', err);
+      }
+    }
+    // Auto-detect language if not specified
+    try {
+      return hljs.highlightAuto(code).value;
+    } catch (err) {
+      console.error('Highlight auto error:', err);
+    }
+    return code;
+  }
+});
 
 function ContentViewer({
   file,

@@ -308,6 +308,35 @@ body {
   background: rgba(39, 174, 96, 1);
 }
 
+/* Syntax Highlight Button */
+.syntax-highlight-btn {
+  padding: 10px 14px;
+  background: rgba(230, 126, 34, 0.9);
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: white;
+  font-size: 14px;
+  font-weight: bold;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.syntax-highlight-btn:hover {
+  background: rgba(211, 84, 0, 1);
+  transform: scale(1.05);
+}
+
+.syntax-highlight-btn.active {
+  background: rgba(46, 204, 113, 0.9);
+}
+
+.syntax-highlight-btn.active:hover {
+  background: rgba(39, 174, 96, 1);
+}
+
 /* Reading Guide Ruler */
 .reading-guide {
   position: fixed;

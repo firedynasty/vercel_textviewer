@@ -8,26 +8,6 @@ import * as pdfjsLib from 'pdfjs-dist';
 // Configure PDF.js worker - use unpkg to match the installed version
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
-// Configure marked to use highlight.js for code blocks
-marked.setOptions({
-  highlight: function(code, lang) {
-    if (lang && hljs.getLanguage(lang)) {
-      try {
-        return hljs.highlight(code, { language: lang }).value;
-      } catch (err) {
-        console.error('Highlight error:', err);
-      }
-    }
-    // Auto-detect language if not specified
-    try {
-      return hljs.highlightAuto(code).value;
-    } catch (err) {
-      console.error('Highlight auto error:', err);
-    }
-    return code;
-  }
-});
-
 function ContentViewer({
   file,
   fontSize,
@@ -40,7 +20,9 @@ function ContentViewer({
   // PDF-specific props
   pdfState,
   onPdfStateChange,
-  onPdfDocumentLoad
+  onPdfDocumentLoad,
+  // Syntax highlighting
+  syntaxHighlightEnabled
 }) {
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
@@ -274,6 +256,19 @@ function ContentViewer({
         });
     }
   }, [file, imagePathToBlobUrl]);
+
+  // Apply syntax highlighting when enabled
+  useEffect(() => {
+    if (syntaxHighlightEnabled && markdownPreviewRef.current && file?.type === 'markdown') {
+      // Find all code blocks and highlight them
+      const codeBlocks = markdownPreviewRef.current.querySelectorAll('pre code');
+      codeBlocks.forEach((block) => {
+        // Remove any previous highlighting
+        block.removeAttribute('data-highlighted');
+        hljs.highlightElement(block);
+      });
+    }
+  }, [syntaxHighlightEnabled, markdownHtml, file]);
 
   if (!file) {
     return (

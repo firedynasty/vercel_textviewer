@@ -20,6 +20,9 @@ function ControlBar({
   // Reading aids props
   readingAidsEnabled,
   onToggleReadingAids,
+  // Syntax highlight props
+  syntaxHighlightEnabled,
+  onToggleSyntaxHighlight,
   // Audio props
   audioFile,
   isAudioPlaying,
@@ -132,6 +135,7 @@ function ControlBar({
   };
 
   const isPdf = currentFile && currentFile.type === 'pdf';
+  const isMarkdown = currentFile && currentFile.type === 'markdown';
   const canEdit = currentFile && (currentFile.type === 'text' || currentFile.type === 'rtf' || currentFile.type === 'markdown');
 
   return (
@@ -190,6 +194,17 @@ function ControlBar({
             </>
           )}
         </div>
+      )}
+
+      {/* Syntax Highlight button for markdown files */}
+      {isMarkdown && !isEditing && (
+        <button
+          className={`syntax-highlight-btn ${syntaxHighlightEnabled ? 'active' : ''}`}
+          onClick={onToggleSyntaxHighlight}
+          title={syntaxHighlightEnabled ? 'Disable Syntax Highlighting' : 'Enable Syntax Highlighting'}
+        >
+          {syntaxHighlightEnabled ? '🎨' : '{ }'}
+        </button>
       )}
 
       {/* PDF Controls */}

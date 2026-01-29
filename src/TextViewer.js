@@ -29,6 +29,9 @@ function TextViewer() {
   // Reading aids state
   const [readingAidsEnabled, setReadingAidsEnabled] = useState(false);
 
+  // Syntax highlighting state
+  const [syntaxHighlightEnabled, setSyntaxHighlightEnabled] = useState(false);
+
   const currentFile = files[currentIndex] || null;
   const displayedFile = files[displayedFileIndex] || null;
 
@@ -360,6 +363,8 @@ function TextViewer() {
           onCopyPageText={handleCopyPageText}
           readingAidsEnabled={readingAidsEnabled}
           onToggleReadingAids={() => setReadingAidsEnabled(prev => !prev)}
+          syntaxHighlightEnabled={syntaxHighlightEnabled}
+          onToggleSyntaxHighlight={() => setSyntaxHighlightEnabled(prev => !prev)}
           audioFile={currentAudioFile}
           isAudioPlaying={isAudioPlaying}
           onAudioPlayPause={handleAudioPlayPause}
@@ -378,6 +383,7 @@ function TextViewer() {
           pdfState={pdfState}
           onPdfStateChange={setPdfState}
           onPdfDocumentLoad={setPdfDocument}
+          syntaxHighlightEnabled={syntaxHighlightEnabled}
         />
 
         {/* Hidden audio element for playing audio files */}

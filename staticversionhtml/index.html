@@ -232,6 +232,35 @@
             border-color: #e94560;
         }
 
+        /* Syntax Highlight Button */
+        .syntax-highlight-btn {
+            padding: 4px 10px;
+            background: rgba(230, 126, 34, 0.9);
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            color: white;
+            font-size: 12px;
+            font-weight: 700;
+            font-family: inherit;
+            transition: all 0.15s;
+            display: none;
+        }
+
+        .syntax-highlight-btn:hover {
+            background: rgba(211, 84, 0, 1);
+            transform: scale(1.05);
+        }
+
+        .syntax-highlight-btn.active {
+            background: rgba(46, 204, 113, 0.9);
+        }
+
+        .syntax-highlight-btn.active:hover {
+            background: rgba(39, 174, 96, 1);
+            transform: scale(1.05);
+        }
+
         .font-size-display {
             font-size: 12px;
             color: #64748b;
@@ -899,8 +928,9 @@
             <div class="sidebar-header">
                 <h2>Content Files</h2>
                 <div class="sidebar-header-btns">
-                    <button class="sidebar-hdr-btn" id="themeToggleBtn" title="Toggle light/dark mode">&#9680;</button>
-                    <button class="yt-toggle-btn" id="ytToggleBtn" title="YouTube Links">YT</button>
+                    <button class="sidebar-hdr-btn" id="themeToggleBtn" title="Dark Mode">&#9680;</button>
+                    <button class="syntax-highlight-btn" id="syntaxHighlightBtn" title="Syntax Highlight">{ }</button>
+                    <button class="yt-toggle-btn" id="ytToggleBtn" title="YouTube Content">YT</button>
                 </div>
             </div>
             <div class="sidebar-list" id="sidebarList">
@@ -916,7 +946,6 @@
                     <button class="header-btn" id="fontDecreaseBtn" title="Decrease font size">-</button>
                     <span class="font-size-display" id="fontSizeDisplay">16</span>
                     <button class="header-btn" id="fontIncreaseBtn" title="Increase font size">+</button>
-                    <button class="header-btn active" id="syntaxHighlightBtn" title="Toggle Syntax Highlighting">{ }</button>
                 </div>
             </header>
 
@@ -964,7 +993,7 @@
         let playingIndex = -1;
         let displayedIndex = -1;
         let fontSize = 16;
-        let syntaxHighlightEnabled = true;
+        let syntaxHighlightEnabled = false;
         let lightMode = false;
         let youtubeViewActive = false;
         let ytPlayer = null;
@@ -1100,16 +1129,21 @@
             headerBadge.textContent = getBadgeText(file.type);
             contentTitle.textContent = file.title;
 
+            // Show syntax highlight button only for markdown files
+            syntaxHighlightBtn.style.display = file.type === 'markdown' ? 'inline-block' : 'none';
+
             if (file.type === 'markdown') {
                 contentBody.className = 'content-body';
                 if (!syntaxHighlightEnabled) {
                     contentBody.classList.add('no-highlight');
                 }
                 contentBody.innerHTML = marked.parse(file.content || '');
-                // Apply syntax highlighting to code blocks
-                contentBody.querySelectorAll('pre code').forEach((block) => {
-                    hljs.highlightElement(block);
-                });
+                // Apply syntax highlighting to code blocks if enabled
+                if (syntaxHighlightEnabled) {
+                    contentBody.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                }
             } else if (file.type === 'image') {
                 contentBody.className = 'content-body image-view';
                 contentBody.innerHTML = `
@@ -1219,7 +1253,16 @@
         function toggleSyntaxHighlight() {
             syntaxHighlightEnabled = !syntaxHighlightEnabled;
             syntaxHighlightBtn.classList.toggle('active', syntaxHighlightEnabled);
+            syntaxHighlightBtn.textContent = syntaxHighlightEnabled ? '\u{1F3A8}' : '{ }';
+            syntaxHighlightBtn.title = syntaxHighlightEnabled ? 'Syntax Highlight (On)' : 'Syntax Highlight';
             contentBody.classList.toggle('no-highlight', !syntaxHighlightEnabled);
+            // Re-apply highlighting if just enabled
+            if (syntaxHighlightEnabled && displayedIndex >= 0 && contentData.files[displayedIndex].type === 'markdown') {
+                contentBody.querySelectorAll('pre code').forEach((block) => {
+                    block.removeAttribute('data-highlighted');
+                    hljs.highlightElement(block);
+                });
+            }
             // Save to localStorage
             localStorage.setItem('viewer-syntax-highlight', syntaxHighlightEnabled);
         }
@@ -1252,6 +1295,8 @@
             if (savedSyntaxHighlight !== null) {
                 syntaxHighlightEnabled = savedSyntaxHighlight === 'true';
                 syntaxHighlightBtn.classList.toggle('active', syntaxHighlightEnabled);
+                syntaxHighlightBtn.textContent = syntaxHighlightEnabled ? '\u{1F3A8}' : '{ }';
+                syntaxHighlightBtn.title = syntaxHighlightEnabled ? 'Syntax Highlight (On)' : 'Syntax Highlight';
                 contentBody.classList.toggle('no-highlight', !syntaxHighlightEnabled);
             }
 

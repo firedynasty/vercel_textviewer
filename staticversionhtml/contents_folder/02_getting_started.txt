@@ -1,0 +1,31 @@
+Getting Started Guide
+=====================
+
+This is a plain text file demonstrating the text viewer.
+
+USAGE:
+------
+1. Run: python process_content.py
+2. Start server: python -m http.server 8000
+3. Open: http://localhost:8000
+
+KEYBOARD SHORTCUTS:
+-------------------
+- Up/Down Arrow: Navigate sidebar
+- Enter: Select current item
+- Space: Play/pause audio (when audio is selected)
+
+FILE ORGANIZATION:
+------------------
+- Place .md, .txt, and audio files in folder_w_text/
+- Run process_content.py to regenerate content_data.js
+- Refresh the browser to see changes
+
+SUPPORTED FORMATS:
+------------------
+Text:  .txt, .md
+Audio: .mp3, .m4a, .wav, .ogg, .flac
+
+
+Jordan is a Smooth Criminal
+https://www.youtube.com/watch?v=7G7PDEbND1s?1:00,2:00,3:00

@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Content Viewer</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/highlight.min.js"></script>
+    <link id="hljsThemeDark" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github-dark.min.css">
+    <link id="hljsThemeLight" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.9.0/build/styles/github.min.css" disabled>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: #16213e;
+            border-right: 1px solid #0f3460;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid #0f3460;
+            background: #0f3460;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-header h2 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #94a3b8;
+        }
+
+        .sidebar-header-btns {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .sidebar-hdr-btn {
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            color: #94a3b8;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.15s;
+            line-height: 1;
+        }
+
+        .sidebar-hdr-btn:hover {
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        .yt-toggle-btn {
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            color: #94a3b8;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            font-family: inherit;
+            transition: all 0.15s;
+            display: none;
+        }
+
+        .yt-toggle-btn:hover {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+
+        .yt-toggle-btn.active {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+
+        .sidebar-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .sidebar-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: background 0.15s;
+            border-left: 3px solid transparent;
+        }
+
+        .sidebar-item:hover {
+            background: #1a1a2e;
+        }
+
+        .sidebar-item.selected {
+            background: #0f3460;
+            border-left-color: #e94560;
+        }
+
+        .sidebar-item.playing {
+            background: #1a3a1a;
+            border-left-color: #4ade80;
+        }
+
+        .sidebar-item.selected.playing {
+            background: #1a3a1a;
+        }
+
+        .type-badge {
+            font-size: 10px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .type-badge.markdown {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .type-badge.text {
+            background: #6b7280;
+            color: white;
+        }
+
+        .type-badge.audio {
+            background: #10b981;
+            color: white;
+        }
+
+        .type-badge.image {
+            background: #f59e0b;
+            color: white;
+        }
+
+        .item-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+
+        /* Main Content */
+        .main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .content-header {
+            padding: 16px 24px;
+            border-bottom: 1px solid #0f3460;
+            background: #16213e;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .content-header h1 {
+            font-size: 18px;
+            font-weight: 500;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .header-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .header-btn {
+            background: #0f3460;
+            border: 1px solid #1a1a2e;
+            color: #94a3b8;
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: inherit;
+            transition: all 0.15s;
+            min-width: 32px;
+            text-align: center;
+        }
+
+        .header-btn:hover {
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        .header-btn.active {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+
+        .font-size-display {
+            font-size: 12px;
+            color: #64748b;
+            min-width: 28px;
+            text-align: center;
+        }
+
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+        }
+
+        .content-body {
+            max-width: 900px;
+            line-height: 1.7;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
+        }
+
+        /* Markdown styles */
+        .content-body h1 { font-size: 2em; margin: 0.67em 0; border-bottom: 1px solid #333; padding-bottom: 0.3em; }
+        .content-body h2 { font-size: 1.5em; margin: 0.83em 0; border-bottom: 1px solid #333; padding-bottom: 0.3em; }
+        .content-body h3 { font-size: 1.25em; margin: 1em 0; }
+        .content-body h4 { font-size: 1em; margin: 1.33em 0; }
+        .content-body p { margin: 1em 0; }
+        .content-body ul, .content-body ol { margin: 1em 0; padding-left: 2em; }
+        .content-body li { margin: 0.5em 0; }
+        .content-body blockquote {
+            border-left: 4px solid #e94560;
+            margin: 1em 0;
+            padding: 0.5em 1em;
+            background: #16213e;
+            color: #94a3b8;
+        }
+        .content-body code {
+            background: #16213e;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 0.9em;
+        }
+        .content-body pre {
+            background: #0d1117;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1em 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .content-body pre code {
+            background: none;
+            padding: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* Syntax highlighting disabled state */
+        .content-body.no-highlight pre code {
+            color: #e6e6e6 !important;
+        }
+        .content-body.no-highlight pre code * {
+            color: inherit !important;
+        }
+        .content-body table {
+            border-collapse: collapse;
+            margin: 1em 0;
+            width: 100%;
+        }
+        .content-body th, .content-body td {
+            border: 1px solid #333;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        .content-body th {
+            background: #16213e;
+        }
+        .content-body a {
+            color: #60a5fa;
+        }
+        .content-body img {
+            max-width: 100%;
+        }
+        .content-body hr {
+            border: none;
+            border-top: 1px solid #333;
+            margin: 2em 0;
+        }
+
+        /* Plain text styles */
+        .content-body.plain-text {
+            white-space: pre-wrap;
+            font-family: 'SF Mono', Monaco, Consolas, monospace;
+            font-size: 14px;
+            background: #0d1117;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        /* Image display styles */
+        .content-body.image-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 20px;
+        }
+
+        .content-body.image-view img {
+            max-width: 100%;
+            max-height: calc(100vh - 200px);
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .content-body.image-view .image-info {
+            margin-top: 16px;
+            color: #64748b;
+            font-size: 13px;
+        }
+
+        /* Audio Player */
+        .audio-player {
+            padding: 12px 24px;
+            background: #0f3460;
+            border-top: 1px solid #16213e;
+            display: none;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .audio-player.active {
+            display: flex;
+        }
+
+        .audio-player .now-playing {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .audio-player .now-playing-icon {
+            color: #4ade80;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .audio-player .now-playing-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 14px;
+        }
+
+        .audio-player .controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .audio-player button {
+            background: #e94560;
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+
+        .audio-player button:hover {
+            background: #ff6b6b;
+        }
+
+        .audio-player .time {
+            font-size: 12px;
+            color: #94a3b8;
+            font-family: monospace;
+        }
+
+        .audio-player .progress-bar {
+            flex: 1;
+            height: 4px;
+            background: #1a1a2e;
+            border-radius: 2px;
+            cursor: pointer;
+            max-width: 200px;
+        }
+
+        .audio-player .progress-bar .progress {
+            height: 100%;
+            background: #e94560;
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        /* YouTube View */
+        .youtube-view {
+            max-width: 960px;
+        }
+
+        .yt-player-wrapper {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .yt-player-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .yt-video-title {
+            margin-top: 12px;
+            font-size: 15px;
+            color: #94a3b8;
+            min-height: 20px;
+        }
+
+        .yt-times {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+            min-height: 0;
+        }
+
+        .yt-time-btn {
+            padding: 4px 12px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            font-family: monospace;
+            color: white;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+
+        .yt-time-btn:hover {
+            opacity: 0.85;
+            transform: scale(1.05);
+        }
+
+        .yt-links-list {
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .yt-link-card {
+            padding: 12px 16px;
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .yt-link-card:hover {
+            background: #0f3460;
+            border-color: #e94560;
+        }
+
+        .yt-link-card.active {
+            background: #0f3460;
+            border-color: #e94560;
+        }
+
+        .yt-link-card.yt-selected {
+            outline: 2px solid #60a5fa;
+            outline-offset: -2px;
+        }
+
+        .yt-link-hint {
+            font-size: 14px;
+            color: #eee;
+            margin-bottom: 4px;
+        }
+
+        .yt-link-source {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .yt-link-times {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        /* Welcome state */
+        .welcome {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #64748b;
+            text-align: center;
+        }
+
+        .welcome h2 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            color: #94a3b8;
+        }
+
+        .welcome p {
+            font-size: 14px;
+            max-width: 400px;
+        }
+
+        /* Keyboard shortcuts hint */
+        .keyboard-hint {
+            position: fixed;
+            bottom: 80px;
+            right: 20px;
+            background: #16213e;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #64748b;
+            border: 1px solid #0f3460;
+        }
+
+        .keyboard-hint kbd {
+            background: #0f3460;
+            padding: 2px 6px;
+            border-radius: 3px;
+            margin: 0 2px;
+        }
+
+        /* Light mode overrides */
+        body.light-mode {
+            background: #f5f7fa;
+            color: #1e293b;
+        }
+
+        body.light-mode .sidebar {
+            background: #e8ecf1;
+            border-right-color: #cbd5e1;
+        }
+
+        body.light-mode .sidebar-header {
+            background: #cbd5e1;
+            border-bottom-color: #cbd5e1;
+        }
+
+        body.light-mode .sidebar-header h2 {
+            color: #475569;
+        }
+
+        body.light-mode .sidebar-hdr-btn {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #475569;
+        }
+
+        body.light-mode .sidebar-hdr-btn:hover {
+            background: #fff;
+            color: #1e293b;
+        }
+
+        body.light-mode .yt-toggle-btn {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #475569;
+        }
+
+        body.light-mode .yt-toggle-btn:hover,
+        body.light-mode .yt-toggle-btn.active {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+
+        body.light-mode .sidebar-item:hover {
+            background: #f1f5f9;
+        }
+
+        body.light-mode .sidebar-item.selected {
+            background: #dbeafe;
+        }
+
+        body.light-mode .sidebar-item.playing {
+            background: #dcfce7;
+        }
+
+        body.light-mode .sidebar-item.selected.playing {
+            background: #dcfce7;
+        }
+
+        body.light-mode .item-title {
+            color: #1e293b;
+        }
+
+        body.light-mode .content-header {
+            background: #e8ecf1;
+            border-bottom-color: #cbd5e1;
+        }
+
+        body.light-mode .content-header h1 {
+            color: #1e293b;
+        }
+
+        body.light-mode .header-btn {
+            background: #cbd5e1;
+            border-color: #e2e8f0;
+            color: #475569;
+        }
+
+        body.light-mode .header-btn:hover {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        body.light-mode .header-btn.active {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+
+        body.light-mode .font-size-display {
+            color: #64748b;
+        }
+
+        body.light-mode .content-area {
+            background: #f5f7fa;
+        }
+
+        body.light-mode .content-body {
+            color: #1e293b;
+        }
+
+        body.light-mode .content-body h1,
+        body.light-mode .content-body h2 {
+            border-bottom-color: #cbd5e1;
+        }
+
+        body.light-mode .content-body blockquote {
+            background: #f1f5f9;
+            color: #64748b;
+        }
+
+        body.light-mode .content-body code {
+            background: #e2e8f0;
+        }
+
+        body.light-mode .content-body pre {
+            background: #f1f5f9;
+        }
+
+        body.light-mode .content-body pre code {
+            background: none;
+        }
+
+        body.light-mode .content-body th,
+        body.light-mode .content-body td {
+            border-color: #cbd5e1;
+        }
+
+        body.light-mode .content-body th {
+            background: #e8ecf1;
+        }
+
+        body.light-mode .content-body a {
+            color: #2563eb;
+        }
+
+        body.light-mode .content-body hr {
+            border-top-color: #cbd5e1;
+        }
+
+        body.light-mode .content-body.plain-text {
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        body.light-mode .content-body.image-view img {
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        body.light-mode .audio-player {
+            background: #e2e8f0;
+            border-top-color: #cbd5e1;
+        }
+
+        body.light-mode .audio-player .now-playing-title {
+            color: #1e293b;
+        }
+
+        body.light-mode .audio-player .time {
+            color: #475569;
+        }
+
+        body.light-mode .audio-player .progress-bar {
+            background: #cbd5e1;
+        }
+
+        body.light-mode .welcome {
+            color: #64748b;
+        }
+
+        body.light-mode .welcome h2 {
+            color: #475569;
+        }
+
+        body.light-mode .yt-video-title {
+            color: #475569;
+        }
+
+        body.light-mode .yt-link-card {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        body.light-mode .yt-link-card:hover,
+        body.light-mode .yt-link-card.active {
+            background: #dbeafe;
+            border-color: #3b82f6;
+        }
+
+        body.light-mode .yt-link-hint {
+            color: #1e293b;
+        }
+
+        body.light-mode .yt-link-source {
+            color: #64748b;
+        }
+
+        body.light-mode .keyboard-hint {
+            background: #e8ecf1;
+            border-color: #cbd5e1;
+            color: #64748b;
+        }
+
+        body.light-mode .keyboard-hint kbd {
+            background: #cbd5e1;
+        }
+
+        /* Mobile responsive - Z Fold and similar */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: auto;
+                max-height: 35vh;
+                border-right: none;
+                border-bottom: 1px solid #0f3460;
+            }
+
+            body.light-mode .sidebar {
+                border-bottom-color: #cbd5e1;
+            }
+
+            .content-header {
+                padding: 12px 16px;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            .content-header h1 {
+                font-size: 16px;
+                order: 1;
+                width: 100%;
+                flex: none;
+            }
+
+            .type-badge {
+                order: 0;
+            }
+
+            .header-controls {
+                order: 2;
+                width: 100%;
+                justify-content: flex-end;
+            }
+
+            .content-area {
+                padding: 16px;
+            }
+
+            .content-body {
+                font-size: 16px;
+            }
+
+            .content-body pre {
+                padding: 12px;
+                font-size: 13px;
+            }
+
+            .content-body table {
+                display: block;
+                overflow-x: auto;
+            }
+
+            .audio-player {
+                flex-wrap: wrap;
+                padding: 12px 16px;
+                gap: 12px;
+            }
+
+            .audio-player .progress-bar {
+                max-width: none;
+                order: 3;
+                width: 100%;
+            }
+
+            .youtube-view {
+                max-width: 100%;
+            }
+        }
+
+        /* Even narrower screens (Z Fold closed) */
+        @media (max-width: 400px) {
+            .sidebar {
+                max-height: 30vh;
+            }
+
+            .content-header h1 {
+                font-size: 14px;
+            }
+
+            .header-btn {
+                padding: 5px 8px;
+                font-size: 12px;
+            }
+
+            .content-body {
+                font-size: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Content Files</h2>
+                <div class="sidebar-header-btns">
+                    <button class="sidebar-hdr-btn" id="themeToggleBtn" title="Toggle light/dark mode">&#9680;</button>
+                    <button class="yt-toggle-btn" id="ytToggleBtn" title="YouTube Links">YT</button>
+                </div>
+            </div>
+            <div class="sidebar-list" id="sidebarList">
+                <!-- Populated by JavaScript -->
+            </div>
+        </nav>
+
+        <main class="main">
+            <header class="content-header" id="contentHeader" style="display: none;">
+                <span class="type-badge" id="headerBadge"></span>
+                <h1 id="contentTitle"></h1>
+                <div class="header-controls">
+                    <button class="header-btn" id="fontDecreaseBtn" title="Decrease font size">-</button>
+                    <span class="font-size-display" id="fontSizeDisplay">16</span>
+                    <button class="header-btn" id="fontIncreaseBtn" title="Increase font size">+</button>
+                    <button class="header-btn active" id="syntaxHighlightBtn" title="Toggle Syntax Highlighting">{ }</button>
+                </div>
+            </header>
+
+            <div class="content-area">
+                <div class="content-body" id="contentBody">
+                    <div class="welcome">
+                        <h2>Welcome to Content Viewer</h2>
+                        <p>Select a file from the sidebar to view its content. Click on audio files to play them while browsing other content.</p>
+                    </div>
+                </div>
+                <div class="youtube-view" id="youtubeView" style="display: none;">
+                    <div class="yt-player-wrapper">
+                        <div id="ytPlayerContainer"></div>
+                    </div>
+                    <div class="yt-video-title" id="ytVideoTitle"></div>
+                    <div class="yt-times" id="ytTimes"></div>
+                    <div class="yt-links-list" id="ytLinksList"></div>
+                </div>
+            </div>
+
+            <div class="audio-player" id="audioPlayer">
+                <div class="now-playing">
+                    <span class="now-playing-icon">&#9835;</span>
+                    <span class="now-playing-title" id="nowPlayingTitle"></span>
+                </div>
+                <div class="controls">
+                    <span class="time" id="currentTime">0:00</span>
+                    <div class="progress-bar" id="progressBar">
+                        <div class="progress" id="progress"></div>
+                    </div>
+                    <span class="time" id="duration">0:00</span>
+                    <button id="playPauseBtn" title="Play/Pause">&#9658;</button>
+                    <button id="stopBtn" title="Stop">&#9632;</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <audio id="audioElement"></audio>
+
+    <script src="content_data.js"></script>
+    <script>
+        // State
+        let selectedIndex = -1;
+        let playingIndex = -1;
+        let displayedIndex = -1;
+        let fontSize = 16;
+        let syntaxHighlightEnabled = true;
+        let lightMode = false;
+        let youtubeViewActive = false;
+        let ytPlayer = null;
+        let ytPlayerReady = false;
+        let ytCurrentVideoId = null;
+        let ytSelectedLinkIndex = -1;
+        const MIN_FONT_SIZE = 12;
+        const MAX_FONT_SIZE = 28;
+
+        // Gradient colors for time buttons
+        const TIME_COLORS = [
+            '#e94560', '#3b82f6', '#10b981', '#f59e0b',
+            '#8b5cf6', '#ec4899', '#06b6d4', '#f97316',
+        ];
+
+        // Elements
+        const sidebarList = document.getElementById('sidebarList');
+        const contentHeader = document.getElementById('contentHeader');
+        const headerBadge = document.getElementById('headerBadge');
+        const contentTitle = document.getElementById('contentTitle');
+        const contentBody = document.getElementById('contentBody');
+        const audioPlayer = document.getElementById('audioPlayer');
+        const audioElement = document.getElementById('audioElement');
+        const nowPlayingTitle = document.getElementById('nowPlayingTitle');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progress = document.getElementById('progress');
+        const currentTimeEl = document.getElementById('currentTime');
+        const durationEl = document.getElementById('duration');
+        const fontDecreaseBtn = document.getElementById('fontDecreaseBtn');
+        const fontIncreaseBtn = document.getElementById('fontIncreaseBtn');
+        const fontSizeDisplay = document.getElementById('fontSizeDisplay');
+        const syntaxHighlightBtn = document.getElementById('syntaxHighlightBtn');
+        const themeToggleBtn = document.getElementById('themeToggleBtn');
+        const hljsThemeDark = document.getElementById('hljsThemeDark');
+        const hljsThemeLight = document.getElementById('hljsThemeLight');
+        const ytToggleBtn = document.getElementById('ytToggleBtn');
+        const youtubeView = document.getElementById('youtubeView');
+        const ytPlayerContainer = document.getElementById('ytPlayerContainer');
+        const ytVideoTitle = document.getElementById('ytVideoTitle');
+        const ytTimesEl = document.getElementById('ytTimes');
+        const ytLinksList = document.getElementById('ytLinksList');
+
+        // Configure marked
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    return hljs.highlight(code, { language: lang }).value;
+                }
+                return hljs.highlightAuto(code).value;
+            }
+        });
+
+        // Initialize sidebar
+        function initSidebar() {
+            if (typeof contentData === 'undefined' || !contentData.files) {
+                sidebarList.innerHTML = '<div style="padding: 16px; color: #e94560;">Error: content_data.js not found. Run: python process_content.py</div>';
+                return;
+            }
+
+            contentData.files.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'sidebar-item';
+                item.dataset.index = index;
+
+                const badge = document.createElement('span');
+                badge.className = `type-badge ${file.type}`;
+                badge.textContent = file.type === 'markdown' ? 'MD' : file.type === 'text' ? 'TXT' : file.type === 'image' ? 'IMG' : '♪';
+
+                const title = document.createElement('span');
+                title.className = 'item-title';
+                title.textContent = file.title;
+                title.title = file.title;
+
+                item.appendChild(badge);
+                item.appendChild(title);
+
+                item.addEventListener('click', () => handleItemClick(index));
+
+                sidebarList.appendChild(item);
+            });
+        }
+
+        // Handle item click
+        function handleItemClick(index) {
+            const file = contentData.files[index];
+
+            if (file.type === 'audio') {
+                playAudio(index);
+            } else {
+                exitYouTubeView();
+                displayContent(index);
+            }
+
+            selectItem(index);
+        }
+
+        // Get badge text for file type
+        function getBadgeText(type) {
+            switch (type) {
+                case 'markdown': return 'MD';
+                case 'text': return 'TXT';
+                case 'image': return 'IMG';
+                default: return '♪';
+            }
+        }
+
+        // Select item (visual highlight)
+        function selectItem(index) {
+            selectedIndex = index;
+            updateSidebarStyles();
+        }
+
+        // Update sidebar item styles
+        function updateSidebarStyles() {
+            const items = sidebarList.querySelectorAll('.sidebar-item');
+            items.forEach((item, i) => {
+                item.classList.toggle('selected', i === selectedIndex);
+                item.classList.toggle('playing', i === playingIndex);
+            });
+        }
+
+        // Display content
+        function displayContent(index) {
+            const file = contentData.files[index];
+            displayedIndex = index;
+
+            contentHeader.style.display = 'flex';
+            headerBadge.className = `type-badge ${file.type}`;
+            headerBadge.textContent = getBadgeText(file.type);
+            contentTitle.textContent = file.title;
+
+            if (file.type === 'markdown') {
+                contentBody.className = 'content-body';
+                if (!syntaxHighlightEnabled) {
+                    contentBody.classList.add('no-highlight');
+                }
+                contentBody.innerHTML = marked.parse(file.content || '');
+                // Apply syntax highlighting to code blocks
+                contentBody.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            } else if (file.type === 'image') {
+                contentBody.className = 'content-body image-view';
+                contentBody.innerHTML = `
+                    <img src="${file.path}" alt="${file.title}" />
+                    <div class="image-info">${file.filename}</div>
+                `;
+            } else {
+                contentBody.className = 'content-body plain-text';
+                contentBody.textContent = file.content || '';
+            }
+        }
+
+        // Play audio
+        function playAudio(index) {
+            const file = contentData.files[index];
+
+            if (playingIndex === index) {
+                // Toggle play/pause
+                if (audioElement.paused) {
+                    audioElement.play();
+                } else {
+                    audioElement.pause();
+                }
+                return;
+            }
+
+            playingIndex = index;
+            audioElement.src = file.path;
+            audioElement.play();
+
+            nowPlayingTitle.textContent = file.title;
+            audioPlayer.classList.add('active');
+
+            updateSidebarStyles();
+        }
+
+        // Stop audio
+        function stopAudio() {
+            audioElement.pause();
+            audioElement.currentTime = 0;
+            playingIndex = -1;
+            audioPlayer.classList.remove('active');
+            updateSidebarStyles();
+        }
+
+        // Format time
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return '0:00';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        // Audio event listeners
+        audioElement.addEventListener('timeupdate', () => {
+            const pct = (audioElement.currentTime / audioElement.duration) * 100;
+            progress.style.width = `${pct}%`;
+            currentTimeEl.textContent = formatTime(audioElement.currentTime);
+        });
+
+        audioElement.addEventListener('loadedmetadata', () => {
+            durationEl.textContent = formatTime(audioElement.duration);
+        });
+
+        audioElement.addEventListener('play', () => {
+            playPauseBtn.innerHTML = '&#10074;&#10074;';
+        });
+
+        audioElement.addEventListener('pause', () => {
+            playPauseBtn.innerHTML = '&#9658;';
+        });
+
+        audioElement.addEventListener('ended', () => {
+            playPauseBtn.innerHTML = '&#9658;';
+            progress.style.width = '0%';
+        });
+
+        // Player controls
+        playPauseBtn.addEventListener('click', () => {
+            if (audioElement.paused) {
+                audioElement.play();
+            } else {
+                audioElement.pause();
+            }
+        });
+
+        stopBtn.addEventListener('click', stopAudio);
+
+        // Font size controls
+        function updateFontSize(newSize) {
+            fontSize = Math.max(MIN_FONT_SIZE, Math.min(MAX_FONT_SIZE, newSize));
+            contentBody.style.fontSize = fontSize + 'px';
+            fontSizeDisplay.textContent = fontSize;
+            // Save to localStorage
+            localStorage.setItem('viewer-font-size', fontSize);
+        }
+
+        fontDecreaseBtn.addEventListener('click', () => {
+            updateFontSize(fontSize - 2);
+        });
+
+        fontIncreaseBtn.addEventListener('click', () => {
+            updateFontSize(fontSize + 2);
+        });
+
+        // Syntax highlighting toggle
+        function toggleSyntaxHighlight() {
+            syntaxHighlightEnabled = !syntaxHighlightEnabled;
+            syntaxHighlightBtn.classList.toggle('active', syntaxHighlightEnabled);
+            contentBody.classList.toggle('no-highlight', !syntaxHighlightEnabled);
+            // Save to localStorage
+            localStorage.setItem('viewer-syntax-highlight', syntaxHighlightEnabled);
+        }
+
+        syntaxHighlightBtn.addEventListener('click', toggleSyntaxHighlight);
+
+        // Theme toggle
+        function setTheme(isLight) {
+            lightMode = isLight;
+            document.body.classList.toggle('light-mode', isLight);
+            hljsThemeDark.disabled = isLight;
+            hljsThemeLight.disabled = !isLight;
+            localStorage.setItem('viewer-light-mode', isLight);
+        }
+
+        themeToggleBtn.addEventListener('click', () => {
+            setTheme(!lightMode);
+        });
+
+        // Load saved preferences
+        function loadPreferences() {
+            const savedFontSize = localStorage.getItem('viewer-font-size');
+            if (savedFontSize) {
+                fontSize = parseInt(savedFontSize, 10);
+                contentBody.style.fontSize = fontSize + 'px';
+                fontSizeDisplay.textContent = fontSize;
+            }
+
+            const savedSyntaxHighlight = localStorage.getItem('viewer-syntax-highlight');
+            if (savedSyntaxHighlight !== null) {
+                syntaxHighlightEnabled = savedSyntaxHighlight === 'true';
+                syntaxHighlightBtn.classList.toggle('active', syntaxHighlightEnabled);
+                contentBody.classList.toggle('no-highlight', !syntaxHighlightEnabled);
+            }
+
+            const savedLightMode = localStorage.getItem('viewer-light-mode');
+            if (savedLightMode === 'true') {
+                setTheme(true);
+            }
+        }
+
+        progressBar.addEventListener('click', (e) => {
+            const rect = progressBar.getBoundingClientRect();
+            const pct = (e.clientX - rect.left) / rect.width;
+            audioElement.currentTime = pct * audioElement.duration;
+        });
+
+        // YouTube View
+        function initYouTubeButton() {
+            const links = (contentData && contentData.youtube_links) || [];
+            if (links.length > 0) {
+                ytToggleBtn.style.display = 'inline-block';
+            }
+        }
+
+        function toggleYouTubeView() {
+            youtubeViewActive = !youtubeViewActive;
+            ytToggleBtn.classList.toggle('active', youtubeViewActive);
+
+            if (youtubeViewActive) {
+                contentBody.style.display = 'none';
+                contentHeader.style.display = 'none';
+                youtubeView.style.display = 'block';
+                renderYouTubeLinksList();
+                ytSelectedLinkIndex = -1;
+            } else {
+                youtubeView.style.display = 'none';
+                contentBody.style.display = '';
+                if (displayedIndex >= 0) {
+                    contentHeader.style.display = 'flex';
+                }
+            }
+        }
+
+        function exitYouTubeView() {
+            if (!youtubeViewActive) return;
+            youtubeViewActive = false;
+            ytToggleBtn.classList.remove('active');
+            youtubeView.style.display = 'none';
+            contentBody.style.display = '';
+            if (displayedIndex >= 0) {
+                contentHeader.style.display = 'flex';
+            }
+        }
+
+        function renderYouTubeLinksList() {
+            const links = contentData.youtube_links || [];
+            ytLinksList.innerHTML = '';
+
+            links.forEach((link, idx) => {
+                const card = document.createElement('div');
+                card.className = 'yt-link-card';
+                card.dataset.index = idx;
+
+                const hint = document.createElement('div');
+                hint.className = 'yt-link-hint';
+                hint.textContent = link.hint || link.url;
+                card.appendChild(hint);
+
+                const source = document.createElement('div');
+                source.className = 'yt-link-source';
+                source.textContent = link.source_file;
+                card.appendChild(source);
+
+                if (link.times && link.times.length > 0) {
+                    const timesRow = document.createElement('div');
+                    timesRow.className = 'yt-link-times';
+                    link.times.forEach((t, ti) => {
+                        const btn = document.createElement('button');
+                        btn.className = 'yt-time-btn';
+                        btn.textContent = t;
+                        btn.style.background = TIME_COLORS[ti % TIME_COLORS.length];
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            loadYouTubeVideo(link.video_id, idx);
+                            seekToTime(t);
+                        });
+                        timesRow.appendChild(btn);
+                    });
+                    card.appendChild(timesRow);
+                }
+
+                card.addEventListener('click', () => {
+                    loadYouTubeVideo(link.video_id, idx);
+                });
+
+                ytLinksList.appendChild(card);
+            });
+
+            // Mark currently active video
+            updateYtLinkCards();
+        }
+
+        function updateYtLinkCards() {
+            const cards = ytLinksList.querySelectorAll('.yt-link-card');
+            cards.forEach((card, i) => {
+                const link = contentData.youtube_links[i];
+                card.classList.toggle('active', link && link.video_id === ytCurrentVideoId);
+                card.classList.toggle('yt-selected', i === ytSelectedLinkIndex);
+            });
+        }
+
+        function loadYouTubeVideo(videoId, linkIndex) {
+            ytCurrentVideoId = videoId;
+            if (linkIndex !== undefined) ytSelectedLinkIndex = linkIndex;
+
+            const link = contentData.youtube_links.find(l => l.video_id === videoId);
+
+            // Update title and time buttons above the list
+            ytVideoTitle.textContent = link ? (link.hint || link.url) : '';
+            ytTimesEl.innerHTML = '';
+            if (link && link.times && link.times.length > 0) {
+                link.times.forEach((t, ti) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'yt-time-btn';
+                    btn.textContent = t;
+                    btn.style.background = TIME_COLORS[ti % TIME_COLORS.length];
+                    btn.addEventListener('click', () => seekToTime(t));
+                    ytTimesEl.appendChild(btn);
+                });
+            }
+
+            if (ytPlayer && ytPlayerReady) {
+                ytPlayer.loadVideoById(videoId);
+            } else {
+                initYouTubePlayer(videoId);
+            }
+
+            updateYtLinkCards();
+        }
+
+        function initYouTubePlayer(videoId) {
+            // Load YouTube IFrame API if not loaded
+            if (!window.YT || !window.YT.Player) {
+                const tag = document.createElement('script');
+                tag.src = 'https://www.youtube.com/iframe_api';
+                document.head.appendChild(tag);
+                window.onYouTubeIframeAPIReady = () => createPlayer(videoId);
+            } else {
+                createPlayer(videoId);
+            }
+        }
+
+        function createPlayer(videoId) {
+            ytPlayerContainer.id = 'ytPlayerContainer';
+            ytPlayer = new YT.Player('ytPlayerContainer', {
+                videoId: videoId,
+                playerVars: {
+                    enablejsapi: 1,
+                    rel: 0,
+                    modestbranding: 1,
+                },
+                events: {
+                    onReady: () => { ytPlayerReady = true; },
+                },
+            });
+        }
+
+        function seekToTime(timeStr) {
+            const parts = timeStr.split(':');
+            const seconds = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+            if (ytPlayer && ytPlayerReady) {
+                ytPlayer.seekTo(seconds, true);
+            }
+        }
+
+        function parseTimeToSeconds(timeStr) {
+            const parts = timeStr.split(':');
+            return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        }
+
+        ytToggleBtn.addEventListener('click', toggleYouTubeView);
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            // Don't handle if typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            const files = contentData.files || [];
+            const ytLinks = (contentData && contentData.youtube_links) || [];
+
+            // YouTube view keyboard shortcuts
+            if (youtubeViewActive && ytLinks.length > 0) {
+                switch (e.key) {
+                    case 'ArrowDown':
+                    case 'j':
+                        e.preventDefault();
+                        if (ytSelectedLinkIndex < ytLinks.length - 1) {
+                            ytSelectedLinkIndex++;
+                            updateYtLinkCards();
+                            scrollYtSelectedIntoView();
+                        }
+                        return;
+
+                    case 'ArrowUp':
+                    case 'k':
+                        e.preventDefault();
+                        if (ytSelectedLinkIndex > 0) {
+                            ytSelectedLinkIndex--;
+                            updateYtLinkCards();
+                            scrollYtSelectedIntoView();
+                        }
+                        return;
+
+                    case 'Enter':
+                        e.preventDefault();
+                        if (ytSelectedLinkIndex >= 0) {
+                            const link = ytLinks[ytSelectedLinkIndex];
+                            loadYouTubeVideo(link.video_id, ytSelectedLinkIndex);
+                        }
+                        return;
+
+                    case 'Escape':
+                        e.preventDefault();
+                        exitYouTubeView();
+                        return;
+                }
+                return;
+            }
+
+            switch (e.key) {
+                case 'ArrowDown':
+                case 'j':
+                    e.preventDefault();
+                    if (selectedIndex < files.length - 1) {
+                        selectItem(selectedIndex + 1);
+                        scrollToSelected();
+                    }
+                    break;
+
+                case 'ArrowUp':
+                case 'k':
+                    e.preventDefault();
+                    if (selectedIndex > 0) {
+                        selectItem(selectedIndex - 1);
+                        scrollToSelected();
+                    }
+                    break;
+
+                case 'Enter':
+                    e.preventDefault();
+                    if (selectedIndex >= 0) {
+                        handleItemClick(selectedIndex);
+                    }
+                    break;
+
+                case ' ':
+                    // Space: play/pause audio if something is playing or selected
+                    if (playingIndex >= 0) {
+                        e.preventDefault();
+                        if (audioElement.paused) {
+                            audioElement.play();
+                        } else {
+                            audioElement.pause();
+                        }
+                    } else if (selectedIndex >= 0 && files[selectedIndex].type === 'audio') {
+                        e.preventDefault();
+                        playAudio(selectedIndex);
+                    }
+                    break;
+
+                case 'Escape':
+                    if (playingIndex >= 0) {
+                        stopAudio();
+                    }
+                    break;
+            }
+        });
+
+        function scrollYtSelectedIntoView() {
+            const cards = ytLinksList.querySelectorAll('.yt-link-card');
+            if (cards[ytSelectedLinkIndex]) {
+                cards[ytSelectedLinkIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
+
+        // Scroll selected item into view
+        function scrollToSelected() {
+            const items = sidebarList.querySelectorAll('.sidebar-item');
+            if (items[selectedIndex]) {
+                items[selectedIndex].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            }
+        }
+
+        // Initialize
+        loadPreferences();
+        initSidebar();
+        initYouTubeButton();
+
+        // Auto-select first item
+        if (contentData && contentData.files && contentData.files.length > 0) {
+            selectItem(0);
+            // Auto-display first displayable file (text, markdown, or image)
+            const firstDisplayableIndex = contentData.files.findIndex(f => f.type !== 'audio');
+            if (firstDisplayableIndex >= 0) {
+                displayContent(firstDisplayableIndex);
+            }
+        }
+    </script>
+</body>
+</html>

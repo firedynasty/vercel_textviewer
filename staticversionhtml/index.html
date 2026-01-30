@@ -104,6 +104,26 @@
             border-color: #e94560;
         }
 
+        .audio-stop-btn {
+            background: #1a1a2e;
+            border: 1px solid #0f3460;
+            color: #94a3b8;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 700;
+            font-family: inherit;
+            transition: all 0.15s;
+            display: none;
+        }
+
+        .audio-stop-btn:hover {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+
         .sidebar-list {
             flex: 1;
             overflow-y: auto;
@@ -661,6 +681,18 @@
             border-color: #e94560;
         }
 
+        body.light-mode .audio-stop-btn {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+            color: #475569;
+        }
+
+        body.light-mode .audio-stop-btn:hover {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+
         body.light-mode .sidebar-item:hover {
             background: #f1f5f9;
         }
@@ -844,26 +876,7 @@
             }
 
             .content-header {
-                padding: 12px 16px;
-                flex-wrap: wrap;
-                gap: 8px;
-            }
-
-            .content-header h1 {
-                font-size: 16px;
-                order: 1;
-                width: 100%;
-                flex: none;
-            }
-
-            .type-badge {
-                order: 0;
-            }
-
-            .header-controls {
-                order: 2;
-                width: 100%;
-                justify-content: flex-end;
+                display: none !important;
             }
 
             .content-area {
@@ -907,15 +920,6 @@
                 max-height: 30vh;
             }
 
-            .content-header h1 {
-                font-size: 14px;
-            }
-
-            .header-btn {
-                padding: 5px 8px;
-                font-size: 12px;
-            }
-
             .content-body {
                 font-size: 15px;
             }
@@ -931,6 +935,7 @@
                     <button class="sidebar-hdr-btn" id="themeToggleBtn" title="Dark Mode">&#9680;</button>
                     <button class="syntax-highlight-btn" id="syntaxHighlightBtn" title="Syntax Highlight">{ }</button>
                     <button class="yt-toggle-btn" id="ytToggleBtn" title="YouTube Content">YT</button>
+                    <button class="audio-stop-btn" id="audioStopBtn" title="Stop Audio">&#9632;</button>
                 </div>
             </div>
             <div class="sidebar-list" id="sidebarList">
@@ -1032,6 +1037,7 @@
         const hljsThemeDark = document.getElementById('hljsThemeDark');
         const hljsThemeLight = document.getElementById('hljsThemeLight');
         const ytToggleBtn = document.getElementById('ytToggleBtn');
+        const audioStopBtn = document.getElementById('audioStopBtn');
         const youtubeView = document.getElementById('youtubeView');
         const ytPlayerContainer = document.getElementById('ytPlayerContainer');
         const ytVideoTitle = document.getElementById('ytVideoTitle');
@@ -1176,6 +1182,7 @@
 
             nowPlayingTitle.textContent = file.title;
             audioPlayer.classList.add('active');
+            audioStopBtn.style.display = 'inline-block';
 
             updateSidebarStyles();
         }
@@ -1186,6 +1193,7 @@
             audioElement.currentTime = 0;
             playingIndex = -1;
             audioPlayer.classList.remove('active');
+            audioStopBtn.style.display = 'none';
             updateSidebarStyles();
         }
 
@@ -1231,6 +1239,7 @@
         });
 
         stopBtn.addEventListener('click', stopAudio);
+        audioStopBtn.addEventListener('click', stopAudio);
 
         // Font size controls
         function updateFontSize(newSize) {

@@ -183,8 +183,13 @@ export function processFiles(files) {
     if (isImageFile(file.name)) {
       const blobUrl = URL.createObjectURL(file);
       const relativePathFromRoot = pathParts.length > 1 ? pathParts.slice(1).join('/') : file.name;
+      // Store multiple path variants to handle different markdown references
       imagePathToBlobUrl[relativePathFromRoot] = blobUrl;
       imagePathToBlobUrl['./' + relativePathFromRoot] = blobUrl;
+      // Also store URL-encoded versions (spaces as %20)
+      const encodedPath = relativePathFromRoot.replace(/ /g, '%20');
+      imagePathToBlobUrl[encodedPath] = blobUrl;
+      imagePathToBlobUrl['./' + encodedPath] = blobUrl;
     }
 
     if (pathParts.length <= 2) {

@@ -15,6 +15,7 @@ import os
 import re
 import argparse
 import json
+from urllib.parse import quote
 
 
 def natural_sort_key(s):
@@ -53,6 +54,38 @@ def filename_to_key(filename):
     # Keep alphanumeric, underscores, hyphens
     key = re.sub(r'[^a-zA-Z0-9_-]', '_', name)
     return key.lower()
+
+
+def rewrite_image_paths(content, input_dir):
+    """Rewrite relative image paths in markdown so they resolve from the HTML page.
+
+    Markdown files use paths relative to their own location (e.g., ./images/foo.png),
+    but when rendered in the browser, paths resolve relative to the HTML page which
+    is one level up. This prepends the input_dir to relative paths.
+
+    Also URL-encodes spaces and special characters so marked.js parses them correctly.
+    """
+    def rewrite_match(match):
+        alt = match.group(1)
+        path = match.group(2)
+        # Skip absolute URLs and data URIs
+        if re.match(r'^(https?://|data:|/)', path):
+            return match.group(0)
+        # Already starts with input_dir, just encode it
+        if path.startswith(input_dir):
+            encoded_path = quote(path, safe='/.%')
+            return f'![{alt}]({encoded_path})'
+        # Join with input_dir and normalize
+        new_path = os.path.normpath(os.path.join(input_dir, path))
+        # Ensure ./ prefix for consistency
+        if not new_path.startswith('.'):
+            new_path = './' + new_path
+        # URL-encode spaces and special chars (keep / . % safe)
+        encoded_path = quote(new_path, safe='/.%')
+        return f'![{alt}]({encoded_path})'
+
+    content = re.sub(r'!\[([^\]]*)\]\(([^)]+)\)', rewrite_match, content)
+    return content
 
 
 def extract_youtube_links(files_data):
@@ -162,6 +195,11 @@ def process_content_folder(input_dir, output_file):
             try:
                 with open(filepath, 'r', encoding='utf-8') as f:
                     file_entry['content'] = f.read()
+                # Rewrite relative image paths for markdown files
+                if file_type == 'markdown':
+                    file_entry['content'] = rewrite_image_paths(
+                        file_entry['content'], input_dir
+                    )
                 print(f"  [TEXT] {filename}")
             except Exception as e:
                 print(f"  [ERROR] {filename}: {e}")

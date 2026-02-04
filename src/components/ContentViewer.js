@@ -220,29 +220,41 @@ function ContentViewer({
           }
 
           if (file.type === 'markdown') {
-            // Process markdown images to use blob URLs
-            let processedText = text.replace(/!\[(.*?)\]\(([^)]+)\)/g, (match, alt, path) => {
-              const encodedPath = path.replace(/ /g, '%20');
-              return `![${alt}](${encodedPath})`;
-            });
+            // Process markdown images to use blob URLs before parsing
+            let processedText = text;
 
-            const html = marked.parse(processedText);
-
-            // Replace image src with blob URLs
-            let processedHtml = html;
             if (imagePathToBlobUrl) {
-              Object.keys(imagePathToBlobUrl).forEach(path => {
-                const encodedPath = path.replace(/ /g, '%20');
-                const regex = new RegExp(`src="${encodedPath}"`, 'g');
-                processedHtml = processedHtml.replace(regex, `src="${imagePathToBlobUrl[path]}"`);
+              // Replace image paths in markdown syntax with blob URLs directly
+              processedText = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, imgPath) => {
+                // Decode any URL encoding in the path
+                const decodedPath = decodeURIComponent(imgPath);
 
-                // Also try without encoding
-                const regex2 = new RegExp(`src="${path}"`, 'g');
-                processedHtml = processedHtml.replace(regex2, `src="${imagePathToBlobUrl[path]}"`);
+                // Try various path formats to find a match
+                const pathVariants = [
+                  decodedPath,
+                  imgPath,
+                  decodedPath.replace(/^\.\//, ''),
+                  imgPath.replace(/^\.\//, ''),
+                ];
+
+                for (const variant of pathVariants) {
+                  if (imagePathToBlobUrl[variant]) {
+                    return `![${alt}](${imagePathToBlobUrl[variant]})`;
+                  }
+                  // Also try with ./ prefix
+                  if (imagePathToBlobUrl['./' + variant]) {
+                    return `![${alt}](${imagePathToBlobUrl['./' + variant]})`;
+                  }
+                }
+
+                // No blob URL found, encode spaces for marked.js
+                const encodedPath = imgPath.replace(/ /g, '%20');
+                return `![${alt}](${encodedPath})`;
               });
             }
 
-            setMarkdownHtml(processedHtml);
+            const html = marked.parse(processedText);
+            setMarkdownHtml(html);
             setTextContent(text);
           } else {
             setTextContent(text);

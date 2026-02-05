@@ -285,3 +285,78 @@ export function processFiles(files) {
     error: null
   };
 }
+
+// Process Dropbox folder entries into gallery items (lazy download — url: null)
+export function processDropboxFolder(entries, folderPath) {
+  // Filter for valid, non-folder files
+  const validEntries = entries.filter(e => !e.isFolder && isValidFile(e.name));
+
+  if (validEntries.length === 0) {
+    return { files: [], imagePathToBlobUrl: {}, error: 'No valid files found in this Dropbox folder.' };
+  }
+
+  // Natural sort
+  validEntries.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+  );
+
+  // Group by subfolder relative to folderPath
+  const filesByFolder = {};
+  const rootFiles = [];
+
+  validEntries.forEach(entry => {
+    // entry.path is e.g. /folder/sub/file.txt, folderPath is e.g. /folder
+    const relative = entry.path.slice(folderPath.length).replace(/^\//, '');
+    const parts = relative.split('/');
+    if (parts.length <= 1) {
+      rootFiles.push(entry);
+    } else {
+      const subFolder = parts.slice(0, -1).join('/');
+      if (!filesByFolder[subFolder]) filesByFolder[subFolder] = [];
+      filesByFolder[subFolder].push(entry);
+    }
+  });
+
+  const galleryItems = [];
+  let itemIndex = 0;
+
+  const folderNames = Object.keys(filesByFolder).sort((a, b) =>
+    a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
+  );
+
+  // Add root files
+  if (rootFiles.length > 0) {
+    if (folderNames.length > 0) {
+      galleryItems.push({ key: './', type: 'divider', url: null });
+    }
+    rootFiles.forEach(entry => {
+      const displayName = getDisplayName(entry.name);
+      const fileType = getFileType(entry.name);
+      galleryItems.push({
+        key: `${++itemIndex}_${displayName}`,
+        type: fileType,
+        url: null,
+        dropboxPath: entry.path,
+        originalName: entry.name,
+      });
+    });
+  }
+
+  // Add subfolder files
+  folderNames.forEach(folderName => {
+    galleryItems.push({ key: folderName, type: 'divider', url: null });
+    filesByFolder[folderName].forEach(entry => {
+      const displayName = getDisplayName(entry.name);
+      const fileType = getFileType(entry.name);
+      galleryItems.push({
+        key: `${++itemIndex}_${displayName}`,
+        type: fileType,
+        url: null,
+        dropboxPath: entry.path,
+        originalName: entry.name,
+      });
+    });
+  });
+
+  return { files: galleryItems, imagePathToBlobUrl: {}, error: null };
+}

@@ -30,7 +30,9 @@ function ControlBar({
   onAudioStop,
   // Sidebar props
   showSidebar,
-  onToggleSidebar
+  onToggleSidebar,
+  // Dropbox props
+  onOpenDropbox
 }) {
   const { isRecording, isProcessing, startRecording, stopRecording } = useAudioRecorder();
   const folderInputRef = useRef(null);
@@ -178,6 +180,13 @@ function ControlBar({
         onClick={() => fileInputRef.current?.click()}
       >
         Select Files
+      </button>
+
+      <button
+        className="dropbox-btn"
+        onClick={onOpenDropbox}
+      >
+        Dropbox
       </button>
 
       <input

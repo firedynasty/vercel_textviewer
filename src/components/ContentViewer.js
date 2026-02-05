@@ -61,6 +61,8 @@ function ContentViewer({
       return;
     }
 
+    if (!file.url) return; // Dropbox file not yet downloaded
+
     setLoading(true);
     pdfjsLib.getDocument(file.url).promise.then(pdf => {
       setPdfDoc(pdf);
@@ -84,22 +86,30 @@ function ContentViewer({
   useEffect(() => {
     if (!pdfDoc || !canvasRef.current || !pdfState || pdfState.thumbnailMode) return;
 
+    let renderTask = null;
+    let cancelled = false;
+
     const renderPage = async () => {
       const page = await pdfDoc.getPage(pdfState.currentPage);
+      if (cancelled) return;
+
       const viewport = page.getViewport({
         scale: pdfState.scale,
         rotation: pdfState.rotation || 0
       });
 
       const canvas = canvasRef.current;
+      if (!canvas) return;
       const context = canvas.getContext('2d');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      await page.render({
+      renderTask = page.render({
         canvasContext: context,
         viewport: viewport
-      }).promise;
+      });
+
+      await renderTask.promise;
 
       // Scroll to top when page changes
       if (pdfContainerRef.current) {
@@ -107,7 +117,12 @@ function ContentViewer({
       }
     };
 
-    renderPage();
+    renderPage().catch(() => {});
+
+    return () => {
+      cancelled = true;
+      if (renderTask) renderTask.cancel();
+    };
   }, [pdfDoc, pdfState]);
 
   // Keyboard handler for PDF - spacebar scrolls down, then next page at bottom
@@ -210,6 +225,7 @@ function ContentViewer({
     if (!file || file.type === 'divider' || file.type === 'pdf') return;
 
     if (file.type === 'text' || file.type === 'rtf' || file.type === 'markdown') {
+      if (!file.url) return; // Dropbox file not yet downloaded
       setLoading(true);
       fetch(file.url)
         .then(res => res.text())

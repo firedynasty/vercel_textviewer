@@ -3,7 +3,9 @@ import Sidebar from './components/Sidebar';
 import ContentViewer from './components/ContentViewer';
 import ControlBar from './components/ControlBar';
 import CloudNotes from './components/CloudNotes';
-import { processFiles } from './utils/fileUtils';
+import DropboxBrowser from './components/DropboxBrowser';
+import { processFiles, processDropboxFolder } from './utils/fileUtils';
+import { useDropbox } from './hooks/useDropbox';
 
 function TextViewer() {
   const [files, setFiles] = useState([]);
@@ -13,6 +15,7 @@ function TextViewer() {
   const [darkMode, setDarkMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [cloudNotesOpen, setCloudNotesOpen] = useState(false);
+  const [dropboxBrowserOpen, setDropboxBrowserOpen] = useState(false);
 
   const [editContent, setEditContent] = useState('');
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
@@ -34,6 +37,9 @@ function TextViewer() {
 
   // Sidebar visibility state
   const [showSidebar, setShowSidebar] = useState(true);
+
+  // Dropbox hook
+  const dropbox = useDropbox();
 
   const currentFile = files[currentIndex] || null;
   const displayedFile = files[displayedFileIndex] || null;
@@ -62,6 +68,46 @@ function TextViewer() {
     setPdfState(null); // Reset PDF state when loading new files
   }, []);
 
+  const handleDropboxFolderSelected = useCallback((entries, folderPath) => {
+    const result = processDropboxFolder(entries, folderPath);
+
+    if (result.error) {
+      alert(result.error);
+      return;
+    }
+
+    const firstDisplayableIndex = result.files.findIndex(
+      f => f.type !== 'audio' && f.type !== 'divider'
+    );
+
+    setFiles(result.files);
+    setImagePathToBlobUrl(result.imagePathToBlobUrl || {});
+    setCurrentIndex(0);
+    setDisplayedFileIndex(firstDisplayableIndex >= 0 ? firstDisplayableIndex : 0);
+    setCurrentAudioIndex(null);
+    setIsAudioPlaying(false);
+    setIsEditing(false);
+    setEditContent('');
+    setPdfState(null);
+    setDropboxBrowserOpen(false);
+  }, []);
+
+  // Lazy-download a Dropbox file if it hasn't been fetched yet
+  const ensureFileDownloaded = useCallback(async (index) => {
+    const file = files[index];
+    if (!file || file.url !== null || !file.dropboxPath) return;
+
+    const blob = await dropbox.downloadFile(file.dropboxPath);
+    if (!blob) return;
+
+    const blobUrl = URL.createObjectURL(blob);
+    setFiles(prevFiles => {
+      const updated = [...prevFiles];
+      updated[index] = { ...updated[index], url: blobUrl };
+      return updated;
+    });
+  }, [files, dropbox]);
+
   const handleFileSelect = useCallback((index) => {
     const selectedFile = files[index];
 
@@ -79,8 +125,9 @@ function TextViewer() {
     setCurrentIndex(index);
     setIsEditing(false);
     setEditContent('');
-    setPdfState(null); // Reset PDF state when changing files
-  }, [isEditing, files]);
+    setPdfState(null);
+    ensureFileDownloaded(index);
+  }, [isEditing, files, ensureFileDownloaded]);
 
   const handlePrev = useCallback(() => {
     if (files.length === 0) return;
@@ -95,7 +142,8 @@ function TextViewer() {
       setIsEditing(false);
     }
     setCurrentIndex(nextIndex);
-  }, [files, currentIndex, isEditing]);
+    ensureFileDownloaded(nextIndex);
+  }, [files, currentIndex, isEditing, ensureFileDownloaded]);
 
   const handleNext = useCallback(() => {
     if (files.length === 0) return;
@@ -110,7 +158,8 @@ function TextViewer() {
       setIsEditing(false);
     }
     setCurrentIndex(nextIndex);
-  }, [files, currentIndex, isEditing]);
+    ensureFileDownloaded(nextIndex);
+  }, [files, currentIndex, isEditing, ensureFileDownloaded]);
 
   const handleFontSizeChange = useCallback((delta) => {
     setFontSize((prev) => Math.max(10, Math.min(40, prev + delta)));
@@ -336,6 +385,14 @@ function TextViewer() {
     }
   }, [currentIndex, currentFile]);
 
+  // Auto-open Dropbox browser after OAuth redirect
+  useEffect(() => {
+    if (dropbox.isAuthenticated && sessionStorage.getItem('dropbox_pending_browse')) {
+      sessionStorage.removeItem('dropbox_pending_browse');
+      setDropboxBrowserOpen(true);
+    }
+  }, [dropbox.isAuthenticated]);
+
   const currentAudioFile = currentAudioIndex !== null ? files[currentAudioIndex] : null;
 
   return (
@@ -376,6 +433,7 @@ function TextViewer() {
           isAudioPlaying={isAudioPlaying}
           onAudioPlayPause={handleAudioPlayPause}
           onAudioStop={handleAudioStop}
+          onOpenDropbox={() => setDropboxBrowserOpen(true)}
         />
 
         <ContentViewer
@@ -400,6 +458,13 @@ function TextViewer() {
       <CloudNotes
         isOpen={cloudNotesOpen}
         onClose={() => setCloudNotesOpen(false)}
+      />
+
+      <DropboxBrowser
+        isOpen={dropboxBrowserOpen}
+        onClose={() => setDropboxBrowserOpen(false)}
+        onFolderSelected={handleDropboxFolderSelected}
+        dropbox={dropbox}
       />
 
       {/* Reading Guide Ruler */}

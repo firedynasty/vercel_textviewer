@@ -35,6 +35,9 @@ function TextViewer() {
   // Syntax highlighting state
   const [syntaxHighlightEnabled, setSyntaxHighlightEnabled] = useState(false);
 
+  // Slideshow state
+  const [slideshowEnabled, setSlideshowEnabled] = useState(false);
+
   // Sidebar visibility state
   const [showSidebar, setShowSidebar] = useState(true);
 
@@ -386,6 +389,32 @@ function TextViewer() {
     }
   }, [currentIndex, currentFile]);
 
+  // Slideshow: cycle through image files on a timer
+  useEffect(() => {
+    if (!slideshowEnabled || files.length === 0) return;
+
+    // Collect indices of image files
+    const imageIndices = files
+      .map((f, i) => (f.type === 'image' ? i : -1))
+      .filter(i => i !== -1);
+
+    if (imageIndices.length < 2) return;
+
+    const interval = setInterval(() => {
+      setCurrentIndex(prev => {
+        const currentPos = imageIndices.indexOf(prev);
+        const nextPos = (currentPos + 1) % imageIndices.length;
+        // If current isn't an image, start from the first image
+        if (currentPos === -1) return imageIndices[0];
+        const nextIdx = imageIndices[nextPos];
+        ensureFileDownloaded(nextIdx);
+        return nextIdx;
+      });
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, [slideshowEnabled, files, ensureFileDownloaded]);
+
   // Auto-open Dropbox browser after OAuth redirect
   useEffect(() => {
     if (dropbox.isAuthenticated && sessionStorage.getItem('dropbox_pending_browse')) {
@@ -435,6 +464,9 @@ function TextViewer() {
           onAudioPlayPause={handleAudioPlayPause}
           onAudioStop={handleAudioStop}
           onOpenDropbox={() => setDropboxBrowserOpen(true)}
+          slideshowEnabled={slideshowEnabled}
+          onToggleSlideshow={() => setSlideshowEnabled(prev => !prev)}
+          hasImages={files.some(f => f.type === 'image')}
         />
 
         <ContentViewer

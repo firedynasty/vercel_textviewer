@@ -29,7 +29,11 @@ function ControlBar({
   showSidebar,
   onToggleSidebar,
   // Dropbox props
-  onOpenDropbox
+  onOpenDropbox,
+  // Slideshow props
+  slideshowEnabled,
+  onToggleSlideshow,
+  hasImages
 }) {
   const { isRecording, isProcessing, startRecording, stopRecording } = useAudioRecorder();
   const folderInputRef = useRef(null);
@@ -378,6 +382,23 @@ function ControlBar({
         {isRecording && <span className="recording-indicator">REC</span>}
         {isProcessing && <span className="processing-indicator">Saving...</span>}
       </div>
+
+      {/* Slideshow Toggle */}
+      {hasImages && (
+        <div className="slideshow-controls">
+          <label className="slideshow-switch">
+            <input
+              type="checkbox"
+              checked={slideshowEnabled}
+              onChange={onToggleSlideshow}
+            />
+            <span className="slideshow-slider"></span>
+          </label>
+          <span className="slideshow-label">
+            {slideshowEnabled ? 'Slideshow ON' : 'Slideshow'}
+          </span>
+        </div>
+      )}
 
       {/* Audio Player Controls */}
       {audioFile && (

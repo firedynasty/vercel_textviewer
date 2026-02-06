@@ -169,19 +169,20 @@ function TextViewer() {
     setDarkMode((prev) => !prev);
   }, []);
 
-  const handleEdit = useCallback(() => {
-    if (!displayedFile || (displayedFile.type !== 'text' && displayedFile.type !== 'markdown')) return;
+  const handleCopyContent = useCallback(() => {
+    if (!displayedFile || (displayedFile.type !== 'text' && displayedFile.type !== 'rtf' && displayedFile.type !== 'markdown')) return;
 
-    // Fetch current content
     fetch(displayedFile.url)
       .then(res => res.text())
       .then(text => {
-        setEditContent(text);
-        setIsEditing(true);
+        navigator.clipboard.writeText(text).then(() => {
+          // Brief visual feedback could be added here
+        }).catch(err => {
+          console.error('Failed to copy:', err);
+        });
       })
       .catch(err => {
-        console.error('Error loading file for edit:', err);
-        alert('Error loading file for editing');
+        console.error('Error loading file for copy:', err);
       });
   }, [displayedFile]);
 
@@ -417,7 +418,7 @@ function TextViewer() {
           darkMode={darkMode}
           onDarkModeToggle={handleDarkModeToggle}
           isEditing={isEditing}
-          onEdit={handleEdit}
+          onCopyContent={handleCopyContent}
           onSave={handleSave}
           onCancel={handleCancel}
           onFilesLoaded={handleFilesLoaded}

@@ -7,10 +7,7 @@ function ControlBar({
   onFontSizeChange,
   darkMode,
   onDarkModeToggle,
-  isEditing,
-  onEdit,
-  onSave,
-  onCancel,
+  onCopyContent,
   onFilesLoaded,
   onOpenCloudNotes,
   // PDF props
@@ -141,7 +138,7 @@ function ControlBar({
 
   const isPdf = currentFile && currentFile.type === 'pdf';
   const isMarkdown = currentFile && currentFile.type === 'markdown';
-  const canEdit = currentFile && (currentFile.type === 'text' || currentFile.type === 'rtf' || currentFile.type === 'markdown');
+  const canCopy = currentFile && (currentFile.type === 'text' || currentFile.type === 'rtf' || currentFile.type === 'markdown');
 
   return (
     <div className="control-bar">
@@ -198,28 +195,22 @@ function ControlBar({
         onChange={handleFileSelect}
       />
 
-      {/* Edit controls - hide for PDF */}
+      {/* Copy content button - hide for PDF */}
       {!isPdf && (
         <div className="edit-controls">
-          {!isEditing ? (
-            <button
-              className="edit-btn"
-              onClick={onEdit}
-              disabled={!canEdit}
-            >
-              Edit
-            </button>
-          ) : (
-            <>
-              <button className="save-btn" onClick={onSave}>Save</button>
-              <button className="cancel-btn" onClick={onCancel}>Cancel</button>
-            </>
-          )}
+          <button
+            className="edit-btn"
+            onClick={onCopyContent}
+            disabled={!canCopy}
+            title="Copy file contents to clipboard"
+          >
+            Copy
+          </button>
         </div>
       )}
 
       {/* Syntax Highlight button for markdown files */}
-      {isMarkdown && !isEditing && (
+      {isMarkdown && (
         <button
           className={`syntax-highlight-btn ${syntaxHighlightEnabled ? 'active' : ''}`}
           onClick={onToggleSyntaxHighlight}

@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import ContentViewer from './components/ContentViewer';
 import ControlBar from './components/ControlBar';
-import CloudNotes from './components/CloudNotes';
 import DropboxBrowser from './components/DropboxBrowser';
-import { processFiles, processDropboxFolder } from './utils/fileUtils';
+import { processFiles, processDropboxFolder, extractHashtags, isTextFile, isMarkdownFile } from './utils/fileUtils';
 import { useDropbox } from './hooks/useDropbox';
 
 function TextViewer() {
@@ -14,7 +13,6 @@ function TextViewer() {
   const [fontSize, setFontSize] = useState(18);
   const [darkMode, setDarkMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [cloudNotesOpen, setCloudNotesOpen] = useState(false);
   const [dropboxBrowserOpen, setDropboxBrowserOpen] = useState(false);
   const [dropboxRecursiveOpen, setDropboxRecursiveOpen] = useState(false);
 
@@ -30,8 +28,9 @@ function TextViewer() {
   const [pdfState, setPdfState] = useState(null);
   const [pdfDocument, setPdfDocument] = useState(null);
 
-  // Reading aids state
-  const [readingAidsEnabled, setReadingAidsEnabled] = useState(false);
+  // Tag filter state
+  const [fileTags, setFileTags] = useState({}); // { fileIndex: ['tag1', 'tag2'] }
+  const [activeTagFilter, setActiveTagFilter] = useState(null);
 
   // Syntax highlighting state
   const [syntaxHighlightEnabled, setSyntaxHighlightEnabled] = useState(false);
@@ -47,6 +46,19 @@ function TextViewer() {
 
   const currentFile = files[currentIndex] || null;
   const displayedFile = files[displayedFileIndex] || null;
+
+  // Derive sorted unique tags with counts from fileTags
+  const allTags = useMemo(() => {
+    const tagCounts = {};
+    Object.values(fileTags).forEach(tags => {
+      tags.forEach(tag => {
+        tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+      });
+    });
+    return Object.entries(tagCounts)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([tag, count]) => ({ tag, count }));
+  }, [fileTags]);
 
   const handleFilesLoaded = useCallback((fileList) => {
     const result = processFiles(fileList);
@@ -69,7 +81,25 @@ function TextViewer() {
     setIsAudioPlaying(false);
     setIsEditing(false);
     setEditContent('');
-    setPdfState(null); // Reset PDF state when loading new files
+    setPdfState(null);
+    setFileTags({});
+    setActiveTagFilter(null);
+
+    // Async scan text/md files for hashtags
+    const loadedFiles = result.files;
+    loadedFiles.forEach((file, index) => {
+      if (file.url && file.originalName && (isTextFile(file.originalName) || isMarkdownFile(file.originalName))) {
+        fetch(file.url)
+          .then(res => res.text())
+          .then(text => {
+            const tags = extractHashtags(text);
+            if (tags.length > 0) {
+              setFileTags(prev => ({ ...prev, [index]: tags }));
+            }
+          })
+          .catch(() => {});
+      }
+    });
   }, []);
 
   const handleDropboxFolderSelected = useCallback((entries, folderPath) => {
@@ -93,6 +123,8 @@ function TextViewer() {
     setIsEditing(false);
     setEditContent('');
     setPdfState(null);
+    setFileTags({});
+    setActiveTagFilter(null);
     setDropboxBrowserOpen(false);
   }, []);
 
@@ -110,6 +142,16 @@ function TextViewer() {
       updated[index] = { ...updated[index], url: blobUrl };
       return updated;
     });
+
+    // Extract tags from downloaded text/md files
+    if (file.originalName && (isTextFile(file.originalName) || isMarkdownFile(file.originalName))) {
+      blob.text().then(text => {
+        const tags = extractHashtags(text);
+        if (tags.length > 0) {
+          setFileTags(prev => ({ ...prev, [index]: tags }));
+        }
+      }).catch(() => {});
+    }
   }, [files, dropbox]);
 
   const handleFileSelect = useCallback((index) => {
@@ -335,21 +377,6 @@ function TextViewer() {
     };
   }, []);
 
-  // Reading guide mouse tracking
-  useEffect(() => {
-    if (!readingAidsEnabled) return;
-
-    const handleMouseMove = (e) => {
-      const guide = document.getElementById('reading-guide');
-      if (guide) {
-        guide.style.top = e.clientY + 'px';
-      }
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [readingAidsEnabled]);
-
   // Handle audio ended event
   useEffect(() => {
     const audio = audioRef.current;
@@ -436,6 +463,8 @@ function TextViewer() {
         currentAudioIndex={currentAudioIndex}
         isOpen={showSidebar}
         onClose={() => setShowSidebar(false)}
+        activeTagFilter={activeTagFilter}
+        fileTags={fileTags}
       />
 
       <div className="main-content">
@@ -452,12 +481,9 @@ function TextViewer() {
           onSave={handleSave}
           onCancel={handleCancel}
           onFilesLoaded={handleFilesLoaded}
-          onOpenCloudNotes={() => setCloudNotesOpen(true)}
           pdfState={pdfState}
           onPdfStateChange={setPdfState}
           onCopyPageText={handleCopyPageText}
-          readingAidsEnabled={readingAidsEnabled}
-          onToggleReadingAids={() => setReadingAidsEnabled(prev => !prev)}
           syntaxHighlightEnabled={syntaxHighlightEnabled}
           onToggleSyntaxHighlight={() => setSyntaxHighlightEnabled(prev => !prev)}
           audioFile={currentAudioFile}
@@ -469,6 +495,9 @@ function TextViewer() {
           slideshowEnabled={slideshowEnabled}
           onToggleSlideshow={() => setSlideshowEnabled(prev => !prev)}
           hasImages={files.some(f => f.type === 'image')}
+          allTags={allTags}
+          activeTagFilter={activeTagFilter}
+          onTagFilterChange={setActiveTagFilter}
         />
 
         <ContentViewer
@@ -490,11 +519,6 @@ function TextViewer() {
         <audio ref={audioRef} style={{ display: 'none' }} />
       </div>
 
-      <CloudNotes
-        isOpen={cloudNotesOpen}
-        onClose={() => setCloudNotesOpen(false)}
-      />
-
       <DropboxBrowser
         isOpen={dropboxBrowserOpen}
         onClose={() => setDropboxBrowserOpen(false)}
@@ -510,14 +534,6 @@ function TextViewer() {
         recursive
       />
 
-      {/* Reading Guide Ruler */}
-      {readingAidsEnabled && (
-        <div
-          id="reading-guide"
-          className="reading-guide"
-          style={{ display: 'block' }}
-        />
-      )}
     </div>
   );
 }

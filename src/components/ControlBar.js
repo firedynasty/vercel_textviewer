@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 
 function ControlBar({
@@ -9,14 +9,10 @@ function ControlBar({
   onDarkModeToggle,
   onCopyContent,
   onFilesLoaded,
-  onOpenCloudNotes,
   // PDF props
   pdfState,
   onPdfStateChange,
   onCopyPageText,
-  // Reading aids props
-  readingAidsEnabled,
-  onToggleReadingAids,
   // Syntax highlight props
   syntaxHighlightEnabled,
   onToggleSyntaxHighlight,
@@ -34,12 +30,23 @@ function ControlBar({
   // Slideshow props
   slideshowEnabled,
   onToggleSlideshow,
-  hasImages
+  hasImages,
+  // Tag filter props
+  allTags,
+  activeTagFilter,
+  onTagFilterChange,
 }) {
   const { isRecording, isProcessing, startRecording, stopRecording } = useAudioRecorder();
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
   const pageInputRef = useRef(null);
+  const [tagSearch, setTagSearch] = useState('');
+
+  const filteredTags = allTags && allTags.length > 0
+    ? (tagSearch
+        ? allTags.filter(t => t.tag.includes(tagSearch.toLowerCase()))
+        : allTags)
+    : [];
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -351,20 +358,6 @@ function ControlBar({
         >
           {darkMode ? '☀' : '☾'}
         </button>
-        <button
-          className="cloud-notes-btn"
-          onClick={onOpenCloudNotes}
-          title="Cloud Notes"
-        >
-          ☁️
-        </button>
-        <button
-          className={`reading-aids-btn ${readingAidsEnabled ? 'active' : ''}`}
-          onClick={onToggleReadingAids}
-          title="Toggle Reading Ruler"
-        >
-          {readingAidsEnabled ? '📏' : '📐'}
-        </button>
       </div>
 
       {/* Audio Recording Controls */}
@@ -390,6 +383,32 @@ function ControlBar({
         {isRecording && <span className="recording-indicator">REC</span>}
         {isProcessing && <span className="processing-indicator">Saving...</span>}
       </div>
+
+      {/* Tag Filter */}
+      {filteredTags.length > 0 && (
+        <div className="tag-filter-section">
+          <input
+            className="tag-search-input"
+            type="text"
+            placeholder="Filter tags..."
+            value={tagSearch}
+            onChange={(e) => setTagSearch(e.target.value)}
+          />
+          <div className="tag-chips">
+            {filteredTags.map(({ tag, count }) => (
+              <button
+                key={tag}
+                className={`tag-chip ${activeTagFilter === tag ? 'active' : ''}`}
+                onClick={() => onTagFilterChange(activeTagFilter === tag ? null : tag)}
+                title={`${count} file${count > 1 ? 's' : ''}`}
+              >
+                #{tag}
+                <span className="tag-count">{count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Slideshow Toggle */}
       {hasImages && (

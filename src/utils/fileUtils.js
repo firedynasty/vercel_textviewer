@@ -158,6 +158,22 @@ export function rtfToPlainText(rtf) {
   return text;
 }
 
+// Extract #hashtags from text content
+export function extractHashtags(text) {
+  if (!text) return [];
+  const tags = new Set();
+  const lines = text.split('\n');
+  for (const line of lines) {
+    // Skip markdown headings (lines starting with # followed by space)
+    if (/^#{1,6}\s/.test(line.trimStart())) continue;
+    const matches = line.matchAll(/#([a-zA-Z][\w-]*)/g);
+    for (const match of matches) {
+      tags.add(match[1].toLowerCase());
+    }
+  }
+  return Array.from(tags);
+}
+
 // Process files from drag-drop or folder input
 export function processFiles(files) {
   const filesArray = Array.from(files);

@@ -1546,6 +1546,86 @@ body {
   white-space: nowrap;
 }
 
+/* Tag Filter Section */
+.tag-filter-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  margin-left: 10px;
+  flex-wrap: wrap;
+}
+
+.tag-search-input {
+  width: 100px;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  font-size: 12px;
+}
+
+.tag-search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.tag-search-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.8);
+}
+
+.tag-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 400px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.tag-chip:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.tag-chip.active {
+  background: rgba(59, 130, 246, 0.8);
+  border-color: rgba(59, 130, 246, 1);
+  color: white;
+}
+
+.tag-chip.active:hover {
+  background: rgba(59, 130, 246, 0.9);
+}
+
+.tag-count {
+  font-size: 10px;
+  opacity: 0.7;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0 4px;
+  border-radius: 8px;
+  min-width: 14px;
+  text-align: center;
+}
+
+.tag-chip.active .tag-count {
+  background: rgba(255, 255, 255, 0.25);
+}
+
 /* Dropbox Button */
 .dropbox-btn {
   background: rgba(0, 97, 255, 0.9);

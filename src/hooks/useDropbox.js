@@ -186,6 +186,61 @@ export function useDropbox() {
     }
   }, [accessToken]);
 
+  const listFolderRecursive = useCallback(async (path) => {
+    if (!accessToken) return [];
+
+    setStatus('Loading all subfolders...');
+    try {
+      let allEntries = [];
+      let hasMore = true;
+      let cursor = null;
+
+      // Dropbox API supports recursive: true to list all nested contents
+      while (hasMore) {
+        const url = cursor
+          ? 'https://api.dropboxapi.com/2/files/list_folder/continue'
+          : 'https://api.dropboxapi.com/2/files/list_folder';
+        const body = cursor ? { cursor } : { path, recursive: true };
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) throw new Error('Failed to list folder');
+
+        const data = await response.json();
+        const entries = (data.entries || []).map((entry) => ({
+          name: entry.name,
+          path: entry.path_lower || entry.path_display,
+          isFolder: entry['.tag'] === 'folder',
+        }));
+
+        allEntries = allEntries.concat(entries);
+        hasMore = data.has_more;
+        cursor = data.cursor;
+
+        setStatus(`Loading... ${allEntries.length} items found`);
+      }
+
+      // Sort: folders first, then files, alphabetical within each
+      allEntries.sort((a, b) => {
+        if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      setStatus(`Loaded ${allEntries.length} items (recursive)`);
+      return allEntries;
+    } catch (error) {
+      setStatus('Error: ' + error.message);
+      return [];
+    }
+  }, [accessToken]);
+
   const downloadFile = useCallback(async (dropboxPath) => {
     if (!accessToken) return null;
 
@@ -215,6 +270,7 @@ export function useDropbox() {
     signOut,
     searchFolders,
     listFolder,
+    listFolderRecursive,
     downloadFile,
   };
 }

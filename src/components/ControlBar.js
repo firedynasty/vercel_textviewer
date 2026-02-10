@@ -30,6 +30,7 @@ function ControlBar({
   onToggleSidebar,
   // Dropbox props
   onOpenDropbox,
+  onOpenDropboxRecursive,
   // Slideshow props
   slideshowEnabled,
   onToggleSlideshow,
@@ -188,6 +189,13 @@ function ControlBar({
         onClick={onOpenDropbox}
       >
         Dropbox
+      </button>
+
+      <button
+        className="dropbox-btn"
+        onClick={onOpenDropboxRecursive}
+      >
+        DB-recursive
       </button>
 
       <input

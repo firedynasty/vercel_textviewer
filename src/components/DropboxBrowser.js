@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 
-function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox }) {
+function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [folderContents, setFolderContents] = useState([]);
@@ -49,11 +49,19 @@ function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox }) {
     onClose();
   }, [onClose]);
 
-  const handleLoadFolder = useCallback(() => {
+  const handleLoadFolder = useCallback(async () => {
     if (folderContents.length === 0) return;
-    onFolderSelected(folderContents, currentPath);
+
+    if (recursive && dropbox.listFolderRecursive) {
+      setLoading(true);
+      const allEntries = await dropbox.listFolderRecursive(currentPath);
+      setLoading(false);
+      onFolderSelected(allEntries, currentPath);
+    } else {
+      onFolderSelected(folderContents, currentPath);
+    }
     handleClose();
-  }, [folderContents, currentPath, onFolderSelected, handleClose]);
+  }, [folderContents, currentPath, onFolderSelected, handleClose, recursive, dropbox]);
 
   if (!isOpen) return null;
 
@@ -147,7 +155,7 @@ function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox }) {
                     className="dropbox-browser-load-btn"
                     onClick={handleLoadFolder}
                   >
-                    Load This Folder ({folderContents.filter(e => !e.isFolder).length} files)
+                    {recursive ? 'Load All Subfolders' : 'Load This Folder'} ({folderContents.filter(e => !e.isFolder).length} files)
                   </button>
                 </div>
               </>

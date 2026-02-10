@@ -16,6 +16,7 @@ function TextViewer() {
   const [isEditing, setIsEditing] = useState(false);
   const [cloudNotesOpen, setCloudNotesOpen] = useState(false);
   const [dropboxBrowserOpen, setDropboxBrowserOpen] = useState(false);
+  const [dropboxRecursiveOpen, setDropboxRecursiveOpen] = useState(false);
 
   const [editContent, setEditContent] = useState('');
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
@@ -464,6 +465,7 @@ function TextViewer() {
           onAudioPlayPause={handleAudioPlayPause}
           onAudioStop={handleAudioStop}
           onOpenDropbox={() => setDropboxBrowserOpen(true)}
+          onOpenDropboxRecursive={() => setDropboxRecursiveOpen(true)}
           slideshowEnabled={slideshowEnabled}
           onToggleSlideshow={() => setSlideshowEnabled(prev => !prev)}
           hasImages={files.some(f => f.type === 'image')}
@@ -498,6 +500,14 @@ function TextViewer() {
         onClose={() => setDropboxBrowserOpen(false)}
         onFolderSelected={handleDropboxFolderSelected}
         dropbox={dropbox}
+      />
+
+      <DropboxBrowser
+        isOpen={dropboxRecursiveOpen}
+        onClose={() => setDropboxRecursiveOpen(false)}
+        onFolderSelected={handleDropboxFolderSelected}
+        dropbox={dropbox}
+        recursive
       />
 
       {/* Reading Guide Ruler */}

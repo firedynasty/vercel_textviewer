@@ -402,7 +402,7 @@ function ControlBar({
                 onClick={() => onTagFilterChange(activeTagFilter === tag ? null : tag)}
                 title={`${count} file${count > 1 ? 's' : ''}`}
               >
-                #{tag}
+                ${tag}
                 <span className="tag-count">{count}</span>
               </button>
             ))}

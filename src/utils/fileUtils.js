@@ -166,7 +166,7 @@ export function extractHashtags(text) {
   for (const line of lines) {
     // Skip markdown headings (lines starting with # followed by space)
     if (/^#{1,6}\s/.test(line.trimStart())) continue;
-    const matches = line.matchAll(/#([a-zA-Z][\w-]*)/g);
+    const matches = line.matchAll(/\$([a-zA-Z][\w-]*)/g);
     for (const match of matches) {
       tags.add(match[1].toLowerCase());
     }

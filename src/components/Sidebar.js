@@ -16,7 +16,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudi
     if (!activeTagFilter) return true;
     if (file.type === 'divider') return false; // hide dividers when filtering
     const tags = fileTags && fileTags[index];
-    if (!tags) return true; // unscanned files remain visible
+    if (!tags) return false; // hide files without tags when filtering
     return tags.includes(activeTagFilter);
   };
 
@@ -26,7 +26,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudi
     <div className="sidebar">
       <div className="sidebar-header">
         <span className="sidebar-header-title">
-          Files{activeTagFilter ? ` #${activeTagFilter}` : ''}
+          Files{activeTagFilter ? ` $${activeTagFilter}` : ''}
         </span>
         <button className="sidebar-close-btn" onClick={onClose} title="Close sidebar">
           &times;

@@ -2,8 +2,10 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
-import { rtfToPlainText, isRtfFile } from '../utils/fileUtils';
+import { rtfToPlainText, isRtfFile, parseCsv } from '../utils/fileUtils';
 import * as pdfjsLib from 'pdfjs-dist';
+import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
 
 // Configure PDF.js worker - use unpkg to match the installed version
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
@@ -27,6 +29,10 @@ function ContentViewer({
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
   const [loading, setLoading] = useState(false);
+  const [tableData, setTableData] = useState(null);
+  const [sheetPickerOpen, setSheetPickerOpen] = useState(false);
+  const [sheetNames, setSheetNames] = useState([]);
+  const [pendingWorkbook, setPendingWorkbook] = useState(null);
 
   // PDF state
   const canvasRef = useRef(null);
@@ -43,7 +49,7 @@ function ContentViewer({
       const timer = setTimeout(() => {
         if (file.type === 'pdf' && pdfContainerRef.current) {
           pdfContainerRef.current.focus();
-        } else if ((file.type === 'text' || file.type === 'rtf') && textPreviewRef.current) {
+        } else if ((file.type === 'text' || file.type === 'rtf' || file.type === 'docx') && textPreviewRef.current) {
           textPreviewRef.current.focus();
         } else if (file.type === 'markdown' && markdownPreviewRef.current) {
           markdownPreviewRef.current.focus();
@@ -224,6 +230,12 @@ function ContentViewer({
   useEffect(() => {
     if (!file || file.type === 'divider' || file.type === 'pdf') return;
 
+    // Reset table state when switching files
+    setTableData(null);
+    setSheetPickerOpen(false);
+    setSheetNames([]);
+    setPendingWorkbook(null);
+
     if (file.type === 'text' || file.type === 'rtf' || file.type === 'markdown') {
       if (!file.url) return; // Dropbox file not yet downloaded
       setLoading(true);
@@ -282,6 +294,55 @@ function ContentViewer({
           setTextContent('Error loading file');
           setLoading(false);
         });
+    } else if (file.type === 'docx') {
+      if (!file.url) return;
+      setLoading(true);
+      fetch(file.url)
+        .then(res => res.arrayBuffer())
+        .then(arrayBuffer => mammoth.extractRawText({ arrayBuffer }))
+        .then(result => {
+          setTextContent(result.value);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('Error loading DOCX:', err);
+          setTextContent('Error loading DOCX file');
+          setLoading(false);
+        });
+    } else if (file.type === 'csv') {
+      if (!file.url) return;
+      setLoading(true);
+      fetch(file.url)
+        .then(res => res.text())
+        .then(text => {
+          setTableData(parseCsv(text));
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('Error loading CSV:', err);
+          setLoading(false);
+        });
+    } else if (file.type === 'xlsx') {
+      if (!file.url) return;
+      setLoading(true);
+      fetch(file.url)
+        .then(res => res.arrayBuffer())
+        .then(arrayBuffer => {
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          if (workbook.SheetNames.length === 1) {
+            const csvText = XLSX.utils.sheet_to_csv(workbook.Sheets[workbook.SheetNames[0]]);
+            setTableData(parseCsv(csvText));
+          } else {
+            setSheetNames(workbook.SheetNames);
+            setPendingWorkbook(workbook);
+            setSheetPickerOpen(true);
+          }
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('Error loading XLSX:', err);
+          setLoading(false);
+        });
     }
   }, [file, imagePathToBlobUrl]);
 
@@ -298,6 +359,13 @@ function ContentViewer({
     }
   }, [syntaxHighlightEnabled, markdownHtml, file]);
 
+  const pickSheet = (sheetName) => {
+    if (!pendingWorkbook) return;
+    const csvText = XLSX.utils.sheet_to_csv(pendingWorkbook.Sheets[sheetName]);
+    setTableData(parseCsv(csvText));
+    setSheetPickerOpen(false);
+  };
+
   if (!file) {
     return (
       <div className="content-viewer empty">
@@ -305,7 +373,7 @@ function ContentViewer({
           <h2>Text Viewer</h2>
           <p>Drag and drop a folder to get started</p>
           <p className="supported-formats">
-            Supports: .txt, .rtf, .md, .pdf, .jpg, .png, .gif, .mp4, .webm, .mp3, .wav, .m4a
+            Supports: .txt, .rtf, .md, .pdf, .docx, .csv, .xlsx, .jpg, .png, .gif, .mp4, .webm, .mp3, .wav, .m4a
           </p>
         </div>
       </div>
@@ -428,7 +496,62 @@ function ContentViewer({
             onChange={(e) => onEditChange(e.target.value)}
           />
         )}
+
+        {file.type === 'docx' && (
+          <div
+            className="preview-text"
+            style={{ fontSize: `${fontSize}px` }}
+            ref={textPreviewRef}
+            tabIndex={-1}
+          >
+            <div className="content-title">{file.key}</div>
+            <pre>{textContent}</pre>
+          </div>
+        )}
+
+        {(file.type === 'csv' || file.type === 'xlsx') && tableData && (
+          <div className="csv-table-wrapper" style={{ fontSize: `${fontSize}px` }}>
+            <div className="content-title">{file.key}</div>
+            <table className="csv-table">
+              {tableData.length > 0 && (
+                <thead>
+                  <tr>
+                    {tableData[0].map((cell, i) => (
+                      <th key={i}>{cell}</th>
+                    ))}
+                  </tr>
+                </thead>
+              )}
+              <tbody>
+                {tableData.slice(1).map((row, ri) => (
+                  <tr key={ri}>
+                    {row.map((cell, ci) => (
+                      <td key={ci}>{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
+
+      {sheetPickerOpen && (
+        <div className="sheet-picker-overlay" onClick={() => setSheetPickerOpen(false)}>
+          <div className="sheet-picker-modal" onClick={e => e.stopPropagation()}>
+            <h3>Select a Sheet</h3>
+            {sheetNames.map(name => (
+              <button
+                key={name}
+                className="sheet-picker-btn"
+                onClick={() => pickSheet(name)}
+              >
+                {name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <button className="nav-btn next-btn" onClick={onNext} aria-label="Next">
         <svg width="64" height="64" viewBox="0 0 64 64">

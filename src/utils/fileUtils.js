@@ -6,6 +6,9 @@ const TEXT_EXTENSIONS = ['.txt', '.rtf'];
 const MARKDOWN_EXTENSIONS = ['.md'];
 const PDF_EXTENSIONS = ['.pdf'];
 const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.ogg', '.aac', '.flac'];
+const DOCX_EXTENSIONS = ['.docx'];
+const CSV_EXTENSIONS = ['.csv'];
+const XLSX_EXTENSIONS = ['.xlsx', '.xls'];
 
 export function isVideoFile(filename) {
   const lower = filename.toLowerCase();
@@ -37,12 +40,27 @@ export function isAudioFile(filename) {
   return AUDIO_EXTENSIONS.some(ext => lower.endsWith(ext));
 }
 
+export function isDocxFile(filename) {
+  const lower = filename.toLowerCase();
+  return DOCX_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
+export function isCsvFile(filename) {
+  const lower = filename.toLowerCase();
+  return CSV_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
+export function isXlsxFile(filename) {
+  const lower = filename.toLowerCase();
+  return XLSX_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
 export function isRtfFile(filename) {
   return filename.toLowerCase().endsWith('.rtf');
 }
 
 export function isValidFile(filename) {
-  return isVideoFile(filename) || isImageFile(filename) || isTextFile(filename) || isMarkdownFile(filename) || isPdfFile(filename) || isAudioFile(filename);
+  return isVideoFile(filename) || isImageFile(filename) || isTextFile(filename) || isMarkdownFile(filename) || isPdfFile(filename) || isAudioFile(filename) || isDocxFile(filename) || isCsvFile(filename) || isXlsxFile(filename);
 }
 
 export function getFileType(filename) {
@@ -53,6 +71,9 @@ export function getFileType(filename) {
   if (isImageFile(filename)) return 'image';
   if (isPdfFile(filename)) return 'pdf';
   if (isAudioFile(filename)) return 'audio';
+  if (isDocxFile(filename)) return 'docx';
+  if (isCsvFile(filename)) return 'csv';
+  if (isXlsxFile(filename)) return 'xlsx';
   return 'unknown';
 }
 
@@ -156,6 +177,56 @@ export function rtfToPlainText(rtf) {
   text = text.trim();
 
   return text;
+}
+
+// CSV parsing utilities
+export function parseCsvRow(row) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+  let i = 0;
+  while (i < row.length) {
+    const ch = row[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (i + 1 < row.length && row[i + 1] === '"') {
+          current += '"';
+          i += 2;
+        } else {
+          inQuotes = false;
+          i++;
+        }
+      } else {
+        current += ch;
+        i++;
+      }
+    } else {
+      if (ch === '"') {
+        inQuotes = true;
+        i++;
+      } else if (ch === ',') {
+        fields.push(current);
+        current = '';
+        i++;
+      } else {
+        current += ch;
+        i++;
+      }
+    }
+  }
+  fields.push(current);
+  return fields;
+}
+
+export function parseCsv(text) {
+  const lines = text.split('\n');
+  const rows = [];
+  for (const line of lines) {
+    const trimmed = line.replace(/\r$/, '');
+    if (trimmed.length === 0) continue;
+    rows.push(parseCsvRow(trimmed));
+  }
+  return rows;
 }
 
 // Extract #hashtags from text content

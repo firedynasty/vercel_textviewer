@@ -150,7 +150,7 @@ function ControlBar({
 
   const isPdf = currentFile && currentFile.type === 'pdf';
   const isMarkdown = currentFile && currentFile.type === 'markdown';
-  const canCopy = currentFile && (currentFile.type === 'text' || currentFile.type === 'rtf' || currentFile.type === 'markdown');
+  const canCopy = currentFile && (currentFile.type === 'text' || currentFile.type === 'rtf' || currentFile.type === 'markdown' || currentFile.type === 'docx');
 
   return (
     <div className="control-bar">
@@ -203,7 +203,7 @@ function ControlBar({
         ref={fileInputRef}
         style={{ display: 'none' }}
         multiple
-        accept=".txt,.rtf,.md,.pdf,.jpg,.jpeg,.png,.gif,.bmp,.webp,.mp4,.webm,.ogg,.mov,.mp3,.wav,.m4a"
+        accept=".txt,.rtf,.md,.pdf,.docx,.csv,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.bmp,.webp,.mp4,.webm,.ogg,.mov,.mp3,.wav,.m4a"
         onChange={handleFileSelect}
       />
 

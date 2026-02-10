@@ -52,7 +52,10 @@ function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudi
                    file.type === 'video' ? 'VID' :
                    file.type === 'image' ? 'IMG' :
                    file.type === 'pdf' ? 'PDF' :
-                   file.type === 'audio' ? '🔊' : ''}
+                   file.type === 'audio' ? '🔊' :
+                   file.type === 'docx' ? 'DOCX' :
+                   file.type === 'csv' ? 'CSV' :
+                   file.type === 'xlsx' ? 'XLSX' : ''}
                 </span>
               )}
             </div>

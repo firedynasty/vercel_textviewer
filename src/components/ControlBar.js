@@ -185,13 +185,6 @@ function ControlBar({
       />
 
       <button
-        className="select-files-btn"
-        onClick={() => fileInputRef.current?.click()}
-      >
-        Select Files
-      </button>
-
-      <button
         className="dropbox-btn"
         onClick={onOpenDropbox}
       >

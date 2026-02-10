@@ -1,0 +1,28 @@
+Summary of Changes - 2025-02-10
+
+1. Tag-based File Filtering ($tag system)
+   - Added $tag extraction from text/markdown file content
+   - Tag chips appear in the ControlBar header after files load
+   - Clicking a tag filters the sidebar to show only files containing that tag
+   - Clicking again clears the filter
+   - Tag search input lets you filter which tag chips are displayed
+   - Tags extracted lazily: local files scanned after load, Dropbox files scanned on first open
+   - Tag prefix uses $ symbol (chose over # and @ to avoid conflicts with markdown headings and email addresses)
+
+2. Removed Features
+   - Removed Cloud Notes button and component
+   - Removed Reading Aids button and reading guide ruler
+
+3. Bug Fixes
+   - Fixed sidebar filter showing untagged files (PDFs, images, RTFs) when a tag filter is active
+   - Untagged files are now hidden during tag filtering
+
+4. UI Cleanup
+   - Removed "Select Files" button from ControlBar
+
+Files Modified:
+   - src/utils/fileUtils.js - Added extractHashtags() utility function
+   - src/TextViewer.js - Added tag state, scanning logic, removed CloudNotes/ReadingAids
+   - src/components/ControlBar.js - Removed old buttons, added tag filter UI, removed Select Files button
+   - src/components/Sidebar.js - Added tag filter visibility logic
+   - src/App.css - Added tag chip styling

@@ -78,6 +78,12 @@
             color: #eee;
         }
 
+        .sidebar-hdr-btn.active {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+
         .yt-toggle-btn {
             background: #1a1a2e;
             border: 1px solid #0f3460;
@@ -668,6 +674,12 @@
             color: #1e293b;
         }
 
+        body.light-mode .sidebar-hdr-btn.active {
+            background: #e94560;
+            color: white;
+            border-color: #e94560;
+        }
+
         body.light-mode .yt-toggle-btn {
             background: #f1f5f9;
             border-color: #cbd5e1;
@@ -932,6 +944,7 @@
             <div class="sidebar-header">
                 <h2>Content Files</h2>
                 <div class="sidebar-header-btns">
+                    <button class="sidebar-hdr-btn" id="textOnlyBtn" title="Show only MD/TXT files">Aa</button>
                     <button class="sidebar-hdr-btn" id="themeToggleBtn" title="Dark Mode">&#9680;</button>
                     <button class="syntax-highlight-btn" id="syntaxHighlightBtn" title="Syntax Highlight">{ }</button>
                     <button class="yt-toggle-btn" id="ytToggleBtn" title="YouTube Content">YT</button>
@@ -1000,6 +1013,7 @@
         let fontSize = 16;
         let syntaxHighlightEnabled = false;
         let lightMode = false;
+        let textOnlyFilter = false;
         let youtubeViewActive = false;
         let ytPlayer = null;
         let ytPlayerReady = false;
@@ -1033,6 +1047,7 @@
         const fontIncreaseBtn = document.getElementById('fontIncreaseBtn');
         const fontSizeDisplay = document.getElementById('fontSizeDisplay');
         const syntaxHighlightBtn = document.getElementById('syntaxHighlightBtn');
+        const textOnlyBtn = document.getElementById('textOnlyBtn');
         const themeToggleBtn = document.getElementById('themeToggleBtn');
         const hljsThemeDark = document.getElementById('hljsThemeDark');
         const hljsThemeLight = document.getElementById('hljsThemeLight');
@@ -1301,6 +1316,26 @@
 
         themeToggleBtn.addEventListener('click', () => {
             setTheme(!lightMode);
+        });
+
+        // Text-only filter
+        function applyTextOnlyFilter() {
+            const items = sidebarList.querySelectorAll('.sidebar-item');
+            items.forEach((item) => {
+                const idx = parseInt(item.dataset.index, 10);
+                const file = contentData.files[idx];
+                if (textOnlyFilter) {
+                    item.style.display = (file.type === 'markdown' || file.type === 'text') ? '' : 'none';
+                } else {
+                    item.style.display = '';
+                }
+            });
+            textOnlyBtn.classList.toggle('active', textOnlyFilter);
+        }
+
+        textOnlyBtn.addEventListener('click', () => {
+            textOnlyFilter = !textOnlyFilter;
+            applyTextOnlyFilter();
         });
 
         // Load saved preferences

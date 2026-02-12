@@ -1,0 +1,27 @@
+Markdown Links Support in Static Content Viewer
+================================================
+
+How it works:
+- The viewer uses the `marked` library to parse .md files
+- A custom renderer overrides the default link behavior
+- All links open in a new tab via target="_blank"
+- rel="noopener noreferrer" is added for security
+
+Markdown link syntax:
+- [Link Text](https://example.com)
+- [Link Text](https://example.com "Optional Title")
+- Bare URLs are auto-linked via GFM (GitHub Flavored Markdown)
+
+Implementation (staticversionhtml/index.html):
+- marked.Renderer() creates a custom renderer
+- renderer.link() returns <a> tags with target="_blank" and rel="noopener noreferrer"
+- marked.setOptions() applies the renderer with gfm: true and breaks: true
+
+Styling:
+- Dark mode: links are #60a5fa (blue)
+- Light mode: links are #2563eb (darker blue)
+- Defined in .content-body a CSS rule
+
+Note:
+- Only .md files get link rendering
+- .txt files display as plain text (URLs are not clickable)

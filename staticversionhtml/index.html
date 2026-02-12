@@ -1045,9 +1045,15 @@
         const ytLinksList = document.getElementById('ytLinksList');
 
         // Configure marked
+        const renderer = new marked.Renderer();
+        renderer.link = function(href, title, text) {
+            const titleAttr = title ? ` title="${title}"` : '';
+            return `<a href="${href}"${titleAttr} target="_blank" rel="noopener noreferrer">${text}</a>`;
+        };
         marked.setOptions({
             breaks: true,
             gfm: true,
+            renderer: renderer,
             highlight: function(code, lang) {
                 if (lang && hljs.getLanguage(lang)) {
                     return hljs.highlight(code, { language: lang }).value;
@@ -1129,6 +1135,12 @@
         function displayContent(index) {
             const file = contentData.files[index];
             displayedIndex = index;
+
+            // Scroll content area back to top
+            const contentArea = document.querySelector('.content-area');
+            if (contentArea) {
+                contentArea.scrollTop = 0;
+            }
 
             contentHeader.style.display = 'flex';
             headerBadge.className = `type-badge ${file.type}`;
@@ -1499,6 +1511,7 @@
             if (youtubeViewActive && ytLinks.length > 0) {
                 switch (e.key) {
                     case 'ArrowDown':
+                    case 'ArrowRight':
                     case 'j':
                         e.preventDefault();
                         if (ytSelectedLinkIndex < ytLinks.length - 1) {
@@ -1509,6 +1522,7 @@
                         return;
 
                     case 'ArrowUp':
+                    case 'ArrowLeft':
                     case 'k':
                         e.preventDefault();
                         if (ytSelectedLinkIndex > 0) {
@@ -1549,6 +1563,22 @@
                     e.preventDefault();
                     if (selectedIndex > 0) {
                         selectItem(selectedIndex - 1);
+                        scrollToSelected();
+                    }
+                    break;
+
+                case 'ArrowRight':
+                    e.preventDefault();
+                    if (selectedIndex < files.length - 1) {
+                        handleItemClick(selectedIndex + 1);
+                        scrollToSelected();
+                    }
+                    break;
+
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    if (selectedIndex > 0) {
+                        handleItemClick(selectedIndex - 1);
                         scrollToSelected();
                     }
                     break;

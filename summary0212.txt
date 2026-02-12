@@ -1,0 +1,23 @@
+Summary of Changes - 2026-02-12
+
+1. Replaced Audio Recording Button with Text Wrap Toggle
+   - Removed the microphone recording button (and useAudioRecorder hook) from ControlBar
+   - Added a text wrap toggle button in its place
+   - Off state: horizontal arrow icon (default behavior, text may overflow on narrow screens)
+   - On state: wrap arrow icon (blue highlight, forces text to wrap within viewport)
+
+2. Text Wrap Mode
+   - When toggled on, .content-area expands to full width with 80px side padding (preserving space for nav arrows)
+   - Applies word-break: break-all and overflow-wrap: break-word on <pre> elements
+   - Fixes long unbroken lines (e.g. chess report analysis text) overflowing on mobile
+   - Also applies to .preview-markdown content
+
+3. Updated Button Styling
+   - Changed button from red (recording style) to gray default / blue active
+   - Removed unused .record-btn:disabled and pulse-record animation styles
+
+Files Modified:
+   - src/TextViewer.js - Added wrapText state, passed to ControlBar and ContentViewer
+   - src/components/ControlBar.js - Removed useAudioRecorder import, replaced recording controls with wrap toggle button
+   - src/components/ContentViewer.js - Added wrapText prop, applies wrap-text class to content-area
+   - src/App.css - Added .content-area.wrap-text styles, updated button styling from recording to wrap toggle

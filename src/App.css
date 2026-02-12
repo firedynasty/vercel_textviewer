@@ -666,6 +666,28 @@ body {
   outline: none; /* Hide focus outline for programmatic focus */
 }
 
+/* Wrap text mode - full width with aggressive word breaking */
+.content-area.wrap-text {
+  max-width: 100%;
+  padding: 0 80px;
+  box-sizing: border-box;
+}
+
+.content-area.wrap-text .preview-text {
+  width: 100%;
+}
+
+.content-area.wrap-text .preview-text pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-all;
+}
+
+.content-area.wrap-text .preview-markdown {
+  max-width: 100%;
+}
+
 .preview-image {
   max-width: 100%;
   max-height: calc(100vh - 100px);
@@ -1417,7 +1439,7 @@ body {
   color: white;
 }
 
-/* Audio Recording Controls */
+/* Text Wrap Toggle */
 .recording-controls {
   display: flex;
   align-items: center;
@@ -1430,7 +1452,7 @@ body {
 .record-btn {
   width: 40px;
   height: 40px;
-  background: rgba(239, 68, 68, 0.9);
+  background: rgba(100, 100, 100, 0.7);
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -1441,19 +1463,13 @@ body {
   justify-content: center;
 }
 
-.record-btn:hover:not(:disabled) {
-  background: rgba(220, 38, 38, 1);
+.record-btn:hover {
+  background: rgba(80, 80, 80, 1);
   transform: scale(1.1);
 }
 
-.record-btn:disabled {
-  background: rgba(100, 100, 100, 0.5);
-  cursor: not-allowed;
-}
-
 .record-btn.recording {
-  background: rgba(239, 68, 68, 1);
-  animation: pulse-record 1s infinite;
+  background: rgba(59, 130, 246, 0.9);
 }
 
 @keyframes pulse-record {

@@ -41,6 +41,9 @@ function TextViewer() {
   // Sidebar visibility state
   const [showSidebar, setShowSidebar] = useState(true);
 
+  // Text wrap toggle
+  const [wrapText, setWrapText] = useState(false);
+
   // Dropbox hook
   const dropbox = useDropbox();
 
@@ -498,6 +501,8 @@ function TextViewer() {
           allTags={allTags}
           activeTagFilter={activeTagFilter}
           onTagFilterChange={setActiveTagFilter}
+          wrapText={wrapText}
+          onToggleWrapText={() => setWrapText(prev => !prev)}
         />
 
         <ContentViewer
@@ -513,6 +518,7 @@ function TextViewer() {
           onPdfStateChange={setPdfState}
           onPdfDocumentLoad={setPdfDocument}
           syntaxHighlightEnabled={syntaxHighlightEnabled}
+          wrapText={wrapText}
         />
 
         {/* Hidden audio element for playing audio files */}

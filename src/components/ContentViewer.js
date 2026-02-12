@@ -24,7 +24,9 @@ function ContentViewer({
   onPdfStateChange,
   onPdfDocumentLoad,
   // Syntax highlighting
-  syntaxHighlightEnabled
+  syntaxHighlightEnabled,
+  // Text wrap toggle
+  wrapText
 }) {
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
@@ -437,7 +439,7 @@ function ContentViewer({
         </svg>
       </button>
 
-      <div className="content-area">
+      <div className={`content-area${wrapText ? ' wrap-text' : ''}`}>
         {file.type === 'image' && (
           <img
             src={file.url}

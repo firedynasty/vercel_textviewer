@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-import { useAudioRecorder } from '../hooks/useAudioRecorder';
 
 function ControlBar({
   currentFile,
@@ -35,8 +34,10 @@ function ControlBar({
   allTags,
   activeTagFilter,
   onTagFilterChange,
+  // Text wrap toggle props
+  wrapText,
+  onToggleWrapText,
 }) {
-  const { isRecording, isProcessing, startRecording, stopRecording } = useAudioRecorder();
   const folderInputRef = useRef(null);
   const fileInputRef = useRef(null);
   const pageInputRef = useRef(null);
@@ -353,28 +354,15 @@ function ControlBar({
         </button>
       </div>
 
-      {/* Audio Recording Controls */}
+      {/* Text wrap toggle */}
       <div className="recording-controls">
-        {!isRecording ? (
-          <button
-            className="record-btn"
-            onClick={startRecording}
-            disabled={isProcessing}
-            title="Start Recording"
-          >
-            🎙️
-          </button>
-        ) : (
-          <button
-            className="record-btn recording"
-            onClick={stopRecording}
-            title="Stop & Save Recording"
-          >
-            ⏹️
-          </button>
-        )}
-        {isRecording && <span className="recording-indicator">REC</span>}
-        {isProcessing && <span className="processing-indicator">Saving...</span>}
+        <button
+          className={`record-btn${wrapText ? ' recording' : ''}`}
+          onClick={onToggleWrapText}
+          title={wrapText ? 'Unwrap text' : 'Wrap text'}
+        >
+          {wrapText ? '↩️' : '↔️'}
+        </button>
       </div>
 
       {/* Tag Filter */}

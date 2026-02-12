@@ -8,18 +8,6 @@ function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive 
   const [breadcrumbs, setBreadcrumbs] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim()) return;
-    setLoading(true);
-    setFolderContents([]);
-    setCurrentPath('');
-    setBreadcrumbs([]);
-
-    const folders = await dropbox.searchFolders(searchQuery);
-    setSearchResults(folders);
-    setLoading(false);
-  }, [searchQuery, dropbox]);
-
   const handleFolderClick = useCallback(async (path, name) => {
     setLoading(true);
     setSearchResults([]);
@@ -38,6 +26,25 @@ function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive 
 
     setLoading(false);
   }, [dropbox]);
+
+  const handleSearch = useCallback(async () => {
+    if (!searchQuery.trim()) return;
+    const q = searchQuery.trim();
+    if (q.startsWith('/')) {
+      // Direct path navigation — open the folder directly
+      const path = q.replace(/\/+$/, '') || '';
+      handleFolderClick(path, path.split('/').pop() || '');
+      return;
+    }
+    setLoading(true);
+    setFolderContents([]);
+    setCurrentPath('');
+    setBreadcrumbs([]);
+
+    const folders = await dropbox.searchFolders(searchQuery);
+    setSearchResults(folders);
+    setLoading(false);
+  }, [searchQuery, dropbox, handleFolderClick]);
 
   const handleClose = useCallback(() => {
     setSearchQuery('');

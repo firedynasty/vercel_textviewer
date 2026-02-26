@@ -34,6 +34,7 @@ function ControlBar({
   onToggleWrapText,
 }) {
   const folderInputRef = useRef(null);
+  const shallowFolderInputRef = useRef(null);
   const fileInputRef = useRef(null);
   const pageInputRef = useRef(null);
   const [tagSearch, setTagSearch] = useState('');
@@ -122,9 +123,87 @@ function ControlBar({
     }
   };
 
+  const handleDropShallow = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+
+    const items = e.dataTransfer.items;
+    if (items) {
+      const entries = [];
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry();
+        if (entry) {
+          entries.push(entry);
+        }
+      }
+      if (entries.length > 0) {
+        processEntriesShallow(entries);
+      }
+    }
+  };
+
+  const processEntriesShallow = async (entries) => {
+    const files = [];
+
+    const readEntry = async (entry, path = '', depth = 0) => {
+      if (entry.isFile) {
+        return new Promise((resolve) => {
+          entry.file((file) => {
+            const relativePath = path + file.name;
+            Object.defineProperty(file, 'webkitRelativePath', {
+              value: relativePath,
+              writable: false
+            });
+            files.push(file);
+            resolve();
+          });
+        });
+      } else if (entry.isDirectory && depth < 1) {
+        const dirReader = entry.createReader();
+        return new Promise((resolve) => {
+          const readEntries = () => {
+            dirReader.readEntries(async (entries) => {
+              if (entries.length === 0) {
+                resolve();
+              } else {
+                for (const entry of entries) {
+                  await readEntry(entry, path + entry.name + '/', depth + 1);
+                }
+                readEntries();
+              }
+            });
+          };
+          readEntries();
+        });
+      }
+    };
+
+    for (const entry of entries) {
+      await readEntry(entry, entry.name + '/', 0);
+    }
+
+    if (files.length > 0) {
+      onFilesLoaded(files);
+    }
+  };
+
   const handleFolderSelect = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       onFilesLoaded(e.target.files);
+    }
+  };
+
+  const handleShallowFolderSelect = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      // Filter to only files at depth 1: rootFolder/file.ext (2 parts)
+      const filtered = Array.from(e.target.files).filter(file => {
+        const parts = file.webkitRelativePath.split('/');
+        return parts.length <= 2;
+      });
+      if (filtered.length > 0) {
+        onFilesLoaded(filtered);
+      }
     }
   };
 
@@ -193,6 +272,27 @@ function ControlBar({
       >
         DB-recursive
       </button>
+
+      <button
+        className="drop-folder-btn"
+        onClick={() => shallowFolderInputRef.current?.click()}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDropShallow}
+        title="Load folder without subfolders (depth 1)"
+      >
+        Folder Flat
+      </button>
+
+      <input
+        type="file"
+        ref={shallowFolderInputRef}
+        style={{ display: 'none' }}
+        webkitdirectory=""
+        directory=""
+        multiple
+        onChange={handleShallowFolderSelect}
+      />
 
       <input
         type="file"

@@ -1,14 +1,9 @@
 import React from 'react';
 
-function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudioIndex, isOpen, onClose, activeTagFilter, fileTags }) {
+function Sidebar({ files, currentIndex, onFileSelect, isOpen, onClose, activeTagFilter, fileTags }) {
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
-
-    if (file.type === 'audio') {
-      onAudioSelect(index);
-    } else {
-      onFileSelect(index);
-    }
+    onFileSelect(index);
   };
 
   // Determine which files are visible when a tag filter is active
@@ -38,7 +33,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudi
           return (
             <div
               key={file.key}
-              className={`sidebar-item ${index === currentIndex && file.type !== 'audio' ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''} ${file.type === 'audio' && index === currentAudioIndex ? 'audio-active' : ''}`}
+              className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}`}
               onClick={() => handleClick(file, index)}
             >
               <span className="sidebar-item-label">
@@ -52,7 +47,6 @@ function Sidebar({ files, currentIndex, onFileSelect, onAudioSelect, currentAudi
                    file.type === 'video' ? 'VID' :
                    file.type === 'image' ? 'IMG' :
                    file.type === 'pdf' ? 'PDF' :
-                   file.type === 'audio' ? '🔊' :
                    file.type === 'docx' ? 'DOCX' :
                    file.type === 'csv' ? 'CSV' :
                    file.type === 'xlsx' ? 'XLSX' : ''}

@@ -15,11 +15,6 @@ function ControlBar({
   // Syntax highlight props
   syntaxHighlightEnabled,
   onToggleSyntaxHighlight,
-  // Audio props
-  audioFile,
-  isAudioPlaying,
-  onAudioPlayPause,
-  onAudioStop,
   // Sidebar props
   showSidebar,
   onToggleSidebar,
@@ -405,29 +400,6 @@ function ControlBar({
           <span className="slideshow-label">
             {slideshowEnabled ? 'Slideshow ON' : 'Slideshow'}
           </span>
-        </div>
-      )}
-
-      {/* Audio Player Controls */}
-      {audioFile && (
-        <div className="audio-controls">
-          <span className="audio-label" title={audioFile.key}>
-            🔊 {audioFile.key.length > 20 ? audioFile.key.substring(0, 20) + '...' : audioFile.key}
-          </span>
-          <button
-            className={`audio-play-btn ${isAudioPlaying ? 'playing' : ''}`}
-            onClick={onAudioPlayPause}
-            title={isAudioPlaying ? 'Pause ⏎' : 'Play ⏎'}
-          >
-            {isAudioPlaying ? '⏸' : '▶️'}
-          </button>
-          <button
-            className="audio-stop-btn"
-            onClick={onAudioStop}
-            title="Stop"
-          >
-            ⏹
-          </button>
         </div>
       )}
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Sidebar from './components/Sidebar';
 import ContentViewer from './components/ContentViewer';
 import ControlBar from './components/ControlBar';
@@ -9,7 +9,7 @@ import { useDropbox } from './hooks/useDropbox';
 function TextViewer() {
   const [files, setFiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [displayedFileIndex, setDisplayedFileIndex] = useState(0); // Tracks which non-audio file to display
+  const [displayedFileIndex, setDisplayedFileIndex] = useState(0);
   const [fontSize, setFontSize] = useState(18);
   const [darkMode, setDarkMode] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -19,10 +19,6 @@ function TextViewer() {
   const [editContent, setEditContent] = useState('');
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
 
-  // Audio state
-  const [currentAudioIndex, setCurrentAudioIndex] = useState(null);
-  const [isAudioPlaying, setIsAudioPlaying] = useState(false);
-  const audioRef = useRef(null);
 
   // PDF state
   const [pdfState, setPdfState] = useState(null);
@@ -71,17 +67,14 @@ function TextViewer() {
       return;
     }
 
-    // Find first displayable (non-audio, non-divider) file
     const firstDisplayableIndex = result.files.findIndex(
-      f => f.type !== 'audio' && f.type !== 'divider'
+      f => f.type !== 'divider'
     );
 
     setFiles(result.files);
     setImagePathToBlobUrl(result.imagePathToBlobUrl || {});
     setCurrentIndex(0);
     setDisplayedFileIndex(firstDisplayableIndex >= 0 ? firstDisplayableIndex : 0);
-    setCurrentAudioIndex(null);
-    setIsAudioPlaying(false);
     setIsEditing(false);
     setEditContent('');
     setPdfState(null);
@@ -114,15 +107,13 @@ function TextViewer() {
     }
 
     const firstDisplayableIndex = result.files.findIndex(
-      f => f.type !== 'audio' && f.type !== 'divider'
+      f => f.type !== 'divider'
     );
 
     setFiles(result.files);
     setImagePathToBlobUrl(result.imagePathToBlobUrl || {});
     setCurrentIndex(0);
     setDisplayedFileIndex(firstDisplayableIndex >= 0 ? firstDisplayableIndex : 0);
-    setCurrentAudioIndex(null);
-    setIsAudioPlaying(false);
     setIsEditing(false);
     setEditContent('');
     setPdfState(null);
@@ -160,12 +151,6 @@ function TextViewer() {
   const handleFileSelect = useCallback((index) => {
     const selectedFile = files[index];
 
-    // If selecting an audio file, don't interrupt editing or reset PDF
-    if (selectedFile && selectedFile.type === 'audio') {
-      setCurrentIndex(index);
-      return;
-    }
-
     if (isEditing) {
       if (!window.confirm('You have unsaved changes. Discard them?')) {
         return;
@@ -181,10 +166,8 @@ function TextViewer() {
   const handlePrev = useCallback(() => {
     if (files.length === 0) return;
     const nextIndex = currentIndex > 0 ? currentIndex - 1 : files.length - 1;
-    const nextFile = files[nextIndex];
 
-    // Only prompt about editing if navigating to a non-audio file
-    if (isEditing && nextFile && nextFile.type !== 'audio') {
+    if (isEditing) {
       if (!window.confirm('You have unsaved changes. Discard them?')) {
         return;
       }
@@ -197,10 +180,8 @@ function TextViewer() {
   const handleNext = useCallback(() => {
     if (files.length === 0) return;
     const nextIndex = currentIndex < files.length - 1 ? currentIndex + 1 : 0;
-    const nextFile = files[nextIndex];
 
-    // Only prompt about editing if navigating to a non-audio file
-    if (isEditing && nextFile && nextFile.type !== 'audio') {
+    if (isEditing) {
       if (!window.confirm('You have unsaved changes. Discard them?')) {
         return;
       }
@@ -292,49 +273,6 @@ function TextViewer() {
     }
   }, [pdfDocument, pdfState]);
 
-  // Audio file selection handler
-  const handleAudioSelect = useCallback((index) => {
-    const audioFile = files[index];
-    if (!audioFile || audioFile.type !== 'audio') return;
-
-    setCurrentAudioIndex(index);
-
-    // If audio element exists, load and play the new audio
-    if (audioRef.current) {
-      audioRef.current.src = audioFile.url;
-      audioRef.current.load();
-      audioRef.current.play().then(() => {
-        setIsAudioPlaying(true);
-      }).catch(err => {
-        console.error('Error playing audio:', err);
-      });
-    }
-  }, [files]);
-
-  // Audio play/pause toggle
-  const handleAudioPlayPause = useCallback(() => {
-    if (!audioRef.current) return;
-
-    if (isAudioPlaying) {
-      audioRef.current.pause();
-      setIsAudioPlaying(false);
-    } else {
-      audioRef.current.play().then(() => {
-        setIsAudioPlaying(true);
-      }).catch(err => {
-        console.error('Error playing audio:', err);
-      });
-    }
-  }, [isAudioPlaying]);
-
-  // Audio stop
-  const handleAudioStop = useCallback(() => {
-    if (!audioRef.current) return;
-
-    audioRef.current.pause();
-    audioRef.current.currentTime = 0;
-    setIsAudioPlaying(false);
-  }, []);
 
   // Keyboard navigation
   useEffect(() => {
@@ -348,18 +286,13 @@ function TextViewer() {
       } else if (e.key === 'ArrowRight') {
         handleNext();
       } else if (e.key === 'Enter') {
-        // If audio is loaded in navbar, toggle play/pause
-        if (currentAudioIndex !== null) {
-          handleAudioPlayPause();
-        } else {
-          handleNext();
-        }
+        handleNext();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrev, handleNext, isEditing, currentAudioIndex, handleAudioPlayPause]);
+  }, [handlePrev, handleNext, isEditing]);
 
   // Global drag and drop
   useEffect(() => {
@@ -380,42 +313,11 @@ function TextViewer() {
     };
   }, []);
 
-  // Handle audio ended event
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handleEnded = () => {
-      setIsAudioPlaying(false);
-    };
-
-    audio.addEventListener('ended', handleEnded);
-    return () => audio.removeEventListener('ended', handleEnded);
-  }, []);
-
   // Handle navigation to different file types
   useEffect(() => {
     if (!currentFile) return;
 
-    if (currentFile.type === 'audio') {
-      // Load audio into player
-      setCurrentAudioIndex(currentIndex);
-      if (audioRef.current) {
-        // Stop any currently playing audio before loading new
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-        audioRef.current.src = currentFile.url;
-        audioRef.current.load();
-        audioRef.current.play().then(() => {
-          setIsAudioPlaying(true);
-        }).catch(err => {
-          console.error('Error playing audio:', err);
-          setIsAudioPlaying(false);
-        });
-      }
-      // Don't update displayedFileIndex - keep showing previous content
-    } else if (currentFile.type !== 'divider') {
-      // Non-audio, non-divider file - update displayed content
+    if (currentFile.type !== 'divider') {
       setDisplayedFileIndex(currentIndex);
     }
   }, [currentIndex, currentFile]);
@@ -454,16 +356,12 @@ function TextViewer() {
     }
   }, [dropbox.isAuthenticated]);
 
-  const currentAudioFile = currentAudioIndex !== null ? files[currentAudioIndex] : null;
-
   return (
     <div className={`text-viewer ${darkMode ? 'dark-mode' : ''}`}>
       <Sidebar
         files={files}
         currentIndex={currentIndex}
         onFileSelect={handleFileSelect}
-        onAudioSelect={handleAudioSelect}
-        currentAudioIndex={currentAudioIndex}
         isOpen={showSidebar}
         onClose={() => setShowSidebar(false)}
         activeTagFilter={activeTagFilter}
@@ -489,10 +387,6 @@ function TextViewer() {
           onCopyPageText={handleCopyPageText}
           syntaxHighlightEnabled={syntaxHighlightEnabled}
           onToggleSyntaxHighlight={() => setSyntaxHighlightEnabled(prev => !prev)}
-          audioFile={currentAudioFile}
-          isAudioPlaying={isAudioPlaying}
-          onAudioPlayPause={handleAudioPlayPause}
-          onAudioStop={handleAudioStop}
           onOpenDropbox={() => setDropboxBrowserOpen(true)}
           onOpenDropboxRecursive={() => setDropboxRecursiveOpen(true)}
           slideshowEnabled={slideshowEnabled}
@@ -521,8 +415,6 @@ function TextViewer() {
           wrapText={wrapText}
         />
 
-        {/* Hidden audio element for playing audio files */}
-        <audio ref={audioRef} style={{ display: 'none' }} />
       </div>
 
       <DropboxBrowser

@@ -285,6 +285,13 @@ function TextViewer() {
         handlePrev();
       } else if (e.key === 'ArrowRight') {
         handleNext();
+      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        const scrollEl = document.querySelector('.preview-text') || document.querySelector('.preview-markdown') || document.querySelector('.pdf-canvas-container') || document.querySelector('.csv-table-wrapper');
+        if (scrollEl) {
+          const scrollAmount = scrollEl.clientHeight * 0.8;
+          scrollEl.scrollBy({ top: e.key === 'ArrowUp' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+        }
       } else if (e.key === 'Enter') {
         handleNext();
       }

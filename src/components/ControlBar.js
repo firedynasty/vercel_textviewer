@@ -7,6 +7,7 @@ function ControlBar({
   darkMode,
   onDarkModeToggle,
   onCopyContent,
+  onPasteContent,
   onFilesLoaded,
   // PDF props
   pdfState,
@@ -303,7 +304,7 @@ function ControlBar({
         onChange={handleFileSelect}
       />
 
-      {/* Copy content button - hide for PDF */}
+      {/* Copy/Paste content buttons - hide for PDF */}
       {!isPdf && (
         <div className="edit-controls">
           <button
@@ -313,6 +314,13 @@ function ControlBar({
             title="Copy file contents to clipboard"
           >
             Copy
+          </button>
+          <button
+            className="edit-btn paste-btn"
+            onClick={onPasteContent}
+            title="Paste clipboard contents as markdown viewer"
+          >
+            Paste
           </button>
         </div>
       )}

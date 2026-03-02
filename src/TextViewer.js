@@ -216,6 +216,34 @@ function TextViewer() {
       });
   }, [displayedFile]);
 
+  const handlePasteContent = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text) return;
+
+      const blob = new Blob([text], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const pasteFile = {
+        key: 'Clipboard Paste',
+        originalName: 'clipboard.md',
+        type: 'markdown',
+        url,
+      };
+
+      setFiles(prev => {
+        const newFiles = [pasteFile, ...prev];
+        return newFiles;
+      });
+      setCurrentIndex(0);
+      setDisplayedFileIndex(0);
+      setIsEditing(false);
+      setEditContent('');
+      setPdfState(null);
+    } catch (err) {
+      console.error('Failed to read clipboard:', err);
+    }
+  }, []);
+
   const handleSave = useCallback(() => {
     if (!displayedFile || !isEditing) return;
 
@@ -386,6 +414,7 @@ function TextViewer() {
           onDarkModeToggle={handleDarkModeToggle}
           isEditing={isEditing}
           onCopyContent={handleCopyContent}
+          onPasteContent={handlePasteContent}
           onSave={handleSave}
           onCancel={handleCancel}
           onFilesLoaded={handleFilesLoaded}

@@ -257,6 +257,14 @@ body {
   cursor: not-allowed;
 }
 
+.paste-btn {
+  background: rgba(33, 150, 243, 0.9);
+}
+
+.paste-btn:hover {
+  background: rgba(25, 118, 210, 1);
+}
+
 .save-btn {
   background: rgba(76, 175, 80, 0.9);
   color: white;

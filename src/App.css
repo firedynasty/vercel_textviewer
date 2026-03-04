@@ -51,6 +51,28 @@ body {
   color: #333;
 }
 
+.sidebar-next-btn {
+  width: 28px;
+  height: 28px;
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  margin-left: auto;
+}
+
+.sidebar-next-btn:hover {
+  background-color: #ddd;
+  color: #333;
+}
+
 .sidebar-close-btn {
   width: 28px;
   height: 28px;

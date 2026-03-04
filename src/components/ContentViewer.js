@@ -456,6 +456,13 @@ function ContentViewer({
             loop
             muted
             className="preview-video"
+            onLoadedData={(e) => {
+              const btn = document.querySelector('.speed-toggle-btn');
+              if (btn) {
+                const speed = parseFloat(btn.textContent) || 1;
+                e.target.playbackRate = speed;
+              }
+            }}
           />
         )}
 

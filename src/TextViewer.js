@@ -159,7 +159,7 @@ function TextViewer() {
     setEditContent('');
     setPdfState(null);
     ensureFileDownloaded(index);
-  }, [isEditing, files, ensureFileDownloaded]);
+  }, [isEditing, ensureFileDownloaded]);
 
   const handlePrev = useCallback(() => {
     if (files.length === 0) return;
@@ -395,6 +395,7 @@ function TextViewer() {
         files={files}
         currentIndex={currentIndex}
         onFileSelect={handleFileSelect}
+        onNext={handleNext}
         isOpen={showSidebar}
         onClose={() => setShowSidebar(false)}
         activeTagFilter={activeTagFilter}

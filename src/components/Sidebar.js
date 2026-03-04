@@ -8,7 +8,7 @@ function shortenDividerPath(path) {
   return shortened.join('/');
 }
 
-function Sidebar({ files, currentIndex, onFileSelect, isOpen, onClose, activeTagFilter, fileTags }) {
+function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags }) {
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
     onFileSelect(index);
@@ -31,6 +31,9 @@ function Sidebar({ files, currentIndex, onFileSelect, isOpen, onClose, activeTag
         <span className="sidebar-header-title">
           Files{activeTagFilter ? ` $${activeTagFilter}` : ''}
         </span>
+        <button className="sidebar-next-btn" onClick={onNext} title="Next file">
+          &#9654;
+        </button>
         <button className="sidebar-close-btn" onClick={onClose} title="Close sidebar">
           &times;
         </button>

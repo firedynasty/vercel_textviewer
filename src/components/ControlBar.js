@@ -218,9 +218,20 @@ function ControlBar({
     }
   };
 
+  const [videoSpeed, setVideoSpeed] = useState(1);
   const isPdf = currentFile && currentFile.type === 'pdf';
   const isMarkdown = currentFile && currentFile.type === 'markdown';
+  const isVideo = currentFile && currentFile.type === 'video';
   const canCopy = currentFile && (currentFile.type === 'text' || currentFile.type === 'rtf' || currentFile.type === 'markdown' || currentFile.type === 'docx');
+
+  const handleSpeedToggle = () => {
+    const newSpeed = videoSpeed === 1 ? 0.5 : 1;
+    setVideoSpeed(newSpeed);
+    const video = document.querySelector('.preview-video');
+    if (video) {
+      video.playbackRate = newSpeed;
+    }
+  };
 
   return (
     <div className="control-bar">
@@ -288,6 +299,28 @@ function ControlBar({
         multiple
         onChange={handleShallowFolderSelect}
       />
+
+      {/* Video speed toggle */}
+      {isVideo && (
+        <button
+          className="speed-toggle-btn"
+          onClick={handleSpeedToggle}
+          style={{
+            background: videoSpeed === 0.5
+              ? 'linear-gradient(45deg, #00BCD4, #0097A7)'
+              : 'linear-gradient(45deg, #7E57C2, #5E35B1)',
+            padding: '6px 12px',
+            fontSize: '12px',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+          }}
+          title="Toggle playback speed (1x / 0.5x)"
+        >
+          {videoSpeed}x
+        </button>
+      )}
 
       {/* Copy/Paste content buttons - hide for PDF */}
       {!isPdf && (

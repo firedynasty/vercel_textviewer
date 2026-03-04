@@ -1,5 +1,13 @@
 import React from 'react';
 
+// Abbreviate parent segments in divider paths: "game-film_breakdowns/in_gae" → "gam../in_gae"
+function shortenDividerPath(path) {
+  const parts = path.split('/');
+  if (parts.length <= 1) return path;
+  const shortened = parts.slice(0, -1).map(p => p.slice(0, 3) + '..').concat(parts[parts.length - 1]);
+  return shortened.join('/');
+}
+
 function Sidebar({ files, currentIndex, onFileSelect, isOpen, onClose, activeTagFilter, fileTags }) {
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
@@ -36,8 +44,8 @@ function Sidebar({ files, currentIndex, onFileSelect, isOpen, onClose, activeTag
               className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}`}
               onClick={() => handleClick(file, index)}
             >
-              <span className="sidebar-item-label">
-                {file.key}
+              <span className="sidebar-item-label" title={file.type === 'divider' ? file.key : undefined}>
+                {file.type === 'divider' ? shortenDividerPath(file.key) : file.key}
               </span>
               {file.type !== 'divider' && (
                 <span className="sidebar-item-type">

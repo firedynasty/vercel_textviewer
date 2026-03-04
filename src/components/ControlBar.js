@@ -36,7 +36,6 @@ function ControlBar({
 }) {
   const folderInputRef = useRef(null);
   const shallowFolderInputRef = useRef(null);
-  const fileInputRef = useRef(null);
   const pageInputRef = useRef(null);
   const [tagSearch, setTagSearch] = useState('');
 
@@ -208,11 +207,6 @@ function ControlBar({
     }
   };
 
-  const handleFileSelect = (e) => {
-    if (e.target.files && e.target.files.length > 0) {
-      onFilesLoaded(e.target.files);
-    }
-  };
 
   const handlePageInputKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -293,15 +287,6 @@ function ControlBar({
         directory=""
         multiple
         onChange={handleShallowFolderSelect}
-      />
-
-      <input
-        type="file"
-        ref={fileInputRef}
-        style={{ display: 'none' }}
-        multiple
-        accept=".txt,.rtf,.md,.pdf,.docx,.csv,.xlsx,.xls,.jpg,.jpeg,.png,.gif,.bmp,.webp,.mp4,.webm,.ogg,.mov,.mp3,.wav,.m4a"
-        onChange={handleFileSelect}
       />
 
       {/* Copy/Paste content buttons - hide for PDF */}

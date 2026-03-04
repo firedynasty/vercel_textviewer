@@ -149,8 +149,6 @@ function TextViewer() {
   }, [files, dropbox]);
 
   const handleFileSelect = useCallback((index) => {
-    const selectedFile = files[index];
-
     if (isEditing) {
       if (!window.confirm('You have unsaved changes. Discard them?')) {
         return;

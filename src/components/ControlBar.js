@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { isImageFile, isVideoFile } from '../utils/fileUtils';
 
 function ControlBar({
   currentFile,
@@ -36,6 +37,7 @@ function ControlBar({
 }) {
   const folderInputRef = useRef(null);
   const shallowFolderInputRef = useRef(null);
+  const picsOnlyFolderInputRef = useRef(null);
   const pageInputRef = useRef(null);
   const [tagSearch, setTagSearch] = useState('');
 
@@ -208,6 +210,84 @@ function ControlBar({
   };
 
 
+  const isMediaFile = (name) => isImageFile(name) || isVideoFile(name);
+
+  const handleDropPicsOnly = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.currentTarget.classList.remove('drag-over');
+
+    const items = e.dataTransfer.items;
+    if (items) {
+      const entries = [];
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry();
+        if (entry) {
+          entries.push(entry);
+        }
+      }
+      if (entries.length > 0) {
+        processEntriesPicsOnly(entries);
+      }
+    }
+  };
+
+  const processEntriesPicsOnly = async (entries) => {
+    const files = [];
+
+    const readEntry = async (entry, path = '') => {
+      if (entry.isFile) {
+        return new Promise((resolve) => {
+          entry.file((file) => {
+            if (isMediaFile(file.name)) {
+              const relativePath = path + file.name;
+              Object.defineProperty(file, 'webkitRelativePath', {
+                value: relativePath,
+                writable: false
+              });
+              files.push(file);
+            }
+            resolve();
+          });
+        });
+      } else if (entry.isDirectory) {
+        const dirReader = entry.createReader();
+        return new Promise((resolve) => {
+          const readEntries = () => {
+            dirReader.readEntries(async (entries) => {
+              if (entries.length === 0) {
+                resolve();
+              } else {
+                for (const entry of entries) {
+                  await readEntry(entry, path + entry.name + '/');
+                }
+                readEntries();
+              }
+            });
+          };
+          readEntries();
+        });
+      }
+    };
+
+    for (const entry of entries) {
+      await readEntry(entry, entry.name + '/');
+    }
+
+    if (files.length > 0) {
+      onFilesLoaded(files);
+    }
+  };
+
+  const handlePicsOnlyFolderSelect = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const filtered = Array.from(e.target.files).filter(file => isMediaFile(file.name));
+      if (filtered.length > 0) {
+        onFilesLoaded(filtered);
+      }
+    }
+  };
+
   const handlePageInputKeyDown = (e) => {
     if (e.key === 'Enter') {
       const pageNum = parseInt(e.target.value);
@@ -322,26 +402,7 @@ function ControlBar({
         </button>
       )}
 
-      {/* Copy/Paste content buttons - hide for PDF */}
-      {!isPdf && (
-        <div className="edit-controls">
-          <button
-            className="edit-btn"
-            onClick={onCopyContent}
-            disabled={!canCopy}
-            title="Copy file contents to clipboard"
-          >
-            Copy
-          </button>
-          <button
-            className="edit-btn paste-btn"
-            onClick={onPasteContent}
-            title="Paste clipboard contents as markdown viewer"
-          >
-            Paste
-          </button>
-        </div>
-      )}
+      {/* Copy/Paste content buttons - hidden */}
 
       {/* Syntax Highlight button for markdown files */}
       {isMarkdown && (
@@ -475,16 +536,26 @@ function ControlBar({
         </button>
       </div>
 
-      {/* Text wrap toggle */}
-      <div className="recording-controls">
-        <button
-          className={`record-btn${wrapText ? ' recording' : ''}`}
-          onClick={onToggleWrapText}
-          title={wrapText ? 'Unwrap text' : 'Wrap text'}
-        >
-          {wrapText ? '↩️' : '↔️'}
-        </button>
-      </div>
+      {/* Drop folder (pics only) - recursive, images and videos only */}
+      <button
+        className="drop-folder-btn"
+        onClick={() => picsOnlyFolderInputRef.current?.click()}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDropPicsOnly}
+      >
+        Pics Only
+      </button>
+
+      <input
+        type="file"
+        ref={picsOnlyFolderInputRef}
+        style={{ display: 'none' }}
+        webkitdirectory=""
+        directory=""
+        multiple
+        onChange={handlePicsOnlyFolderSelect}
+      />
 
       {/* Tag Filter */}
       {filteredTags.length > 0 && (

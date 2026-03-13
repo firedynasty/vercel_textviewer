@@ -465,6 +465,7 @@ function TextViewer() {
         onFolderSelected={handleDropboxFolderSelected}
         dropbox={dropbox}
         recursive
+        mediaOnly
       />
 
     </div>

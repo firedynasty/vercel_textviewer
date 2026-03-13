@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
+import { isImageFile, isVideoFile } from '../utils/fileUtils';
 
-function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive }) {
+function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive, mediaOnly }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [folderContents, setFolderContents] = useState([]);
@@ -56,6 +57,11 @@ function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive 
     onClose();
   }, [onClose]);
 
+  const filterMedia = useCallback((entries) => {
+    if (!mediaOnly) return entries;
+    return entries.filter(e => e.isFolder || isImageFile(e.name) || isVideoFile(e.name));
+  }, [mediaOnly]);
+
   const handleLoadFolder = useCallback(async () => {
     if (folderContents.length === 0) return;
 
@@ -63,12 +69,12 @@ function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive 
       setLoading(true);
       const allEntries = await dropbox.listFolderRecursive(currentPath);
       setLoading(false);
-      onFolderSelected(allEntries, currentPath);
+      onFolderSelected(filterMedia(allEntries), currentPath);
     } else {
-      onFolderSelected(folderContents, currentPath);
+      onFolderSelected(filterMedia(folderContents), currentPath);
     }
     handleClose();
-  }, [folderContents, currentPath, onFolderSelected, handleClose, recursive, dropbox]);
+  }, [folderContents, currentPath, onFolderSelected, handleClose, recursive, dropbox, filterMedia]);
 
   if (!isOpen) return null;
 

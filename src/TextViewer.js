@@ -305,8 +305,13 @@ function TextViewer() {
     if (!displayedFile || !displayedFile.dropboxPath) return;
 
     const currentName = displayedFile.originalName;
-    const newName = window.prompt('Rename file:', currentName);
+    let newName = window.prompt('Rename file:', currentName);
     if (!newName || newName === currentName) return;
+
+    // Auto-add .txt if no extension specified
+    if (!newName.includes('.')) {
+      newName += '.txt';
+    }
 
     const pathParts = displayedFile.dropboxPath.split('/');
     pathParts[pathParts.length - 1] = newName;
@@ -348,8 +353,13 @@ function TextViewer() {
       return;
     }
 
-    const fileName = window.prompt('New file name:', 'new_file.md');
+    let fileName = window.prompt('New file name:', 'new_file.md');
     if (!fileName) return;
+
+    // Auto-add .txt if no extension specified
+    if (!fileName.includes('.')) {
+      fileName += '.txt';
+    }
 
     const uploadPath = `${dropboxFolderPath}/${fileName}`;
     const result = await dropbox.uploadFile(uploadPath, text, 'add');

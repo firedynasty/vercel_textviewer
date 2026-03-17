@@ -128,16 +128,47 @@ function TextToSpeechReader({ textContent, fontSize }) {
 
   speakSentenceRef.current = speakSentence;
 
-  const handlePlayFirst = () => {
-    if (sentences.length > 0) {
-      speakSentence(sentences[0], 0);
+  const handleGrab = () => {
+    const selection = window.getSelection();
+    const selectedText = selection?.toString()?.trim();
+    if (!selectedText || sentences.length === 0) return;
+
+    // Normalize selected text for comparison
+    const normalize = (str) => str.replace(/\s+/g, ' ').toLowerCase();
+    const normalizedSelection = normalize(selectedText);
+
+    // Find the best matching sentence
+    let bestIndex = -1;
+    let bestScore = 0;
+
+    for (let i = 0; i < sentences.length; i++) {
+      const normalizedSentence = normalize(sentences[i]);
+
+      // Check if selection contains sentence or sentence contains selection
+      if (normalizedSentence.includes(normalizedSelection) || normalizedSelection.includes(normalizedSentence)) {
+        bestIndex = i;
+        break;
+      }
+
+      // Partial match: check how many words overlap
+      const selWords = normalizedSelection.split(' ');
+      const sentWords = normalizedSentence.split(' ');
+      let overlap = 0;
+      for (const w of selWords) {
+        if (w.length > 3 && sentWords.some(sw => sw.includes(w))) overlap++;
+      }
+      const score = overlap / selWords.length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = i;
+      }
+    }
+
+    if (bestIndex >= 0) {
+      speakSentence(sentences[bestIndex], bestIndex);
     }
   };
 
-  const handleStop = () => {
-    speechSynthesis.cancel();
-    setCurrentSentenceIndex(-1);
-  };
 
   if (sentences.length === 0) return null;
 
@@ -146,18 +177,11 @@ function TextToSpeechReader({ textContent, fontSize }) {
       {/* Controls row */}
       <div className="tts-controls">
         <button
-          className="tts-play-btn"
-          onClick={handlePlayFirst}
-          title="Start reading from first sentence"
+          className="tts-grab-btn"
+          onMouseEnter={handleGrab}
+          title="Hover to read highlighted text"
         >
-          &#9654;
-        </button>
-        <button
-          className="tts-stop-btn"
-          onClick={handleStop}
-          title="Stop reading"
-        >
-          &#9632;
+          Grab
         </button>
 
         {/* Auto-advance toggle */}

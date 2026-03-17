@@ -34,6 +34,14 @@ function ControlBar({
   // Text wrap toggle props
   wrapText,
   onToggleWrapText,
+  // Dropbox file operations (DB-nonrecursive only)
+  onEdit,
+  onRename,
+  onNewFile,
+  isDropboxNonRecursive,
+  isEditing,
+  onSave,
+  onCancel,
 }) {
   const folderInputRef = useRef(null);
   const shallowFolderInputRef = useRef(null);
@@ -359,6 +367,32 @@ function ControlBar({
         DB-recursive
       </button>
 
+      {/* Dropbox file operations - only for DB-nonrecursive */}
+      {isDropboxNonRecursive && !isEditing && (
+        <>
+          <button className="edit-btn" onClick={onEdit} title="Edit and save back to Dropbox">
+            Edit
+          </button>
+          <button className="rename-btn" onClick={onRename} title="Rename file on Dropbox">
+            Rename
+          </button>
+          <button className="new-file-btn" onClick={onNewFile} title="Create new file from clipboard">
+            + New File
+          </button>
+        </>
+      )}
+
+      {isEditing && (
+        <>
+          <button className="save-btn" onClick={onSave} title="Save changes to Dropbox">
+            Save
+          </button>
+          <button className="cancel-btn" onClick={onCancel} title="Discard changes">
+            Cancel
+          </button>
+        </>
+      )}
+
       <button
         className="drop-folder-btn"
         onClick={() => shallowFolderInputRef.current?.click()}
@@ -600,9 +634,6 @@ function ControlBar({
         </div>
       )}
 
-      {currentFile && currentFile.type !== 'divider' && (
-        <span className="current-file-name">{currentFile.key}</span>
-      )}
     </div>
   );
 }

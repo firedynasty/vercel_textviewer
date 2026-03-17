@@ -19,6 +19,7 @@ function TextViewer() {
   const [editContent, setEditContent] = useState('');
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
   const [dropboxFolderPath, setDropboxFolderPath] = useState(null);
+  const [isDropboxNonRecursive, setIsDropboxNonRecursive] = useState(false);
 
 
   // PDF state
@@ -81,6 +82,8 @@ function TextViewer() {
     setPdfState(null);
     setFileTags({});
     setActiveTagFilter(null);
+    setIsDropboxNonRecursive(false);
+    setDropboxFolderPath(null);
 
     // Async scan text/md files for hashtags
     const loadedFiles = result.files;
@@ -99,7 +102,7 @@ function TextViewer() {
     });
   }, []);
 
-  const handleDropboxFolderSelected = useCallback((entries, folderPath) => {
+  const handleDropboxFolderSelected = useCallback((entries, folderPath, nonRecursive = false) => {
     const result = processDropboxFolder(entries, folderPath);
 
     if (result.error) {
@@ -121,6 +124,8 @@ function TextViewer() {
     setFileTags({});
     setActiveTagFilter(null);
     setDropboxBrowserOpen(false);
+    setDropboxFolderPath(folderPath);
+    setIsDropboxNonRecursive(nonRecursive);
   }, []);
 
   // Lazy-download a Dropbox file if it hasn't been fetched yet
@@ -243,7 +248,7 @@ function TextViewer() {
     }
   }, []);
 
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!displayedFile || !isEditing) return;
 
     // Create a new blob with the edited content
@@ -260,20 +265,108 @@ function TextViewer() {
       return newFiles;
     });
 
-    // Download the file
-    const a = document.createElement('a');
-    a.href = newUrl;
-    a.download = displayedFile.originalName || `${displayedFile.key}.txt`;
-    a.click();
+    // If Dropbox file, upload back; otherwise download locally
+    if (displayedFile.dropboxPath) {
+      const result = await dropbox.uploadFile(displayedFile.dropboxPath, editContent, 'overwrite');
+      if (!result) {
+        alert('Failed to save to Dropbox');
+      }
+    } else {
+      const a = document.createElement('a');
+      a.href = newUrl;
+      a.download = displayedFile.originalName || `${displayedFile.key}.txt`;
+      a.click();
+    }
 
     setIsEditing(false);
     setEditContent('');
-  }, [displayedFile, displayedFileIndex, editContent, isEditing]);
+  }, [displayedFile, displayedFileIndex, editContent, isEditing, dropbox]);
 
   const handleCancel = useCallback(() => {
     setIsEditing(false);
     setEditContent('');
   }, []);
+
+  // Edit: enter edit mode and load file content
+  const handleEdit = useCallback(async () => {
+    if (!displayedFile || !displayedFile.dropboxPath) return;
+    if (!['text', 'markdown'].includes(displayedFile.type)) return;
+
+    if (displayedFile.url) {
+      const res = await fetch(displayedFile.url);
+      const text = await res.text();
+      setEditContent(text);
+      setIsEditing(true);
+    }
+  }, [displayedFile]);
+
+  // Rename: rename file on Dropbox
+  const handleRename = useCallback(async () => {
+    if (!displayedFile || !displayedFile.dropboxPath) return;
+
+    const currentName = displayedFile.originalName;
+    const newName = window.prompt('Rename file:', currentName);
+    if (!newName || newName === currentName) return;
+
+    const pathParts = displayedFile.dropboxPath.split('/');
+    pathParts[pathParts.length - 1] = newName;
+    const newPath = pathParts.join('/');
+
+    const result = await dropbox.moveFile(displayedFile.dropboxPath, newPath);
+    if (result) {
+      setFiles(prevFiles => {
+        const newFiles = [...prevFiles];
+        const oldKey = newFiles[displayedFileIndex].key;
+        const prefix = oldKey.match(/^\d+_/)?.[0] || '';
+        const newDisplayName = newName.replace(/\.[^.]+$/, '');
+        newFiles[displayedFileIndex] = {
+          ...newFiles[displayedFileIndex],
+          dropboxPath: result.metadata?.path_lower || newPath,
+          originalName: newName,
+          key: prefix + newDisplayName,
+        };
+        return newFiles;
+      });
+    } else {
+      alert('Failed to rename on Dropbox');
+    }
+  }, [displayedFile, displayedFileIndex, dropbox]);
+
+  // New File: create from clipboard in current Dropbox folder
+  const handleNewFile = useCallback(async () => {
+    if (!dropboxFolderPath || !dropbox.accessToken) return;
+
+    let text;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      alert('Failed to read clipboard');
+      return;
+    }
+    if (!text) {
+      alert('Clipboard is empty');
+      return;
+    }
+
+    const fileName = window.prompt('New file name:', 'new_file.md');
+    if (!fileName) return;
+
+    const uploadPath = `${dropboxFolderPath}/${fileName}`;
+    const result = await dropbox.uploadFile(uploadPath, text, 'add');
+    if (result) {
+      const newFile = {
+        key: fileName.replace(/\.[^.]+$/, ''),
+        type: fileName.endsWith('.md') ? 'markdown' : 'text',
+        url: URL.createObjectURL(new Blob([text], { type: 'text/plain' })),
+        dropboxPath: result.path_lower || uploadPath,
+        originalName: fileName,
+      };
+      setFiles(prev => [...prev, newFile]);
+      setCurrentIndex(files.length);
+    } else {
+      alert('Failed to create file on Dropbox');
+    }
+  }, [dropboxFolderPath, dropbox, files.length]);
 
   // Copy current PDF page text to clipboard
   const handleCopyPageText = useCallback(async () => {
@@ -433,6 +526,10 @@ function TextViewer() {
           onTagFilterChange={setActiveTagFilter}
           wrapText={wrapText}
           onToggleWrapText={() => setWrapText(prev => !prev)}
+          onEdit={handleEdit}
+          onRename={handleRename}
+          onNewFile={handleNewFile}
+          isDropboxNonRecursive={isDropboxNonRecursive}
         />
 
         <ContentViewer
@@ -456,14 +553,14 @@ function TextViewer() {
       <DropboxBrowser
         isOpen={dropboxBrowserOpen}
         onClose={() => setDropboxBrowserOpen(false)}
-        onFolderSelected={handleDropboxFolderSelected}
+        onFolderSelected={(entries, folderPath) => handleDropboxFolderSelected(entries, folderPath, true)}
         dropbox={dropbox}
       />
 
       <DropboxBrowser
         isOpen={dropboxRecursiveOpen}
         onClose={() => setDropboxRecursiveOpen(false)}
-        onFolderSelected={handleDropboxFolderSelected}
+        onFolderSelected={(entries, folderPath) => handleDropboxFolderSelected(entries, folderPath, false)}
         dropbox={dropbox}
         recursive
       />

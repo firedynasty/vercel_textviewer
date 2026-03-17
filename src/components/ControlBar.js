@@ -349,7 +349,7 @@ function ControlBar({
         className="dropbox-btn"
         onClick={onOpenDropbox}
       >
-        Dropbox
+        DB-nonrecursive
       </button>
 
       <button

@@ -262,6 +262,60 @@ export function useDropbox() {
     }
   }, [accessToken]);
 
+  const uploadFile = useCallback(async (dropboxPath, content, mode = 'overwrite') => {
+    if (!accessToken) return null;
+    setStatus('Uploading...');
+    try {
+      const response = await fetch('https://content.dropboxapi.com/2/files/upload', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/octet-stream',
+          'Dropbox-API-Arg': JSON.stringify({
+            path: dropboxPath,
+            mode: { '.tag': mode },
+            autorename: mode === 'add',
+            mute: true,
+          }),
+        },
+        body: content,
+      });
+      if (!response.ok) throw new Error('Upload failed');
+      const data = await response.json();
+      setStatus(mode === 'add' ? 'File created on Dropbox' : 'Saved to Dropbox');
+      return data;
+    } catch (error) {
+      setStatus('Upload error: ' + error.message);
+      return null;
+    }
+  }, [accessToken]);
+
+  const moveFile = useCallback(async (fromPath, toPath) => {
+    if (!accessToken) return null;
+    setStatus('Renaming...');
+    try {
+      const response = await fetch('https://api.dropboxapi.com/2/files/move_v2', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from_path: fromPath,
+          to_path: toPath,
+          autorename: true,
+        }),
+      });
+      if (!response.ok) throw new Error('Rename failed');
+      const data = await response.json();
+      setStatus('Renamed on Dropbox');
+      return data;
+    } catch (error) {
+      setStatus('Rename error: ' + error.message);
+      return null;
+    }
+  }, [accessToken]);
+
   return {
     accessToken,
     isAuthenticated,
@@ -272,5 +326,7 @@ export function useDropbox() {
     listFolder,
     listFolderRecursive,
     downloadFile,
+    uploadFile,
+    moveFile,
   };
 }

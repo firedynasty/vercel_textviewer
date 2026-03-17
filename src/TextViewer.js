@@ -18,6 +18,7 @@ function TextViewer() {
 
   const [editContent, setEditContent] = useState('');
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
+  const [dropboxFolderPath, setDropboxFolderPath] = useState(null);
 
 
   // PDF state
@@ -465,7 +466,6 @@ function TextViewer() {
         onFolderSelected={handleDropboxFolderSelected}
         dropbox={dropbox}
         recursive
-        mediaOnly
       />
 
     </div>

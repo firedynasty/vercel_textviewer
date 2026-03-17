@@ -3,6 +3,7 @@ import { marked } from 'marked';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
 import { rtfToPlainText, isRtfFile, parseCsv } from '../utils/fileUtils';
+import TextToSpeechReader from './TextToSpeechReader';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
@@ -30,6 +31,7 @@ function ContentViewer({
 }) {
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
+  const [renderAsMarkdown, setRenderAsMarkdown] = useState(false);
   const [loading, setLoading] = useState(false);
   const [tableData, setTableData] = useState(null);
   const [sheetPickerOpen, setSheetPickerOpen] = useState(false);
@@ -232,11 +234,12 @@ function ContentViewer({
   useEffect(() => {
     if (!file || file.type === 'divider' || file.type === 'pdf') return;
 
-    // Reset table state when switching files
+    // Reset table state and TXT>MD toggle when switching files
     setTableData(null);
     setSheetPickerOpen(false);
     setSheetNames([]);
     setPendingWorkbook(null);
+    setRenderAsMarkdown(false);
 
     if (file.type === 'text' || file.type === 'rtf' || file.type === 'markdown') {
       if (!file.url) return; // Dropbox file not yet downloaded
@@ -466,16 +469,42 @@ function ContentViewer({
           />
         )}
 
-        {(file.type === 'text' || file.type === 'rtf') && !isEditing && (
+        {(file.type === 'text' || file.type === 'rtf') && !isEditing && !renderAsMarkdown && (
           <div
             className="preview-text"
             style={{ fontSize: `${fontSize}px` }}
             ref={textPreviewRef}
             tabIndex={-1}
           >
-            <div className="content-title">{file.key}</div>
+            <div className="content-title">
+              {file.key}
+              <button
+                className="txt-md-toggle-btn"
+                onClick={() => setRenderAsMarkdown(true)}
+                title="Render as Markdown"
+              >
+                TXT&gt;MD
+              </button>
+            </div>
             <pre>{textContent}</pre>
           </div>
+        )}
+
+        {(file.type === 'text' || file.type === 'rtf') && !isEditing && renderAsMarkdown && (
+          <div
+            className="preview-markdown"
+            style={{ fontSize: `${fontSize}px` }}
+            ref={markdownPreviewRef}
+            tabIndex={-1}
+            dangerouslySetInnerHTML={{
+              __html: `<div class="content-title">${file.key}<button class="txt-md-toggle-btn active" id="txt-md-back-btn">MD&gt;TXT</button></div>${marked.parse(textContent)}`
+            }}
+            onClick={(e) => {
+              if (e.target.id === 'txt-md-back-btn' || e.target.closest('#txt-md-back-btn')) {
+                setRenderAsMarkdown(false);
+              }
+            }}
+          />
         )}
 
         {(file.type === 'text' || file.type === 'rtf') && isEditing && (
@@ -516,6 +545,11 @@ function ContentViewer({
             <div className="content-title">{file.key}</div>
             <pre>{textContent}</pre>
           </div>
+        )}
+
+        {/* Text-to-Speech Reader for text-based files */}
+        {(file.type === 'text' || file.type === 'rtf' || file.type === 'markdown' || file.type === 'docx') && !isEditing && textContent && (
+          <TextToSpeechReader textContent={textContent} fontSize={fontSize} />
         )}
 
         {(file.type === 'csv' || file.type === 'xlsx') && tableData && (

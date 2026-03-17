@@ -1781,3 +1781,226 @@ body {
 .text-viewer:not(.dark-mode) .csv-table tbody tr:hover {
   background: rgba(59, 130, 246, 0.08);
 }
+
+/* ===== TXT > MD Toggle Button ===== */
+.txt-md-toggle-btn {
+  margin-left: 10px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: bold;
+  border: 1px solid #666;
+  border-radius: 4px;
+  background: #333;
+  color: #aaa;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+.txt-md-toggle-btn:hover {
+  background: #444;
+  color: #fff;
+}
+
+.txt-md-toggle-btn.active {
+  background: #2e7d32;
+  color: #fff;
+  border-color: #4CAF50;
+}
+
+.text-viewer:not(.dark-mode) .txt-md-toggle-btn {
+  background: #e0e0e0;
+  color: #555;
+  border-color: #bbb;
+}
+
+.text-viewer:not(.dark-mode) .txt-md-toggle-btn:hover {
+  background: #d0d0d0;
+  color: #222;
+}
+
+.text-viewer:not(.dark-mode) .txt-md-toggle-btn.active {
+  background: #4CAF50;
+  color: #fff;
+  border-color: #388E3C;
+}
+
+/* ===== Text-to-Speech Reader ===== */
+.tts-reader {
+  margin-top: 1rem;
+  border-top: 2px solid #444;
+  padding-top: 0.75rem;
+}
+
+.tts-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.tts-play-btn,
+.tts-stop-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.tts-play-btn {
+  background: #4CAF50;
+}
+
+.tts-play-btn:hover {
+  background: #388E3C;
+}
+
+.tts-stop-btn {
+  background: #f44336;
+}
+
+.tts-stop-btn:hover {
+  background: #d32f2f;
+}
+
+.tts-toggle-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  background: #333;
+  border-radius: 8px;
+  transition: background 0.3s;
+}
+
+.tts-toggle-container.active {
+  background: #1b3d1b;
+}
+
+.tts-toggle-label {
+  font-weight: bold;
+  font-size: 11px;
+  color: #888;
+}
+
+.tts-toggle-label.active {
+  color: #4CAF50;
+}
+
+.tts-toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.tts-toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.tts-toggle-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #555;
+  border-radius: 22px;
+  transition: background 0.3s;
+}
+
+.tts-toggle-switch input:checked + .tts-toggle-track {
+  background: #4CAF50;
+}
+
+.tts-toggle-thumb {
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 3px;
+  bottom: 3px;
+  background: #fff;
+  border-radius: 50%;
+  transition: left 0.3s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.tts-toggle-switch input:checked + .tts-toggle-track .tts-toggle-thumb {
+  left: 25px;
+}
+
+.tts-sentence-count {
+  font-size: 11px;
+  color: #888;
+  margin-left: auto;
+}
+
+.tts-reading-area {
+  max-height: 400px;
+  overflow-y: auto;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.tts-sentence {
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 4px;
+  cursor: pointer;
+  border-radius: 4px;
+  color: #ddd;
+  transition: background-color 0.2s;
+  line-height: 1.6;
+}
+
+.tts-sentence:hover {
+  background: #3a3a3a;
+}
+
+.tts-sentence.active {
+  background: #ffd43b;
+  color: #1a1a1a;
+  font-weight: bold;
+  box-shadow: 0 0 8px rgba(255, 212, 59, 0.4);
+}
+
+/* Light mode overrides for TTS */
+.text-viewer:not(.dark-mode) .tts-reader {
+  border-top-color: #ddd;
+}
+
+.text-viewer:not(.dark-mode) .tts-toggle-container {
+  background: #f0f0f0;
+}
+
+.text-viewer:not(.dark-mode) .tts-toggle-container.active {
+  background: #e6ffe6;
+}
+
+.text-viewer:not(.dark-mode) .tts-reading-area {
+  background: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+.text-viewer:not(.dark-mode) .tts-sentence {
+  color: #333;
+}
+
+.text-viewer:not(.dark-mode) .tts-sentence:hover {
+  background: #e9ecef;
+}
+
+.text-viewer:not(.dark-mode) .tts-sentence.active {
+  background: #ffd43b;
+  color: #1a1a1a;
+}

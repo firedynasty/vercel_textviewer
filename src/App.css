@@ -175,13 +175,14 @@ body {
   border-radius: 3px;
 }
 
-/* Sidebar TOC / Outline panel */
-.sidebar-toc {
+/* Sidebar tail — always in DOM, holds OUTLINE when headings present */
+.sidebar-tail {
   border-top: 2px solid #ccc;
   overflow-y: auto;
   flex-shrink: 0;
   max-height: 45%;
   background-color: #f5f5f5;
+  min-height: 3px;
 }
 
 .sidebar-toc-header {
@@ -1011,7 +1012,7 @@ body {
   background: #777;
 }
 
-.text-viewer.dark-mode .sidebar-toc {
+.text-viewer.dark-mode .sidebar-tail {
   background-color: #2a2a2a;
   border-top-color: #444;
 }

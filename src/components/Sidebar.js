@@ -8,7 +8,7 @@ function shortenDividerPath(path) {
   return shortened.join('/');
 }
 
-function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags }) {
+function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags, mdHeadings, onScrollToHeading }) {
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
     onFileSelect(index);
@@ -67,6 +67,22 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
           );
         })}
       </div>
+
+      {mdHeadings && mdHeadings.length > 0 && (
+        <div className="sidebar-toc">
+          <div className="sidebar-toc-header">OUTLINE</div>
+          {mdHeadings.map((h, i) => (
+            <div
+              key={i}
+              className={`sidebar-toc-item sidebar-toc-level-${h.level}`}
+              style={{ paddingLeft: `${(h.level - 1) * 14 + 10}px` }}
+              onClick={() => onScrollToHeading && onScrollToHeading(h.id)}
+            >
+              {h.text}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

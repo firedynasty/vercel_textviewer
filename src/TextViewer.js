@@ -42,6 +42,10 @@ function TextViewer() {
   // Text wrap toggle
   const [wrapText, setWrapText] = useState(false);
 
+  // Markdown TOC / heading navigation
+  const [mdHeadings, setMdHeadings] = useState([]);
+  const [scrollToHeadingId, setScrollToHeadingId] = useState(null);
+
   // Dropbox hook
   const dropbox = useDropbox();
 
@@ -504,6 +508,8 @@ function TextViewer() {
         onClose={() => setShowSidebar(false)}
         activeTagFilter={activeTagFilter}
         fileTags={fileTags}
+        mdHeadings={mdHeadings}
+        onScrollToHeading={setScrollToHeadingId}
       />
 
       <div className="main-content">
@@ -556,6 +562,9 @@ function TextViewer() {
           onPdfDocumentLoad={setPdfDocument}
           syntaxHighlightEnabled={syntaxHighlightEnabled}
           wrapText={wrapText}
+          onHeadingsExtracted={setMdHeadings}
+          scrollToHeadingId={scrollToHeadingId}
+          onScrollToHeadingDone={() => setScrollToHeadingId(null)}
         />
 
       </div>

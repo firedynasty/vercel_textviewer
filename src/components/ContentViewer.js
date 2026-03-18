@@ -11,6 +11,38 @@ import * as XLSX from 'xlsx';
 // Configure PDF.js worker - use unpkg to match the installed version
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
+function slugify(text) {
+  return text
+    .replace(/[*_`[\]()]/g, '')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/[\s_]+/g, '-')
+    .toLowerCase();
+}
+
+function extractMarkdownHeadings(text) {
+  const headings = [];
+  for (const line of text.split('\n')) {
+    const match = line.match(/^(#{1,6})\s+(.+)/);
+    if (match) {
+      const headingText = match[2].trim();
+      headings.push({ level: match[1].length, text: headingText, id: slugify(headingText) });
+    }
+  }
+  return headings;
+}
+
+// Configure marked to add IDs to headings for TOC navigation
+marked.use({
+  renderer: {
+    heading({ tokens, depth, text }) {
+      const id = slugify(text);
+      const inner = this.parser ? this.parser.parseInline(tokens) : text;
+      return `<h${depth} id="${id}">${inner}</h${depth}>\n`;
+    }
+  }
+});
+
 function ContentViewer({
   file,
   fontSize,
@@ -27,7 +59,11 @@ function ContentViewer({
   // Syntax highlighting
   syntaxHighlightEnabled,
   // Text wrap toggle
-  wrapText
+  wrapText,
+  // TOC / heading navigation
+  onHeadingsExtracted,
+  scrollToHeadingId,
+  onScrollToHeadingDone,
 }) {
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
@@ -240,6 +276,7 @@ function ContentViewer({
     setSheetNames([]);
     setPendingWorkbook(null);
     setRenderAsMarkdown(false);
+    if (onHeadingsExtracted) onHeadingsExtracted([]);
 
     if (file.type === 'text' || file.type === 'rtf' || file.type === 'markdown') {
       if (!file.url) return; // Dropbox file not yet downloaded
@@ -289,6 +326,7 @@ function ContentViewer({
             const html = marked.parse(processedText);
             setMarkdownHtml(html);
             setTextContent(text);
+            if (onHeadingsExtracted) onHeadingsExtracted(extractMarkdownHeadings(text));
           } else {
             setTextContent(text);
           }
@@ -350,6 +388,30 @@ function ContentViewer({
         });
     }
   }, [file, imagePathToBlobUrl]);
+
+  // Extract headings when TXT>MD is toggled for text/rtf files
+  useEffect(() => {
+    if (!onHeadingsExtracted) return;
+    if (!file || (file.type !== 'text' && file.type !== 'rtf')) return;
+    if (renderAsMarkdown && textContent) {
+      onHeadingsExtracted(extractMarkdownHeadings(textContent));
+    } else {
+      onHeadingsExtracted([]);
+    }
+  }, [renderAsMarkdown]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Scroll to heading when requested from TOC
+  useEffect(() => {
+    if (!scrollToHeadingId) return;
+    const container = markdownPreviewRef.current;
+    if (!container) return;
+    const timer = setTimeout(() => {
+      const el = container.querySelector(`[id="${scrollToHeadingId}"]`);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (onScrollToHeadingDone) onScrollToHeadingDone();
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [scrollToHeadingId, onScrollToHeadingDone]);
 
   // Apply syntax highlighting when enabled
   useEffect(() => {

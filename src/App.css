@@ -175,6 +175,58 @@ body {
   border-radius: 3px;
 }
 
+/* Sidebar TOC / Outline panel */
+.sidebar-toc {
+  border-top: 2px solid #ccc;
+  overflow-y: auto;
+  flex-shrink: 0;
+  max-height: 45%;
+  background-color: #f5f5f5;
+}
+
+.sidebar-toc-header {
+  font-size: 11px;
+  font-weight: bold;
+  color: #888;
+  letter-spacing: 0.08em;
+  padding: 6px 10px 4px;
+  background: #ebebeb;
+  border-bottom: 1px solid #ddd;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.sidebar-toc-item {
+  font-size: 13px;
+  color: #333;
+  padding: 4px 10px;
+  cursor: pointer;
+  line-height: 1.4;
+  word-break: break-word;
+  transition: background-color 0.15s;
+}
+
+.sidebar-toc-item:hover {
+  background-color: #e0e0e0;
+}
+
+.sidebar-toc-level-1 {
+  font-weight: 600;
+}
+
+.sidebar-toc-level-2 {
+  font-weight: normal;
+}
+
+.sidebar-toc-level-3,
+.sidebar-toc-level-4,
+.sidebar-toc-level-5,
+.sidebar-toc-level-6 {
+  font-size: 12px;
+  color: #555;
+}
+
 /* Main Content Area */
 .main-content {
   flex: 1;
@@ -957,6 +1009,32 @@ body {
 .text-viewer.dark-mode .preview-text::-webkit-scrollbar-thumb:hover,
 .text-viewer.dark-mode .preview-markdown::-webkit-scrollbar-thumb:hover {
   background: #777;
+}
+
+.text-viewer.dark-mode .sidebar-toc {
+  background-color: #2a2a2a;
+  border-top-color: #444;
+}
+
+.text-viewer.dark-mode .sidebar-toc-header {
+  background: #333;
+  color: #aaa;
+  border-bottom-color: #444;
+}
+
+.text-viewer.dark-mode .sidebar-toc-item {
+  color: #ddd;
+}
+
+.text-viewer.dark-mode .sidebar-toc-item:hover {
+  background-color: #3a3a3a;
+}
+
+.text-viewer.dark-mode .sidebar-toc-level-3,
+.text-viewer.dark-mode .sidebar-toc-level-4,
+.text-viewer.dark-mode .sidebar-toc-level-5,
+.text-viewer.dark-mode .sidebar-toc-level-6 {
+  color: #aaa;
 }
 
 /* PDF Controls */

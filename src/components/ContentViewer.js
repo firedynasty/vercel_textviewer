@@ -32,16 +32,14 @@ function extractMarkdownHeadings(text) {
   return headings;
 }
 
-// Configure marked to add IDs to headings for TOC navigation
-marked.use({
-  renderer: {
-    heading({ tokens, depth, text }) {
-      const id = slugify(text);
-      const inner = this.parser ? this.parser.parseInline(tokens) : text;
-      return `<h${depth} id="${id}">${inner}</h${depth}>\n`;
-    }
-  }
-});
+// Post-process marked HTML to inject id attributes on headings
+function addHeadingIds(html) {
+  return html.replace(/<h([1-6])>([\s\S]*?)<\/h\1>/g, (match, level, content) => {
+    const plainText = content.replace(/<[^>]*>/g, '').trim();
+    const id = slugify(plainText);
+    return `<h${level} id="${id}">${content}</h${level}>`;
+  });
+}
 
 function ContentViewer({
   file,
@@ -323,7 +321,7 @@ function ContentViewer({
               });
             }
 
-            const html = marked.parse(processedText);
+            const html = addHeadingIds(marked.parse(processedText));
             setMarkdownHtml(html);
             setTextContent(text);
             if (onHeadingsExtracted) onHeadingsExtracted(extractMarkdownHeadings(text));
@@ -559,7 +557,7 @@ function ContentViewer({
             ref={markdownPreviewRef}
             tabIndex={-1}
             dangerouslySetInnerHTML={{
-              __html: `<div class="content-title">${file.key}<button class="txt-md-toggle-btn active" id="txt-md-back-btn">MD&gt;TXT</button></div>${marked.parse(textContent)}`
+              __html: `<div class="content-title">${file.key}<button class="txt-md-toggle-btn active" id="txt-md-back-btn">MD&gt;TXT</button></div>${addHeadingIds(marked.parse(textContent))}`
             }}
             onClick={(e) => {
               if (e.target.id === 'txt-md-back-btn' || e.target.closest('#txt-md-back-btn')) {

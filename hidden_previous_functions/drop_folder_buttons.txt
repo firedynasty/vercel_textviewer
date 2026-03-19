@@ -1,0 +1,22 @@
+HIDDEN FUNCTIONALITY: Drop Folder Buttons
+==========================================
+
+Two buttons were hidden in src/components/ControlBar.js using style={{ display: 'none' }}.
+The underlying logic and event handlers remain intact — they are only visually hidden.
+
+--- Button 1: "Drop Folder Here" ---
+- className: drop-folder-btn
+- Triggers: folderInputRef (hidden <input type="file" webkitdirectory multiple>)
+- Handler: handleFolderSelect
+- Also supports drag-and-drop via: handleDragOver, handleDragLeave, handleDrop
+- Behavior: Loads a folder recursively (all subfolders included)
+
+--- Button 2: "Folder Flat" ---
+- className: drop-folder-btn
+- title: "Load folder without subfolders (depth 1)"
+- Triggers: shallowFolderInputRef (hidden <input type="file" webkitdirectory multiple>)
+- Also supports drag-and-drop via: handleDragOver, handleDragLeave, handleDropShallow
+- Behavior: Loads only the top-level folder contents, no subfolders (depth 1)
+
+--- How to restore ---
+Remove style={{ display: 'none' }} from each button in ControlBar.js (~line 336 and ~line 396).

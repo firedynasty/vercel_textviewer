@@ -339,6 +339,7 @@ function ControlBar({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        style={{ display: 'none' }}
       >
         Drop Folder Here
       </button>
@@ -370,6 +371,9 @@ function ControlBar({
       {/* Dropbox file operations - only for DB-nonrecursive */}
       {isDropboxNonRecursive && !isEditing && (
         <>
+          <button className="copy-btn" onClick={onCopyContent} title="Copy file contents to clipboard">
+            Copy
+          </button>
           <button className="edit-btn" onClick={onEdit} title="Edit and save back to Dropbox">
             Edit
           </button>
@@ -400,6 +404,7 @@ function ControlBar({
         onDragLeave={handleDragLeave}
         onDrop={handleDropShallow}
         title="Load folder without subfolders (depth 1)"
+        style={{ display: 'none' }}
       >
         Folder Flat
       </button>

@@ -128,9 +128,43 @@ function TextToSpeechReader({ textContent, fontSize }) {
 
   speakSentenceRef.current = speakSentence;
 
+  // Scroll main content to show text near current TTS sentence
+  const scrollMainContentToCurrentSentence = (index) => {
+    if (index < 0 || index >= sentences.length) return;
+    const sentenceText = sentences[index];
+    const normalize = (str) => str.replace(/\s+/g, ' ').toLowerCase();
+    const target = normalize(sentenceText).slice(0, 40); // use first 40 chars to search
+
+    // Find the main content container
+    const contentEl = document.querySelector('.preview-markdown') || document.querySelector('.preview-text');
+    if (!contentEl) return;
+
+    // Walk text nodes to find a match
+    const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT, null, false);
+    let node;
+    while ((node = walker.nextNode())) {
+      const nodeText = normalize(node.textContent);
+      if (nodeText.includes(target)) {
+        // Scroll the parent element into view
+        const el = node.parentElement;
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        return;
+      }
+    }
+  };
+
   const handleGrab = () => {
     const selection = window.getSelection();
     const selectedText = selection?.toString()?.trim();
+
+    // No selection: scroll main content to current reading position
+    if (!selectedText && currentSentenceIndex >= 0) {
+      scrollMainContentToCurrentSentence(currentSentenceIndex);
+      return;
+    }
+
     if (!selectedText || sentences.length === 0) return;
 
     // Normalize selected text for comparison
@@ -184,23 +218,36 @@ function TextToSpeechReader({ textContent, fontSize }) {
           Grab
         </button>
 
-        {/* Auto-advance toggle */}
+        {/* Auto-advance toggle - hover to toggle */}
         <div className={`tts-toggle-container ${autoAdvance ? 'active' : ''}`}>
           <span className="tts-toggle-label">Stop After Line</span>
-          <label className="tts-toggle-switch">
-            <input
-              type="checkbox"
-              checked={autoAdvance}
-              onChange={(e) => setAutoAdvance(e.target.checked)}
-            />
+          <span
+            className="tts-toggle-switch"
+            onMouseEnter={() => {
+              speechSynthesis.cancel();
+              setAutoAdvance(prev => !prev);
+            }}
+            title="Hover to toggle auto-advance"
+            style={{ cursor: 'pointer' }}
+          >
             <span className="tts-toggle-track">
-              <span className="tts-toggle-thumb" />
+              <span className={`tts-toggle-thumb ${autoAdvance ? 'on' : ''}`} />
             </span>
-          </label>
+          </span>
           <span className={`tts-toggle-label ${autoAdvance ? 'active' : ''}`}>Auto Next Line</span>
         </div>
 
-        <span className="tts-sentence-count">{sentences.length} sentences</span>
+        <button
+          className="tts-grab-btn"
+          onMouseEnter={() => {
+            if (currentSentenceIndex >= 0) {
+              scrollMainContentToCurrentSentence(currentSentenceIndex);
+            }
+          }}
+          title="Hover to scroll main content to current reading position"
+        >
+          ↺
+        </button>
       </div>
 
       {/* Reading area - clickable sentences */}

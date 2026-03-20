@@ -334,14 +334,13 @@ function ControlBar({
       )}
 
       <button
-        className="drop-folder-btn"
+        className="dropbox-btn"
         onClick={() => folderInputRef.current?.click()}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        style={{ display: 'none' }}
       >
-        Drop Folder Here
+        Drop Folder
       </button>
 
       <input

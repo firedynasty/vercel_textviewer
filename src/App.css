@@ -724,6 +724,7 @@ body {
   max-width: 100%;
   padding: 0 80px;
   box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .content-area.wrap-text .preview-text {
@@ -740,6 +741,16 @@ body {
 
 .content-area.wrap-text .preview-markdown {
   max-width: 100%;
+  overflow-x: hidden;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+.content-area.wrap-text .preview-markdown * {
+  max-width: 100%;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .preview-image {

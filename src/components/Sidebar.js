@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 // Abbreviate parent segments in divider paths: "game-film_breakdowns/in_gae" → "gam../in_gae"
 function shortenDividerPath(path) {
@@ -9,6 +9,8 @@ function shortenDividerPath(path) {
 }
 
 function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags, mdHeadings, onScrollToHeading }) {
+  const [searchFilter, setSearchFilter] = useState('');
+
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
     onFileSelect(index);
@@ -16,11 +18,19 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
 
   // Determine which files are visible when a tag filter is active
   const isFileVisible = (file, index) => {
-    if (!activeTagFilter) return true;
-    if (file.type === 'divider') return false; // hide dividers when filtering
-    const tags = fileTags && fileTags[index];
-    if (!tags) return false; // hide files without tags when filtering
-    return tags.includes(activeTagFilter);
+    if (file.type === 'divider') {
+      if (activeTagFilter || searchFilter) return false;
+      return true;
+    }
+    if (activeTagFilter) {
+      const tags = fileTags && fileTags[index];
+      if (!tags || !tags.includes(activeTagFilter)) return false;
+    }
+    if (searchFilter) {
+      const query = searchFilter.toLowerCase();
+      if (!file.key.toLowerCase().includes(query)) return false;
+    }
+    return true;
   };
 
   if (!isOpen) return null;
@@ -28,9 +38,13 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
   return (
     <div className="sidebar">
       <div className="sidebar-header">
-        <span className="sidebar-header-title">
-          Files{activeTagFilter ? ` $${activeTagFilter}` : ''}
-        </span>
+        <input
+          className="sidebar-search-input"
+          type="text"
+          placeholder={activeTagFilter ? `Filter $${activeTagFilter}...` : 'Filter files...'}
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.target.value)}
+        />
         <button className="sidebar-next-btn" onClick={onNext} title="Next file">
           &#9654;
         </button>

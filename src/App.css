@@ -2033,7 +2033,8 @@ body {
   transition: background 0.3s;
 }
 
-.tts-toggle-switch input:checked + .tts-toggle-track {
+.tts-toggle-switch input:checked + .tts-toggle-track,
+.tts-toggle-track.active {
   background: #4CAF50;
 }
 
@@ -2049,7 +2050,8 @@ body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-.tts-toggle-switch input:checked + .tts-toggle-track .tts-toggle-thumb {
+.tts-toggle-switch input:checked + .tts-toggle-track .tts-toggle-thumb,
+.tts-toggle-thumb.on {
   left: 25px;
 }
 

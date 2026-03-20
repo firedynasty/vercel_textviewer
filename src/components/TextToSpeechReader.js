@@ -224,13 +224,24 @@ function TextToSpeechReader({ textContent, fontSize }) {
           <span
             className="tts-toggle-switch"
             onMouseEnter={() => {
-              speechSynthesis.cancel();
-              setAutoAdvance(prev => !prev);
+              if (autoAdvance) {
+                // ON → OFF: stop reading
+                speechSynthesis.cancel();
+                setAutoAdvance(false);
+              } else {
+                // OFF → ON: resume from current highlighted sentence
+                setAutoAdvance(true);
+                if (currentSentenceIndex >= 0 && currentSentenceIndex < sentences.length) {
+                  setTimeout(() => {
+                    speakSentence(sentences[currentSentenceIndex], currentSentenceIndex);
+                  }, 100);
+                }
+              }
             }}
             title="Hover to toggle auto-advance"
             style={{ cursor: 'pointer' }}
           >
-            <span className="tts-toggle-track">
+            <span className={`tts-toggle-track ${autoAdvance ? 'active' : ''}`}>
               <span className={`tts-toggle-thumb ${autoAdvance ? 'on' : ''}`} />
             </span>
           </span>

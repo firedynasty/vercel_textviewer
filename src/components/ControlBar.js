@@ -538,6 +538,15 @@ function ControlBar({
         </div>
       )}
 
+      {/* Word Wrap toggle */}
+      <button
+        className={`wrap-btn ${wrapText ? 'active' : ''}`}
+        onClick={onToggleWrapText}
+        title={wrapText ? 'Disable Word Wrap' : 'Enable Word Wrap'}
+      >
+        Wrap
+      </button>
+
       {/* Font/Zoom controls - reused for PDF zoom */}
       <div className="font-size-controls">
         <button

@@ -722,7 +722,7 @@ body {
 /* Wrap text mode - full width with aggressive word breaking */
 .content-area.wrap-text {
   max-width: 100%;
-  padding: 0 80px;
+  padding: 0 20px;
   box-sizing: border-box;
   overflow-x: hidden;
 }

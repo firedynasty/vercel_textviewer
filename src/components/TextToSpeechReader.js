@@ -12,6 +12,7 @@ function TextToSpeechReader({ textContent, fontSize }) {
   sentencesRef.current = sentences;
   const speakSentenceRef = useRef(null);
   const readingAreaRef = useRef(null);
+  const toggleCooldownRef = useRef(false);
 
   // Load available voices
   useEffect(() => {
@@ -224,6 +225,10 @@ function TextToSpeechReader({ textContent, fontSize }) {
           <span
             className="tts-toggle-switch"
             onMouseEnter={() => {
+              if (toggleCooldownRef.current) return;
+              toggleCooldownRef.current = true;
+              setTimeout(() => { toggleCooldownRef.current = false; }, 500);
+
               if (autoAdvance) {
                 // ON → OFF: stop reading
                 speechSynthesis.cancel();

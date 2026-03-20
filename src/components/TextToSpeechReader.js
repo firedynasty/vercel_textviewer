@@ -132,25 +132,32 @@ function TextToSpeechReader({ textContent, fontSize }) {
   const scrollMainContentToCurrentSentence = (index) => {
     if (index < 0 || index >= sentences.length) return;
     const sentenceText = sentences[index];
-    const normalize = (str) => str.replace(/\s+/g, ' ').toLowerCase();
-    const target = normalize(sentenceText).slice(0, 40); // use first 40 chars to search
+    const normalize = (str) => str.replace(/\s+/g, ' ').toLowerCase().trim();
 
-    // Find the main content container
+    // Extract key words (4+ chars) for matching
+    const words = normalize(sentenceText).split(' ').filter(w => w.length >= 4);
+    if (words.length === 0) return;
+
+    // Build search phrases from most specific to least
+    const searchPhrases = [];
+    if (words.length >= 3) searchPhrases.push(words.slice(0, 5).join(' '));
+    if (words.length >= 2) searchPhrases.push(words.slice(0, 3).join(' '));
+    searchPhrases.push(words[0]);
+
     const contentEl = document.querySelector('.preview-markdown') || document.querySelector('.preview-text');
     if (!contentEl) return;
 
-    // Walk text nodes to find a match
-    const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT, null, false);
-    let node;
-    while ((node = walker.nextNode())) {
-      const nodeText = normalize(node.textContent);
-      if (nodeText.includes(target)) {
-        // Scroll the parent element into view
-        const el = node.parentElement;
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    for (const phrase of searchPhrases) {
+      const walker = document.createTreeWalker(contentEl, NodeFilter.SHOW_TEXT, null, false);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (normalize(node.textContent).includes(phrase)) {
+          const el = node.parentElement;
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          return;
         }
-        return;
       }
     }
   };
@@ -158,13 +165,6 @@ function TextToSpeechReader({ textContent, fontSize }) {
   const handleGrab = () => {
     const selection = window.getSelection();
     const selectedText = selection?.toString()?.trim();
-
-    // No selection: scroll main content to current reading position
-    if (!selectedText && currentSentenceIndex >= 0) {
-      scrollMainContentToCurrentSentence(currentSentenceIndex);
-      return;
-    }
-
     if (!selectedText || sentences.length === 0) return;
 
     // Normalize selected text for comparison

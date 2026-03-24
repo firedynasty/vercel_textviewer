@@ -20,6 +20,7 @@ function TextViewer() {
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
   const [dropboxFolderPath, setDropboxFolderPath] = useState(null);
   const [isDropboxNonRecursive, setIsDropboxNonRecursive] = useState(false);
+  const [dropboxFileMode, setDropboxFileMode] = useState('text'); // 'text' or 'imgs'
 
 
   // PDF state
@@ -107,7 +108,7 @@ function TextViewer() {
   }, []);
 
   const handleDropboxFolderSelected = useCallback((entries, folderPath, nonRecursive = false) => {
-    const result = processDropboxFolder(entries, folderPath);
+    const result = processDropboxFolder(entries, folderPath, dropboxFileMode);
 
     if (result.error) {
       alert(result.error);
@@ -130,7 +131,7 @@ function TextViewer() {
     setDropboxBrowserOpen(false);
     setDropboxFolderPath(folderPath);
     setIsDropboxNonRecursive(nonRecursive);
-  }, []);
+  }, [dropboxFileMode]);
 
   // Lazy-download a Dropbox file if it hasn't been fetched yet
   const ensureFileDownloaded = useCallback(async (index) => {
@@ -534,6 +535,8 @@ function TextViewer() {
           onToggleSyntaxHighlight={() => setSyntaxHighlightEnabled(prev => !prev)}
           onOpenDropbox={() => setDropboxBrowserOpen(true)}
           onOpenDropboxRecursive={() => setDropboxRecursiveOpen(true)}
+          dropboxFileMode={dropboxFileMode}
+          onDropboxFileModeChange={setDropboxFileMode}
           slideshowEnabled={slideshowEnabled}
           onToggleSlideshow={() => setSlideshowEnabled(prev => !prev)}
           hasImages={files.some(f => f.type === 'image')}

@@ -23,6 +23,8 @@ function ControlBar({
   // Dropbox props
   onOpenDropbox,
   onOpenDropboxRecursive,
+  dropboxFileMode,
+  onDropboxFileModeChange,
   // Slideshow props
   slideshowEnabled,
   onToggleSlideshow,
@@ -352,6 +354,29 @@ function ControlBar({
         multiple
         onChange={handleFolderSelect}
       />
+
+      <div className="dropbox-file-mode">
+        <label className={`file-mode-label ${dropboxFileMode === 'text' ? 'active' : ''}`}>
+          <input
+            type="radio"
+            name="dropboxFileMode"
+            value="text"
+            checked={dropboxFileMode === 'text'}
+            onChange={() => onDropboxFileModeChange('text')}
+          />
+          txt/md
+        </label>
+        <label className={`file-mode-label ${dropboxFileMode === 'imgs' ? 'active' : ''}`}>
+          <input
+            type="radio"
+            name="dropboxFileMode"
+            value="imgs"
+            checked={dropboxFileMode === 'imgs'}
+            onChange={() => onDropboxFileModeChange('imgs')}
+          />
+          imgs
+        </label>
+      </div>
 
       <button
         className="dropbox-btn"

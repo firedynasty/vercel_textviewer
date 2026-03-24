@@ -1513,6 +1513,37 @@ body {
   background: rgba(255, 255, 255, 0.25);
 }
 
+/* Dropbox File Mode Radio */
+.dropbox-file-mode {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.file-mode-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.file-mode-label.active {
+  color: #fff;
+  background: rgba(0, 97, 255, 0.7);
+}
+
+.file-mode-label input[type="radio"] {
+  display: none;
+}
+
 /* Dropbox Button */
 .dropbox-btn {
   background: rgba(0, 97, 255, 0.9);

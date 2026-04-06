@@ -3,7 +3,7 @@ import { marked } from 'marked';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
 import { rtfToPlainText, isRtfFile, parseCsv } from '../utils/fileUtils';
-import TextToSpeechReader from './TextToSpeechReader';
+import CursiveWriterModal from './CursiveWriterModal';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
@@ -607,9 +607,9 @@ function ContentViewer({
           </div>
         )}
 
-        {/* Text-to-Speech Reader for text-based files */}
+        {/* Cursive Writer Modal for text-based files */}
         {(file.type === 'text' || file.type === 'rtf' || file.type === 'markdown' || file.type === 'docx') && !isEditing && textContent && (
-          <TextToSpeechReader textContent={textContent} fontSize={fontSize} />
+          <CursiveWriterModal textContent={textContent} fontSize={fontSize} />
         )}
 
         {(file.type === 'csv' || file.type === 'xlsx') && tableData && (

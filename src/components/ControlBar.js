@@ -619,6 +619,14 @@ function ControlBar({
         Pics Only
       </button>
 
+      <button
+        className="drop-folder-btn"
+        onClick={() => window.open('/video_viewer.html', '_blank')}
+        title="Open Video Viewer"
+      >
+        Video Viewer
+      </button>
+
       <input
         type="file"
         ref={picsOnlyFolderInputRef}

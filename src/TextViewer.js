@@ -108,7 +108,7 @@ function TextViewer() {
   }, []);
 
   const handleDropboxFolderSelected = useCallback((entries, folderPath, nonRecursive = false) => {
-    const result = processDropboxFolder(entries, folderPath, dropboxFileMode);
+    const result = processDropboxFolder(entries, folderPath, dropboxFileMode, !nonRecursive);
 
     if (result.error) {
       alert(result.error);
@@ -492,9 +492,14 @@ function TextViewer() {
 
   // Auto-open Dropbox browser after OAuth redirect
   useEffect(() => {
-    if (dropbox.isAuthenticated && sessionStorage.getItem('dropbox_pending_browse')) {
+    const pendingBrowse = sessionStorage.getItem('dropbox_pending_browse');
+    if (dropbox.isAuthenticated && pendingBrowse) {
       sessionStorage.removeItem('dropbox_pending_browse');
-      setDropboxBrowserOpen(true);
+      if (pendingBrowse === 'recursive') {
+        setDropboxRecursiveOpen(true);
+      } else {
+        setDropboxBrowserOpen(true);
+      }
     }
   }, [dropbox.isAuthenticated]);
 

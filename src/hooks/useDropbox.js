@@ -37,6 +37,11 @@ export function useDropbox() {
     if (code) {
       const verifier = sessionStorage.getItem('dropbox_code_verifier');
       if (verifier) {
+        // Remove code from URL and verifier from storage immediately so
+        // React StrictMode's double-invocation doesn't attempt a second exchange
+        window.history.replaceState({}, document.title, REDIRECT_URI);
+        sessionStorage.removeItem('dropbox_code_verifier');
+
         const body = new URLSearchParams({
           code,
           grant_type: 'authorization_code',
@@ -55,8 +60,6 @@ export function useDropbox() {
             if (data.access_token) {
               setAccessToken(data.access_token);
               setStatus('Signed in');
-              sessionStorage.removeItem('dropbox_code_verifier');
-              window.history.replaceState({}, document.title, REDIRECT_URI);
             } else {
               setStatus('Auth failed: ' + (data.error_description || data.error || 'Unknown error'));
             }
@@ -66,7 +69,7 @@ export function useDropbox() {
     }
   }, []);
 
-  const signIn = useCallback(async () => {
+  const signIn = useCallback(async (browseType = 'nonrecursive') => {
     if (!APP_KEY) {
       setStatus('Missing REACT_APP_DROPBOX_APP_KEY');
       return;
@@ -74,7 +77,7 @@ export function useDropbox() {
     const verifier = generateCodeVerifier();
     const challenge = await generateCodeChallenge(verifier);
     sessionStorage.setItem('dropbox_code_verifier', verifier);
-    sessionStorage.setItem('dropbox_pending_browse', 'true');
+    sessionStorage.setItem('dropbox_pending_browse', browseType);
 
     const authUrl = `https://www.dropbox.com/oauth2/authorize?client_id=${APP_KEY}&response_type=code&code_challenge=${challenge}&code_challenge_method=S256&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&token_access_type=online`;
     window.location.href = authUrl;
@@ -187,6 +190,7 @@ export function useDropbox() {
   }, [accessToken]);
 
   const listFolderRecursive = useCallback(async (path) => {
+    console.log('[listFolderRecursive] called, path:', path, '| hasToken:', !!accessToken);
     if (!accessToken) return [];
 
     setStatus('Loading all subfolders...');
@@ -233,6 +237,11 @@ export function useDropbox() {
         return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
       });
 
+      const folders = allEntries.filter(e => e.isFolder);
+      const files = allEntries.filter(e => !e.isFolder);
+      console.log('[listFolderRecursive] total:', allEntries.length, '| folders:', folders.length, '| files:', files.length);
+      console.log('[listFolderRecursive] folder paths:', folders.map(f => f.path));
+      console.log('[listFolderRecursive] sample file paths:', files.slice(0, 5).map(f => f.path));
       setStatus(`Loaded ${allEntries.length} items (recursive)`);
       return allEntries;
     } catch (error) {

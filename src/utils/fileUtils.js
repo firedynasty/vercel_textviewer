@@ -374,11 +374,15 @@ export function processFiles(files) {
 }
 
 // Process Dropbox folder entries into gallery items (lazy download — url: null)
-export function processDropboxFolder(entries, folderPath, fileMode = 'text') {
-  // Filter for valid, non-folder files based on fileMode
-  const fileFilter = fileMode === 'imgs'
-    ? (name) => isImageFile(name) || isVideoFile(name)
-    : (name) => isTextFile(name) || isMarkdownFile(name);
+// recursive=true: load all valid file types (like Drop Folder), ignoring fileMode filter
+export function processDropboxFolder(entries, folderPath, fileMode = 'text', recursive = false) {
+  // Filter for valid, non-folder files
+  // Recursive loads all types (matching Drop Folder behavior); non-recursive respects fileMode
+  const fileFilter = recursive
+    ? isValidFile
+    : (fileMode === 'imgs'
+        ? (name) => isImageFile(name) || isVideoFile(name)
+        : (name) => isTextFile(name) || isMarkdownFile(name));
   const validEntries = entries.filter(e => !e.isFolder && fileFilter(e.name));
 
   if (validEntries.length === 0) {

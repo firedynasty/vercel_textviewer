@@ -64,11 +64,13 @@ function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive,
 
   const handleLoadFolder = useCallback(async () => {
     if (folderContents.length === 0) return;
+    console.log('[handleLoadFolder] recursive:', recursive, '| currentPath:', currentPath);
 
     if (recursive && dropbox.listFolderRecursive) {
       setLoading(true);
       const allEntries = await dropbox.listFolderRecursive(currentPath);
       setLoading(false);
+      console.log('[handleLoadFolder] allEntries count:', allEntries.length, '| sample paths:', allEntries.filter(e => !e.isFolder).slice(0, 5).map(e => e.path));
       onFolderSelected(filterMedia(allEntries), currentPath);
     } else {
       onFolderSelected(filterMedia(folderContents), currentPath);
@@ -89,7 +91,7 @@ function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive,
 
         {!dropbox.isAuthenticated ? (
           <div className="dropbox-browser-signin">
-            <button className="dropbox-browser-signin-btn" onClick={dropbox.signIn}>
+            <button className="dropbox-browser-signin-btn" onClick={() => dropbox.signIn(recursive ? 'recursive' : 'nonrecursive')}>
               Sign in with Dropbox
             </button>
           </div>
@@ -164,6 +166,9 @@ function DropboxBrowser({ isOpen, onClose, onFolderSelected, dropbox, recursive,
                   ))}
                 </div>
                 <div className="dropbox-browser-footer">
+                  <div className="dropbox-browser-current-path">
+                    Loading from: <strong>{currentPath || '/ (root)'}</strong>
+                  </div>
                   <button
                     className="dropbox-browser-load-btn"
                     onClick={handleLoadFolder}

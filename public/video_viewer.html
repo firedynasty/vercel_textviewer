@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Viewer</title>
+    <style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: #1a1a1a;
+    min-height: 100vh;
+    color: white;
+    padding-top: 53px;
+}
+
+/* ===== NAVBAR ===== */
+.top-navbar {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 50px;
+    background: rgba(0,0,0,0.95);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 9999;
+    padding: 0 16px;
+    border-bottom: 3px solid #B71C1C;
+    box-shadow: 0 2px 15px rgba(0,0,0,0.5);
+}
+.nav-title {
+    color: #ef9a9a;
+    font-weight: 600;
+    font-size: 15px;
+    white-space: nowrap;
+    margin-right: 4px;
+}
+.nav-btn-pill {
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 7px 13px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: bold;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+.nav-btn-pill:hover { transform: scale(1.05); box-shadow: 0 3px 10px rgba(0,0,0,0.4); }
+.nav-spacer { flex: 1; }
+.exit-off-group { display: flex; align-items: center; gap: 6px; }
+.exit-off-label { color: #FF8A65; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.slider-toggle {
+    position: absolute; cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #555; transition: .4s; border-radius: 24px;
+}
+.slider-toggle:before {
+    position: absolute; content: "";
+    height: 18px; width: 18px; left: 3px; bottom: 3px;
+    background-color: white; transition: .4s; border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+input:checked + .slider-toggle { background: linear-gradient(45deg, #FF5722, #E64A19); }
+input:checked + .slider-toggle:before { transform: translateX(20px); }
+
+/* ===== GALLERY LAYOUT ===== */
+.gallery-container {
+    width: 100vw;
+    height: calc(100vh - 53px);
+    display: flex;
+    flex-direction: column;
+}
+
+/* ===== URL/CSV PANEL ===== */
+.load-panel {
+    background: rgba(255,255,255,0.05);
+    padding: 10px 20px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    display: none;
+}
+.load-panel.open { display: block; }
+.load-row { display: flex; gap: 8px; align-items: flex-start; margin-bottom: 6px; flex-wrap: wrap; }
+.load-btn {
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #ddd; padding: 6px 14px; border-radius: 4px;
+    cursor: pointer; font-size: 0.8rem; transition: all 0.2s; white-space: nowrap;
+}
+.load-btn:hover { background: rgba(255,255,255,0.2); }
+.load-btn.primary { background: linear-gradient(45deg,#667eea,#764ba2); border-color: transparent; color: white; }
+.load-btn.primary:hover { box-shadow: 0 2px 8px rgba(102,126,234,0.4); }
+.load-textarea {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: #ddd; padding: 6px 10px; border-radius: 4px;
+    font-size: 0.8rem; flex: 1; min-width: 200px;
+    resize: vertical; font-family: monospace;
+    min-height: 48px; max-height: 120px;
+}
+.load-textarea:focus { outline: none; border-color: #667eea; }
+.load-textarea::placeholder { color: #555; }
+.load-status { font-size: 0.75rem; color: #888; margin-top: 4px; }
+
+/* ===== MAIN GALLERY ===== */
+.main-gallery {
+    position: relative; flex: 1; display: flex;
+    flex-direction: column; padding: 0 20px 10px 20px; min-height: 0;
+}
+.video-display {
+    position: relative; width: 100%; flex: 1;
+    margin-bottom: 10px; border-radius: 8px; overflow: hidden;
+    background: #000; display: flex; align-items: center;
+    justify-content: center; min-height: 0;
+}
+.main-video { max-width: 100%; max-height: 100%; width: auto; height: auto; object-fit: contain; }
+.nav-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(0,0,0,0.6); border: none; color: white;
+    font-size: 2rem; padding: 15px 20px; cursor: pointer;
+    border-radius: 8px; transition: all 0.3s; z-index: 10;
+}
+.nav-arrow:hover { background: rgba(0,0,0,0.8); transform: translateY(-50%) scale(1.05); }
+.prev-btn { left: 20px; }
+.next-btn { right: 20px; }
+.video-counter {
+    position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.7); padding: 10px 20px;
+    border-radius: 25px; font-size: 1rem; z-index: 10;
+}
+.video-title {
+    position: absolute; top: 20px; left: 20px;
+    background: rgba(0,0,0,0.7); padding: 10px 20px;
+    border-radius: 8px; font-size: 1rem; z-index: 10;
+    max-width: calc(100% - 40px);
+}
+.video-controls {
+    position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 10;
+}
+.ctrl-btn {
+    background: rgba(0,0,0,0.7); border: none; color: white;
+    padding: 10px 15px; border-radius: 6px; cursor: pointer;
+    font-size: 0.9rem; transition: all 0.3s;
+}
+.ctrl-btn:hover { background: rgba(0,0,0,0.9); }
+.ctrl-btn.active-loop { background: rgba(255,255,255,0.25); border: 1px solid rgba(255,255,255,0.5); }
+.loading-overlay {
+    position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); display: flex; align-items: center;
+    justify-content: center; z-index: 5; opacity: 0;
+    pointer-events: none; transition: opacity 0.3s;
+}
+.loading-overlay.visible { opacity: 1; }
+.spinner {
+    width: 40px; height: 40px;
+    border: 3px solid rgba(255,255,255,0.2);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.empty-state { text-align: center; color: #666; padding: 60px 20px; }
+.empty-state h2 { font-size: 1.5rem; color: #888; margin-bottom: 10px; }
+.empty-state p { font-size: 0.95rem; }
+
+/* Thumbnail strip */
+.thumbnail-strip {
+    display: flex; gap: 6px; overflow-x: auto;
+    padding: 8px 20px; scroll-behavior: smooth;
+    background: rgba(255,255,255,0.05);
+    border-radius: 6px; margin: 0 -20px;
+}
+.thumbnail-strip::-webkit-scrollbar { height: 6px; }
+.thumbnail-strip::-webkit-scrollbar-track { background: rgba(255,255,255,0.1); border-radius: 3px; }
+.thumbnail-strip::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
+.thumb-btn {
+    min-width: 80px; height: 40px;
+    background: rgba(255,255,255,0.1); border: 2px solid transparent;
+    color: #ccc; font-size: 0.75rem; border-radius: 4px; cursor: pointer;
+    transition: all 0.3s; padding: 4px 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.thumb-btn:hover { background: rgba(255,255,255,0.2); color: #fff; border-color: rgba(255,255,255,0.4); }
+.thumb-btn.active { border-color: #fff; color: #fff; background: rgba(255,255,255,0.2); }
+.instructions { text-align: center; margin-top: 10px; font-size: 0.8rem; opacity: 0.6; }
+
+@media (max-width: 768px) {
+    .main-gallery { padding: 0 10px 10px 10px; }
+    .nav-arrow { font-size: 1.5rem; padding: 12px 15px; }
+    .prev-btn { left: 10px; }
+    .next-btn { right: 10px; }
+    .thumb-btn { min-width: 60px; height: 35px; font-size: 0.65rem; }
+}
+
+/* ===== DROPBOX MODAL ===== */
+.db-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.75); z-index: 10000;
+    display: none; align-items: center; justify-content: center;
+}
+.db-overlay.open { display: flex; }
+.db-modal {
+    background: #2a2a2a; border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px; width: 520px; max-width: 95vw;
+    max-height: 80vh; display: flex; flex-direction: column;
+    overflow: hidden;
+}
+.db-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.1);
+    flex-shrink: 0;
+}
+.db-header h3 { font-size: 1rem; flex: 1; }
+.db-status-text { font-size: 0.75rem; color: #888; }
+.db-close {
+    background: none; border: none; color: #888;
+    font-size: 1.4rem; cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.db-close:hover { color: #fff; }
+.db-signin-wrap { padding: 40px; text-align: center; }
+.db-signin-btn {
+    background: linear-gradient(45deg, #0061fe, #0044bb);
+    border: none; color: white; padding: 12px 28px;
+    border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: bold;
+}
+.db-signin-btn:hover { box-shadow: 0 3px 12px rgba(0,97,254,0.5); }
+.db-redirect-note {
+    margin-top: 14px; font-size: 0.7rem; color: #666; line-height: 1.6;
+}
+.db-redirect-note code {
+    background: rgba(255,255,255,0.08); padding: 2px 6px;
+    border-radius: 3px; font-family: monospace; color: #aaa;
+    word-break: break-all;
+}
+.db-body { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.db-search-row {
+    display: flex; gap: 6px; padding: 10px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.07); flex-shrink: 0;
+}
+.db-search-input {
+    flex: 1; background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.18);
+    color: #ddd; padding: 6px 10px; border-radius: 4px; font-size: 0.85rem;
+}
+.db-search-input:focus { outline: none; border-color: #0061fe; }
+.db-action-btn {
+    background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.18);
+    color: #ddd; padding: 6px 12px; border-radius: 4px;
+    cursor: pointer; font-size: 0.8rem; white-space: nowrap;
+}
+.db-action-btn:hover { background: rgba(255,255,255,0.18); }
+.db-action-btn:disabled { opacity: 0.4; cursor: default; }
+.db-signout-btn { color: #f88; border-color: rgba(248,136,136,0.3); }
+.db-breadcrumb {
+    padding: 6px 14px; font-size: 0.78rem; color: #888;
+    border-bottom: 1px solid rgba(255,255,255,0.05); flex-shrink: 0;
+}
+.db-breadcrumb-link { color: #7ab3f7; cursor: pointer; }
+.db-breadcrumb-link:hover { text-decoration: underline; }
+.db-list { flex: 1; overflow-y: auto; }
+.db-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 14px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer; transition: background 0.15s;
+}
+.db-item:hover { background: rgba(255,255,255,0.06); }
+.db-item.file { cursor: default; opacity: 0.6; }
+.db-item-icon { font-size: 1rem; flex-shrink: 0; }
+.db-item-name { font-size: 0.85rem; }
+.db-item-path { font-size: 0.7rem; color: #555; margin-left: auto; }
+.db-footer {
+    padding: 10px 14px; border-top: 1px solid rgba(255,255,255,0.1);
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+}
+.db-cur-path { font-size: 0.7rem; color: #666; flex: 1; word-break: break-all; }
+.db-load-btn {
+    background: linear-gradient(45deg, #0061fe, #0044bb);
+    border: none; color: white; padding: 8px 16px;
+    border-radius: 5px; cursor: pointer; font-size: 0.8rem; font-weight: bold;
+    white-space: nowrap;
+}
+.db-load-btn:hover { box-shadow: 0 2px 8px rgba(0,97,254,0.4); }
+.db-loading { padding: 20px; text-align: center; color: #888; font-size: 0.85rem; }
+    </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<div class="top-navbar">
+    <span class="nav-title">Video Viewer</span>
+    <button class="nav-btn-pill" style="background:linear-gradient(45deg,#FF6B35,#F7931E);"
+            onclick="window.location.href='/'">Home</button>
+    <button class="nav-btn-pill" id="dropboxNavBtn"
+            style="background:linear-gradient(45deg,#0061fe,#0044bb);"
+            onclick="openDropboxModal()">Dropbox</button>
+    <button class="nav-btn-pill" id="urlsCsvNavBtn"
+            style="background:linear-gradient(45deg,#667eea,#764ba2);"
+            onclick="toggleUrlPanel()">URLs / CSV</button>
+    <div class="nav-spacer"></div>
+    <div class="exit-off-group">
+        <span class="exit-off-label">Exit Off</span>
+        <label class="switch">
+            <input type="checkbox" id="tabPauseToggle" checked>
+            <span class="slider-toggle"></span>
+        </label>
+    </div>
+</div>
+
+<!-- URL / CSV panel (hidden by default) -->
+<div class="load-panel" id="loadPanel">
+    <div class="load-row">
+        <textarea id="urlsTextarea" class="load-textarea"
+            placeholder="Paste video URLs (one per line, or CSV: title,url)..."></textarea>
+        <button class="load-btn primary" id="loadUrlsBtn">Load URLs</button>
+    </div>
+    <div class="load-row" style="margin-top:2px;">
+        <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none" />
+        <button class="load-btn" onclick="document.getElementById('csvFileInput').click()">Choose CSV</button>
+        <span id="csvFileName" style="font-size:0.8rem;color:#888;font-family:monospace;align-self:center;">No file selected</span>
+        <button class="load-btn primary" id="loadLocalCsvBtn">Load CSV</button>
+    </div>
+    <div class="load-status" id="loadStatus">Paste URLs or load a CSV file</div>
+</div>
+
+<!-- Main gallery -->
+<div class="gallery-container">
+    <div class="main-gallery">
+        <div class="video-display" id="videoDisplay">
+            <div class="empty-state" id="emptyState">
+                <h2>No Videos Loaded</h2>
+                <p>Use <strong>Dropbox</strong> to browse and load a folder, or <strong>URLs / CSV</strong> to paste links.</p>
+                <p style="margin-top:10px; font-size:0.8rem; color:#555;">
+                    CSV format: title,url &nbsp;or&nbsp; url (name auto-extracted from filename).
+                </p>
+            </div>
+            <video id="mainVideo" class="main-video" controls preload="auto" style="display:none;">
+                Your browser does not support the video tag.
+            </video>
+            <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+            <button class="nav-arrow prev-btn" id="prevBtn" style="display:none;">&#8249;</button>
+            <button class="nav-arrow next-btn" id="nextBtn" style="display:none;">&#8250;</button>
+            <div class="video-counter" id="videoCounter" style="display:none;"></div>
+            <div class="video-title" id="videoTitle" style="display:none;"></div>
+            <div class="video-controls" id="videoControls" style="display:none;">
+                <button class="ctrl-btn" id="playPauseBtn">Play/Pause</button>
+                <button class="ctrl-btn" id="muteBtn">Mute</button>
+                <button class="ctrl-btn" id="loopBtn">Repeat</button>
+                <button class="ctrl-btn" id="fullscreenBtn">Fullscreen</button>
+            </div>
+        </div>
+        <div class="thumbnail-strip" id="thumbnailStrip"></div>
+        <div class="instructions">
+            Arrow keys or [ ] to navigate &bull; Space play/pause &bull; M mute &bull; R repeat &bull; F fullscreen
+        </div>
+    </div>
+</div>
+
+<!-- Dropbox Modal -->
+<div class="db-overlay" id="dbOverlay" onclick="onDbOverlayClick(event)">
+    <div class="db-modal" onclick="event.stopPropagation()">
+        <div class="db-header">
+            <h3>Dropbox</h3>
+            <span class="db-status-text" id="dbStatusText"></span>
+            <button class="db-close" onclick="closeDropboxModal()">&times;</button>
+        </div>
+        <!-- Not signed in -->
+        <div id="dbSigninView" class="db-signin-wrap">
+            <button class="db-signin-btn" onclick="dbSignIn()">Sign in with Dropbox</button>
+            <div class="db-redirect-note">
+                Make sure <code id="dbRedirectUriDisplay"></code> is added to your
+                Dropbox app's Redirect URIs.
+            </div>
+        </div>
+        <!-- Signed in -->
+        <div id="dbBrowserView" style="display:none; flex:1; flex-direction:column; overflow:hidden; display:none;">
+            <div class="db-search-row">
+                <input type="text" id="dbSearchInput" class="db-search-input"
+                       placeholder="Search folder name, or type /path directly..."
+                       onkeydown="if(event.key==='Enter') dbSearch()" />
+                <button class="db-action-btn" id="dbSearchBtn" onclick="dbSearch()">Search</button>
+                <button class="db-action-btn db-signout-btn" onclick="dbSignOut()">Sign Out</button>
+            </div>
+            <div class="db-breadcrumb" id="dbBreadcrumb" style="display:none;"></div>
+            <div class="db-list" id="dbList"></div>
+            <div class="db-footer" id="dbFooter" style="display:none;">
+                <div class="db-cur-path" id="dbCurPath"></div>
+                <button class="db-load-btn" id="dbLoadBtn" onclick="dbLoadFolder()">Load Videos</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+
+// =====================================================================
+// DROPBOX CONFIG
+// =====================================================================
+
+var DROPBOX_APP_KEY = 'pqeqkzb3yvnta3n';
+var DROPBOX_REDIRECT_URI = window.location.origin + '/video_viewer.html';
+
+var dbAccessToken = null;
+var dbCurrentPath = '';
+var dbFolderContents = [];
+
+// Show the required redirect URI in the sign-in note
+document.getElementById('dbRedirectUriDisplay').textContent = DROPBOX_REDIRECT_URI;
+
+// =====================================================================
+// PKCE helpers
+// =====================================================================
+
+function dbGenerateVerifier() {
+    var array = new Uint8Array(64);
+    crypto.getRandomValues(array);
+    return btoa(String.fromCharCode.apply(null, array))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+async function dbGenerateChallenge(verifier) {
+    var data = new TextEncoder().encode(verifier);
+    var digest = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(digest)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// =====================================================================
+// OAuth: handle redirect back to this page
+// =====================================================================
+
+(async function handleOAuthCallback() {
+    var params = new URLSearchParams(window.location.search);
+    var code = params.get('code');
+    if (!code) return;
+
+    var verifier = sessionStorage.getItem('db_vv_verifier');
+    if (!verifier) return;
+
+    // Clean URL and storage immediately (prevent double-exchange in StrictMode / refresh)
+    window.history.replaceState({}, document.title, DROPBOX_REDIRECT_URI);
+    sessionStorage.removeItem('db_vv_verifier');
+
+    var body = new URLSearchParams({
+        code: code,
+        grant_type: 'authorization_code',
+        client_id: DROPBOX_APP_KEY,
+        redirect_uri: DROPBOX_REDIRECT_URI,
+        code_verifier: verifier,
+    });
+
+    try {
+        var res = await fetch('https://api.dropboxapi.com/oauth2/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        });
+        var data = await res.json();
+        if (data.access_token) {
+            dbAccessToken = data.access_token;
+            dbSetStatus('Signed in');
+            showDbBrowserView();
+            // Re-open modal automatically after sign-in
+            openDropboxModal();
+        } else {
+            dbSetStatus('Auth failed: ' + (data.error_description || data.error || 'Unknown'));
+        }
+    } catch (e) {
+        dbSetStatus('Auth error: ' + e.message);
+    }
+})();
+
+async function dbSignIn() {
+    if (!DROPBOX_APP_KEY) { dbSetStatus('No App Key configured.'); return; }
+    var verifier = dbGenerateVerifier();
+    var challenge = await dbGenerateChallenge(verifier);
+    sessionStorage.setItem('db_vv_verifier', verifier);
+
+    var authUrl = 'https://www.dropbox.com/oauth2/authorize'
+        + '?client_id=' + DROPBOX_APP_KEY
+        + '&response_type=code'
+        + '&code_challenge=' + challenge
+        + '&code_challenge_method=S256'
+        + '&redirect_uri=' + encodeURIComponent(DROPBOX_REDIRECT_URI)
+        + '&token_access_type=online';
+    window.location.href = authUrl;
+}
+
+async function dbSignOut() {
+    if (dbAccessToken) {
+        try {
+            await fetch('https://api.dropboxapi.com/2/auth/token/revoke', {
+                method: 'POST',
+                headers: { Authorization: 'Bearer ' + dbAccessToken },
+            });
+        } catch (_) {}
+        dbAccessToken = null;
+    }
+    dbCurrentPath = '';
+    dbFolderContents = [];
+    dbSetStatus('Signed out');
+    showDbSigninView();
+}
+
+// =====================================================================
+// Dropbox API helpers
+// =====================================================================
+
+async function dbApiPost(url, body) {
+    var res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            Authorization: 'Bearer ' + dbAccessToken,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+    });
+    if (!res.ok) throw new Error('API error ' + res.status);
+    return res.json();
+}
+
+async function dbListFolder(path) {
+    dbSetStatus('Loading...');
+    var allEntries = [];
+    var hasMore = true, cursor = null;
+    while (hasMore) {
+        var url = cursor
+            ? 'https://api.dropboxapi.com/2/files/list_folder/continue'
+            : 'https://api.dropboxapi.com/2/files/list_folder';
+        var body = cursor ? { cursor } : { path };
+        var data = await dbApiPost(url, body);
+        allEntries = allEntries.concat((data.entries || []).map(function(e) {
+            return { name: e.name, path: e.path_lower || e.path_display, isFolder: e['.tag'] === 'folder' };
+        }));
+        hasMore = data.has_more;
+        cursor = data.cursor;
+    }
+    allEntries.sort(function(a, b) {
+        if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    dbSetStatus('Loaded ' + allEntries.length + ' items');
+    return allEntries;
+}
+
+async function dbListFolderRecursive(path) {
+    dbSetStatus('Loading (recursive)...');
+    var allEntries = [];
+    var hasMore = true, cursor = null;
+    while (hasMore) {
+        var url = cursor
+            ? 'https://api.dropboxapi.com/2/files/list_folder/continue'
+            : 'https://api.dropboxapi.com/2/files/list_folder';
+        var body = cursor ? { cursor } : { path, recursive: true };
+        var data = await dbApiPost(url, body);
+        allEntries = allEntries.concat((data.entries || []).map(function(e) {
+            return { name: e.name, path: e.path_lower || e.path_display, isFolder: e['.tag'] === 'folder' };
+        }));
+        hasMore = data.has_more;
+        cursor = data.cursor;
+        dbSetStatus('Loading... ' + allEntries.length + ' items found');
+    }
+    allEntries.sort(function(a, b) {
+        if (a.isFolder !== b.isFolder) return a.isFolder ? -1 : 1;
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+    dbSetStatus('Loaded ' + allEntries.length + ' items (recursive)');
+    return allEntries;
+}
+
+async function dbSearchFolders(query) {
+    dbSetStatus('Searching...');
+    var data = await dbApiPost('https://api.dropboxapi.com/2/files/search_v2', {
+        query,
+        options: { max_results: 20, file_categories: [{ '.tag': 'folder' }] },
+    });
+    var folders = (data.matches || [])
+        .map(function(m) { return m.metadata && m.metadata.metadata ? m.metadata.metadata : m.metadata; })
+        .filter(function(m) { return m && m['.tag'] === 'folder'; })
+        .map(function(m) { return { name: m.name, path: m.path_lower || m.path_display, isFolder: true }; });
+    dbSetStatus('Found ' + folders.length + ' folder(s)');
+    return folders;
+}
+
+// =====================================================================
+// Dropbox modal UI
+// =====================================================================
+
+function openDropboxModal() {
+    document.getElementById('dbOverlay').classList.add('open');
+    if (dbAccessToken) {
+        showDbBrowserView();
+    } else {
+        showDbSigninView();
+    }
+}
+
+function closeDropboxModal() {
+    document.getElementById('dbOverlay').classList.remove('open');
+}
+
+function onDbOverlayClick(e) {
+    if (e.target === document.getElementById('dbOverlay')) closeDropboxModal();
+}
+
+function showDbSigninView() {
+    document.getElementById('dbSigninView').style.display = '';
+    document.getElementById('dbBrowserView').style.display = 'none';
+}
+
+function showDbBrowserView() {
+    document.getElementById('dbSigninView').style.display = 'none';
+    var bv = document.getElementById('dbBrowserView');
+    bv.style.display = 'flex';
+    bv.style.flexDirection = 'column';
+    bv.style.flex = '1';
+    bv.style.overflow = 'hidden';
+    // Focus search
+    setTimeout(function() { document.getElementById('dbSearchInput').focus(); }, 50);
+}
+
+function dbSetStatus(msg) {
+    document.getElementById('dbStatusText').textContent = msg;
+}
+
+function dbRenderList(entries) {
+    var list = document.getElementById('dbList');
+    list.innerHTML = '';
+    entries.forEach(function(entry) {
+        var div = document.createElement('div');
+        div.className = 'db-item' + (entry.isFolder ? '' : ' file');
+        div.innerHTML =
+            '<span class="db-item-icon">' + (entry.isFolder ? '📁' : '🎬') + '</span>' +
+            '<span class="db-item-name">' + entry.name + '</span>' +
+            (entry.isFolder ? '<span class="db-item-path">' + entry.path + '</span>' : '');
+        if (entry.isFolder) {
+            div.addEventListener('click', function() { dbNavigateTo(entry.path); });
+        }
+        list.appendChild(div);
+    });
+}
+
+function dbRenderBreadcrumb(path) {
+    var bc = document.getElementById('dbBreadcrumb');
+    if (!path) { bc.style.display = 'none'; return; }
+    bc.style.display = '';
+    var parts = path.split('/').filter(Boolean);
+    var html = '';
+    parts.forEach(function(part, i) {
+        var p = '/' + parts.slice(0, i + 1).join('/');
+        if (i > 0) html += ' / ';
+        html += '<span class="db-breadcrumb-link" data-path="' + p + '">' + part + '</span>';
+    });
+    bc.innerHTML = html;
+    bc.querySelectorAll('.db-breadcrumb-link').forEach(function(el) {
+        el.addEventListener('click', function() { dbNavigateTo(el.dataset.path); });
+    });
+}
+
+function dbUpdateFooter(entries) {
+    var footer = document.getElementById('dbFooter');
+    var fileCount = entries.filter(function(e) { return !e.isFolder && isVideoFile(e.name); }).length;
+    if (entries.length > 0) {
+        footer.style.display = 'flex';
+        document.getElementById('dbCurPath').textContent = 'Loading from: ' + (dbCurrentPath || '/ (root)');
+        document.getElementById('dbLoadBtn').textContent =
+            'Load Videos (' + fileCount + ' video' + (fileCount !== 1 ? 's' : '') + ')';
+        document.getElementById('dbLoadBtn').disabled = fileCount === 0;
+    } else {
+        footer.style.display = 'none';
+    }
+}
+
+async function dbNavigateTo(path) {
+    dbCurrentPath = path;
+    try {
+        var entries = await dbListFolder(path);
+        dbFolderContents = entries;
+        dbRenderBreadcrumb(path);
+        dbRenderList(entries);
+        dbUpdateFooter(entries);
+    } catch (e) {
+        dbSetStatus('Error: ' + e.message);
+    }
+}
+
+async function dbSearch() {
+    var q = document.getElementById('dbSearchInput').value.trim();
+    if (!q) return;
+    document.getElementById('dbFooter').style.display = 'none';
+    document.getElementById('dbBreadcrumb').style.display = 'none';
+    dbFolderContents = [];
+    dbCurrentPath = '';
+
+    if (q.startsWith('/')) {
+        // Direct path navigation
+        var path = q.replace(/\/+$/, '') || '';
+        await dbNavigateTo(path);
+        return;
+    }
+
+    try {
+        document.getElementById('dbSearchBtn').disabled = true;
+        var folders = await dbSearchFolders(q);
+        dbRenderList(folders);
+        document.getElementById('dbSearchBtn').disabled = false;
+    } catch (e) {
+        dbSetStatus('Error: ' + e.message);
+        document.getElementById('dbSearchBtn').disabled = false;
+    }
+}
+
+async function dbLoadFolder() {
+    if (!dbCurrentPath && dbFolderContents.length === 0) return;
+    closeDropboxModal();
+    try {
+        // Always do recursive load so subfolders show as dividers
+        var allEntries = await dbListFolderRecursive(dbCurrentPath);
+        var videoEntries = allEntries.filter(function(e) { return !e.isFolder && isVideoFile(e.name); });
+        var videoList = videoEntries.map(function(e) {
+            return { title: nameFromUrl(e.path), src: dbDropboxPathToRawUrl(e.path), dropboxPath: e.path };
+        });
+        applyVideoList(videoList, 'Dropbox: ' + (dbCurrentPath || '/'));
+        setStatus('Loaded ' + videoList.length + ' video(s) from ' + (dbCurrentPath || '/'));
+    } catch (e) {
+        setStatus('Dropbox error: ' + e.message);
+    }
+}
+
+// Build a temporary Dropbox download URL using the files/get_temporary_link API
+async function dbGetTempLink(dropboxPath) {
+    var data = await dbApiPost('https://api.dropboxapi.com/2/files/get_temporary_link', { path: dropboxPath });
+    return data.link;
+}
+
+// Produce a direct streaming URL. We use Dropbox temporary links for actual playback.
+function dbDropboxPathToRawUrl(dropboxPath) {
+    // We'll resolve to a temporary link at play time; store path for now
+    return '__dropbox__' + dropboxPath;
+}
+
+// =====================================================================
+// VIDEO GALLERY
+// =====================================================================
+
+var videos = [];
+var currentIndex = 0;
+var looping = false;
+
+var mainVideo = document.getElementById('mainVideo');
+var videoCounter = document.getElementById('videoCounter');
+var videoTitle = document.getElementById('videoTitle');
+var thumbnailStrip = document.getElementById('thumbnailStrip');
+var loadingOverlay = document.getElementById('loadingOverlay');
+var prevBtn = document.getElementById('prevBtn');
+var nextBtn = document.getElementById('nextBtn');
+var playPauseBtn = document.getElementById('playPauseBtn');
+var muteBtn = document.getElementById('muteBtn');
+var loopBtn = document.getElementById('loopBtn');
+var fullscreenBtn = document.getElementById('fullscreenBtn');
+var emptyState = document.getElementById('emptyState');
+var videoControls = document.getElementById('videoControls');
+
+function showPlayer(show) {
+    [mainVideo, prevBtn, nextBtn, videoCounter, videoTitle, videoControls].forEach(function(el) {
+        el.style.display = show ? '' : 'none';
+    });
+    emptyState.style.display = show ? 'none' : '';
+}
+
+async function loadVideo(index) {
+    if (!videos.length) return;
+    currentIndex = index;
+    var video = videos[index];
+    loadingOverlay.classList.add('visible');
+
+    mainVideo.pause();
+    mainVideo.removeAttribute('src');
+    mainVideo.load();
+
+    var src = video.src;
+    // Resolve Dropbox path to a temporary link
+    if (src.startsWith('__dropbox__') && dbAccessToken) {
+        try {
+            src = await dbGetTempLink(src.slice('__dropbox__'.length));
+            videos[index].src = src; // cache resolved URL
+        } catch (e) {
+            videoTitle.textContent = video.title + ' (link error)';
+            loadingOverlay.classList.remove('visible');
+            return;
+        }
+    }
+
+    mainVideo.src = src;
+    mainVideo.loop = looping;
+    mainVideo.load();
+
+    videoTitle.textContent = video.title;
+    videoCounter.textContent = (index + 1) + ' / ' + videos.length + ' — ' + video.title;
+
+    document.querySelectorAll('.thumb-btn').forEach(function(btn, i) {
+        btn.classList.toggle('active', i === index);
+    });
+    var activeBtn = thumbnailStrip.children[index];
+    if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+}
+
+mainVideo.addEventListener('canplay', function() { loadingOverlay.classList.remove('visible'); });
+mainVideo.addEventListener('error', function() {
+    loadingOverlay.classList.remove('visible');
+    if (videos[currentIndex]) videoTitle.textContent = videos[currentIndex].title + ' (failed to load)';
+});
+
+function buildThumbnails() {
+    thumbnailStrip.innerHTML = '';
+    videos.forEach(function(video, index) {
+        var btn = document.createElement('button');
+        btn.className = 'thumb-btn';
+        btn.textContent = video.title;
+        btn.addEventListener('click', function() { loadVideo(index); });
+        thumbnailStrip.appendChild(btn);
+    });
+}
+
+function nextVideo() { if (videos.length) loadVideo((currentIndex + 1) % videos.length); }
+function prevVideo() { if (videos.length) loadVideo((currentIndex - 1 + videos.length) % videos.length); }
+function togglePlayPause() { if (mainVideo.paused) mainVideo.play(); else mainVideo.pause(); }
+function toggleMute() { mainVideo.muted = !mainVideo.muted; muteBtn.textContent = mainVideo.muted ? 'Unmute' : 'Mute'; }
+function toggleLoop() {
+    looping = !looping; mainVideo.loop = looping;
+    loopBtn.classList.toggle('active-loop', looping);
+    loopBtn.textContent = looping ? 'Repeat ON' : 'Repeat';
+}
+function toggleFullscreen() {
+    if (document.fullscreenElement) document.exitFullscreen(); else mainVideo.requestFullscreen();
+}
+
+prevBtn.addEventListener('click', prevVideo);
+nextBtn.addEventListener('click', nextVideo);
+playPauseBtn.addEventListener('click', togglePlayPause);
+muteBtn.addEventListener('click', toggleMute);
+loopBtn.addEventListener('click', toggleLoop);
+fullscreenBtn.addEventListener('click', toggleFullscreen);
+mainVideo.addEventListener('click', togglePlayPause);
+
+document.addEventListener('keydown', function(e) {
+    if (['INPUT','SELECT','TEXTAREA'].indexOf(e.target.tagName) !== -1) return;
+    switch (e.key) {
+        case 'ArrowLeft': case '[': prevVideo(); break;
+        case 'ArrowRight': case ']': nextVideo(); break;
+        case ' ': e.preventDefault(); togglePlayPause(); break;
+        case 'Escape': if (document.fullscreenElement) document.exitFullscreen(); break;
+        case 'm': case 'M': toggleMute(); break;
+        case 'f': case 'F': toggleFullscreen(); break;
+        case 'r': case 'R': toggleLoop(); break;
+    }
+});
+
+function applyVideoList(videoList, source) {
+    videos = videoList;
+    currentIndex = 0;
+    buildThumbnails();
+    if (videos.length) {
+        showPlayer(true);
+        loadVideo(0);
+    } else {
+        showPlayer(false);
+        setStatus('No videos found in ' + source);
+    }
+}
+
+function setStatus(msg) { document.getElementById('loadStatus').textContent = msg; }
+
+// =====================================================================
+// FILE TYPE DETECTION
+// =====================================================================
+
+var VIDEO_EXTS = ['.mp4','.webm','.ogg','.mov','.avi','.mkv','.m4v'];
+
+function isVideoFile(name) {
+    var lower = name.toLowerCase();
+    return VIDEO_EXTS.some(function(ext) { return lower.endsWith(ext); });
+}
+
+// =====================================================================
+// NAME EXTRACTION
+// =====================================================================
+
+function nameFromUrl(urlOrPath) {
+    try {
+        // Handle plain Dropbox paths (no protocol)
+        var filename;
+        if (urlOrPath.startsWith('/') || urlOrPath.startsWith('__dropbox__')) {
+            filename = decodeURIComponent(urlOrPath.replace('__dropbox__','').split('/').pop());
+        } else {
+            var pathname = new URL(urlOrPath).pathname;
+            filename = decodeURIComponent(pathname.split('/').pop());
+        }
+
+        var name = filename
+            .replace(/\.[^/.]+$/, '')       // remove extension
+            .replace(/[_-]+/g, ' ')          // underscores/dashes → spaces
+            .replace(/\[.*?\]/g, '')          // remove [bracketed] parts
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // "Screen Recording 2026 04 13 at 1.00.09 PM" → "Screen Rec 1.00PM"
+        var scrMatch = name.match(/^screen\s+rec(?:ording)?.*?(\d+\.\d+)(?:\.\d+)?\s*(AM|PM)/i);
+        if (scrMatch) return 'Screen Rec ' + scrMatch[1] + scrMatch[2].toUpperCase();
+        if (/^screen\s+rec/i.test(name)) return name.slice(0, 10).trim();
+
+        return name;
+    } catch (e) {
+        return urlOrPath.length > 40 ? urlOrPath.slice(0, 40) + '…' : urlOrPath;
+    }
+}
+
+// =====================================================================
+// URL / CSV PANEL
+// =====================================================================
+
+function toggleUrlPanel() {
+    var panel = document.getElementById('loadPanel');
+    panel.classList.toggle('open');
+}
+
+function parseRowsAsVideoList(rows) {
+    var result = [];
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        var first = String(row[0] || '').trim();
+        var second = String(row[1] || '').trim();
+        if (!first) continue;
+        if (/^(name|title|video|clip|url|link|src)$/i.test(first)) continue;
+        var firstIsUrl = /^https?:\/\//.test(first);
+        var url = firstIsUrl ? first : second;
+        var rawName = firstIsUrl ? second : first;
+        var name = rawName || (url ? nameFromUrl(url) : 'Clip ' + (result.length + 1));
+        if (url) result.push({ title: name, src: url });
+    }
+    return result;
+}
+
+function parseText(text) {
+    var lines = text.split('\n').map(function(l) { return l.trim(); }).filter(Boolean);
+    var rows = lines.map(function(line) {
+        var fields = [], cur = '', inQuote = false;
+        for (var ci = 0; ci < line.length; ci++) {
+            var ch = line[ci];
+            if (inQuote) {
+                if (ch === '"' && line[ci+1] === '"') { cur += '"'; ci++; }
+                else if (ch === '"') { inQuote = false; }
+                else { cur += ch; }
+            } else {
+                if (ch === '"') { inQuote = true; }
+                else if (ch === ',') { fields.push(cur); cur = ''; }
+                else { cur += ch; }
+            }
+        }
+        fields.push(cur);
+        if (fields.length === 1 && /^https?:\/\//.test(fields[0].trim())) return [fields[0].trim(), ''];
+        return fields;
+    });
+    return parseRowsAsVideoList(rows);
+}
+
+document.getElementById('loadUrlsBtn').addEventListener('click', function() {
+    var text = document.getElementById('urlsTextarea').value.trim();
+    if (!text) { setStatus('Paste some URLs first.'); return; }
+    applyVideoList(parseText(text), 'pasted URLs');
+});
+
+document.getElementById('csvFileInput').addEventListener('change', function() {
+    document.getElementById('csvFileName').textContent =
+        this.files.length ? this.files[0].name : 'No file selected';
+});
+
+document.getElementById('loadLocalCsvBtn').addEventListener('click', function() {
+    var f = document.getElementById('csvFileInput').files[0];
+    if (!f) { setStatus('Select a CSV file first.'); return; }
+    var reader = new FileReader();
+    reader.onload = function(e) { applyVideoList(parseText(e.target.result), 'CSV: ' + f.name); };
+    reader.readAsText(f);
+});
+
+// =====================================================================
+// EXIT OFF: pause on tab switch
+// =====================================================================
+
+(function() {
+    var wasPlaying = false;
+    document.addEventListener('visibilitychange', function() {
+        var toggle = document.getElementById('tabPauseToggle');
+        if (!toggle || !toggle.checked) return;
+        if (document.hidden) {
+            wasPlaying = !mainVideo.paused;
+            if (!mainVideo.paused) mainVideo.pause();
+        } else {
+            if (wasPlaying) { mainVideo.play(); wasPlaying = false; }
+        }
+    });
+})();
+
+// =====================================================================
+// INIT
+// =====================================================================
+
+showPlayer(false);
+
+</script>
+</body>
+</html>

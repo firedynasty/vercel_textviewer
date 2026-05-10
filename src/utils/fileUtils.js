@@ -434,6 +434,7 @@ export function processDropboxFolder(entries, folderPath, fileMode = 'text', rec
         type: fileType,
         url: null,
         dropboxPath: entry.path,
+        dropboxId: entry.id || null,
         originalName: entry.name,
       });
     });
@@ -450,6 +451,7 @@ export function processDropboxFolder(entries, folderPath, fileMode = 'text', rec
         type: fileType,
         url: null,
         dropboxPath: entry.path,
+        dropboxId: entry.id || null,
         originalName: entry.name,
       });
     });

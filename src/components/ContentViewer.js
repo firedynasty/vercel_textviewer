@@ -48,6 +48,7 @@ function ContentViewer({
   editContent,
   onEditChange,
   imagePathToBlobUrl,
+  onImageRequest,
   onPrev,
   onNext,
   // PDF-specific props
@@ -66,6 +67,8 @@ function ContentViewer({
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
   const [renderAsMarkdown, setRenderAsMarkdown] = useState(false);
+  // Image modal: null = closed, { src, alt, loading } = open
+  const [imageModal, setImageModal] = useState(null);
   const [loading, setLoading] = useState(false);
   const [tableData, setTableData] = useState(null);
   const [sheetPickerOpen, setSheetPickerOpen] = useState(false);
@@ -288,44 +291,15 @@ function ContentViewer({
           }
 
           if (file.type === 'markdown') {
-            // Process markdown images to use blob URLs before parsing
-            let processedText = text;
-
-            if (imagePathToBlobUrl) {
-              // Replace image paths in markdown syntax with blob URLs directly
-              processedText = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, imgPath) => {
-                // Decode any URL encoding in the path
-                const decodedPath = decodeURIComponent(imgPath);
-
-                // Build path variants from most specific to least specific
-                const decodedParts = decodedPath.replace(/\\/g, '/').split('/').filter(Boolean);
-                const pathVariants = [
-                  decodedPath,
-                  imgPath,
-                  decodedPath.replace(/^\.\//, ''),
-                  imgPath.replace(/^\.\//, ''),
-                  // Last 3 components (e.g. "youtube_notes/images/file.png")
-                  ...(decodedParts.length >= 3 ? [decodedParts.slice(-3).join('/')] : []),
-                  // Last 2 components (e.g. "images/file.png")
-                  ...(decodedParts.length >= 2 ? [decodedParts.slice(-2).join('/')] : []),
-                  // Just filename
-                  decodedParts[decodedParts.length - 1],
-                ];
-
-                for (const variant of pathVariants) {
-                  if (variant && imagePathToBlobUrl[variant]) {
-                    return `![${alt}](${imagePathToBlobUrl[variant]})`;
-                  }
-                  if (variant && imagePathToBlobUrl['./' + variant]) {
-                    return `![${alt}](${imagePathToBlobUrl['./' + variant]})`;
-                  }
-                }
-
-                // No blob URL found, encode spaces for marked.js
-                const encodedPath = imgPath.replace(/ /g, '%20');
-                return `![${alt}](${encodedPath})`;
-              });
-            }
+            // Replace image syntax with clickable buttons — images load in a modal on click.
+            // This avoids broken-image issues with absolute local paths or undownloaded Dropbox files.
+            const processedText = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, href) => {
+              const fileName = decodeURIComponent(href).split('/').filter(Boolean).pop() || href;
+              const safeAlt = (alt || fileName).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+              const safeHref = href.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+              const safeFileName = fileName.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+              return `<button class="md-image-btn" data-href="${safeHref}" data-filename="${safeFileName}" data-alt="${safeAlt}">🖼 ${safeAlt}</button>`;
+            });
 
             const html = addHeadingIds(marked.parse(processedText));
             setMarkdownHtml(html);
@@ -429,6 +403,16 @@ function ContentViewer({
       });
     }
   }, [syntaxHighlightEnabled, markdownHtml, file]);
+
+  // Close image modal on Escape
+  useEffect(() => {
+    if (!imageModal) return;
+    const handleKey = (e) => {
+      if (e.key === 'Escape') setImageModal(null);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [imageModal]);
 
   const pickSheet = (sheetName) => {
     if (!pendingWorkbook) return;
@@ -589,7 +573,56 @@ function ContentViewer({
             ref={markdownPreviewRef}
             tabIndex={-1}
             dangerouslySetInnerHTML={{ __html: `<div class="content-title">${file.key}</div>${markdownHtml}` }}
+            onClick={async (e) => {
+              const btn = e.target.closest('.md-image-btn');
+              if (!btn) return;
+              const href = btn.dataset.href;
+              const fileName = btn.dataset.filename;
+              const alt = btn.dataset.alt;
+              setImageModal({ src: null, alt: alt || fileName, href, fileName, loading: true });
+              let src = null;
+              if (onImageRequest) {
+                src = await onImageRequest(href, fileName);
+              }
+              setImageModal({ src, alt: alt || fileName, href, fileName, loading: false });
+            }}
           />
+        )}
+
+        {/* Image modal — shown when a 🖼 button in markdown is clicked */}
+        {imageModal && (
+          <div
+            className="md-image-modal-overlay"
+            onClick={() => setImageModal(null)}
+            onKeyDown={(e) => e.key === 'Escape' && setImageModal(null)}
+          >
+            <div className="md-image-modal-box" onClick={e => e.stopPropagation()}>
+              <button className="md-image-modal-close" onClick={() => setImageModal(null)}>×</button>
+              {imageModal.loading ? (
+                <div className="md-image-modal-loading">Loading image…</div>
+              ) : imageModal.src ? (
+                <img src={imageModal.src} alt={imageModal.alt} className="md-image-modal-img" />
+              ) : (
+                <div className="md-image-modal-notfound">
+                  <div className="md-image-modal-notfound-title">Image not found</div>
+                  <div className="md-image-modal-notfound-label">filename looked up:</div>
+                  <input
+                    className="md-image-modal-notfound-path"
+                    readOnly
+                    value={imageModal.fileName || ''}
+                    onClick={e => e.target.select()}
+                  />
+                  <div className="md-image-modal-notfound-label">original href:</div>
+                  <input
+                    className="md-image-modal-notfound-path"
+                    readOnly
+                    value={imageModal.href || ''}
+                    onClick={e => e.target.select()}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {file.type === 'markdown' && isEditing && (

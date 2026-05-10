@@ -167,6 +167,7 @@ export function useDropbox() {
         const entries = (data.entries || []).map((entry) => ({
           name: entry.name,
           path: entry.path_lower || entry.path_display,
+          id: entry.id || null,
           isFolder: entry['.tag'] === 'folder',
         }));
 
@@ -221,6 +222,7 @@ export function useDropbox() {
         const entries = (data.entries || []).map((entry) => ({
           name: entry.name,
           path: entry.path_lower || entry.path_display,
+          id: entry.id || null,
           isFolder: entry['.tag'] === 'folder',
         }));
 

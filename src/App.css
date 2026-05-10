@@ -2261,3 +2261,109 @@ body {
 .text-viewer:not(.dark-mode) .cursive-trigger {
   border-top-color: #ddd;
 }
+
+/* Markdown inline image buttons */
+.md-image-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  border-radius: 4px;
+  color: #818cf8;
+  font-size: 0.9em;
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background 0.15s, border-color 0.15s;
+}
+.md-image-btn:hover {
+  background: rgba(99, 102, 241, 0.3);
+  border-color: rgba(99, 102, 241, 0.7);
+}
+.text-viewer:not(.dark-mode) .md-image-btn {
+  background: rgba(99, 102, 241, 0.1);
+  color: #4f46e5;
+  border-color: rgba(79, 70, 229, 0.4);
+}
+
+/* Image modal */
+.md-image-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.82);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+.md-image-modal-box {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: #1e1e2e;
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.md-image-modal-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 1.6rem;
+  cursor: pointer;
+  line-height: 1;
+  z-index: 1;
+}
+.md-image-modal-close:hover { color: #fff; }
+.md-image-modal-img {
+  max-width: 85vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 4px;
+  display: block;
+}
+.md-image-modal-loading {
+  color: #aaa;
+  padding: 40px 60px;
+  font-size: 1rem;
+}
+
+/* Image modal — not found debug */
+.md-image-modal-notfound {
+  padding: 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 340px;
+  max-width: 80vw;
+}
+.md-image-modal-notfound-title {
+  color: #f87171;
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.md-image-modal-notfound-label {
+  color: #aaa;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.md-image-modal-notfound-path {
+  background: #111;
+  border: 1px solid #444;
+  border-radius: 4px;
+  color: #e2e8f0;
+  font-family: monospace;
+  font-size: 0.82rem;
+  padding: 6px 8px;
+  width: 100%;
+  cursor: text;
+  margin-bottom: 6px;
+}

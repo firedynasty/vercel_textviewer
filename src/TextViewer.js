@@ -3,7 +3,7 @@ import Sidebar from './components/Sidebar';
 import ContentViewer from './components/ContentViewer';
 import ControlBar from './components/ControlBar';
 import DropboxBrowser from './components/DropboxBrowser';
-import { processFiles, processDropboxFolder, extractHashtags, isTextFile, isMarkdownFile } from './utils/fileUtils';
+import { processFiles, processDropboxFolder, extractHashtags, isTextFile, isMarkdownFile, isImageFile } from './utils/fileUtils';
 import { useDropbox } from './hooks/useDropbox';
 
 function TextViewer() {
@@ -138,7 +138,10 @@ function TextViewer() {
     const file = files[index];
     if (!file || file.url !== null || !file.dropboxPath) return;
 
-    const blob = await dropbox.downloadFile(file.dropboxPath);
+    // Prefer dropboxId (always ASCII) over path (may contain Unicode like macOS
+    // narrow no-break space U+202F in screenshot filenames) — HTTP headers require ISO-8859-1.
+    const downloadRef = file.dropboxId || file.dropboxPath;
+    const blob = await dropbox.downloadFile(downloadRef);
     if (!blob) return;
 
     const blobUrl = URL.createObjectURL(blob);
@@ -148,68 +151,69 @@ function TextViewer() {
       return updated;
     });
 
-    // Extract tags from downloaded text/md files
+    // Extract tags from text/md files
     if (file.originalName && (isTextFile(file.originalName) || isMarkdownFile(file.originalName))) {
       blob.text().then(text => {
         const tags = extractHashtags(text);
         if (tags.length > 0) {
           setFileTags(prev => ({ ...prev, [index]: tags }));
         }
-
-        // For markdown files from Dropbox, resolve embedded image references
-        if (isMarkdownFile(file.originalName) && file.dropboxPath) {
-          const imageMatches = [...text.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)];
-          if (imageMatches.length > 0) {
-            // Determine the markdown file's parent folder in Dropbox
-            const mdFolder = file.dropboxPath.substring(0, file.dropboxPath.lastIndexOf('/'));
-
-            const downloadImages = async () => {
-              const newMappings = {};
-              for (const match of imageMatches) {
-                const imgPath = decodeURIComponent(match[1]);
-                // Skip URLs (http/https/data)
-                if (/^(https?:|data:)/i.test(imgPath)) continue;
-
-                // Extract just the filename
-                const fileName = imgPath.split('/').pop();
-                // Extract relative path components (e.g. "images/file.png")
-                const pathParts = imgPath.replace(/^\//, '').split('/');
-                // Try: last 2 components as subfolder/file, then just filename
-                const candidates = [];
-                if (pathParts.length >= 2) {
-                  candidates.push(mdFolder + '/' + pathParts.slice(-2).join('/'));
-                }
-                if (pathParts.length >= 3) {
-                  candidates.push(mdFolder + '/' + pathParts.slice(-3).join('/'));
-                }
-                candidates.push(mdFolder + '/' + fileName);
-
-                for (const candidatePath of candidates) {
-                  try {
-                    const imgBlob = await dropbox.downloadFile(candidatePath);
-                    if (imgBlob) {
-                      const imgBlobUrl = URL.createObjectURL(imgBlob);
-                      // Map both the original path and decoded path to the blob URL
-                      newMappings[match[1]] = imgBlobUrl;
-                      newMappings[imgPath] = imgBlobUrl;
-                      newMappings[fileName] = imgBlobUrl;
-                      break;
-                    }
-                  } catch (e) {
-                    // Try next candidate
-                  }
-                }
-              }
-              if (Object.keys(newMappings).length > 0) {
-                setImagePathToBlobUrl(prev => ({ ...prev, ...newMappings }));
-              }
-            };
-            downloadImages();
-          }
-        }
       }).catch(() => {});
     }
   }, [files, dropbox]);
+
+  // On-demand image fetch for the markdown image modal.
+  // Tries imagePathToBlobUrl first, then the files list (DB-recursive),
+  // then listFolder (DB-nonrecursive).
+  const handleImageRequest = useCallback(async (href, fileName) => {
+    // 1. Already cached
+    const decoded = decodeURIComponent(href);
+    for (const key of [href, decoded, fileName]) {
+      if (imagePathToBlobUrl[key]) return imagePathToBlobUrl[key];
+    }
+
+    // 2. Image listed in files (DB-recursive) — download if needed
+    const imageFile = files.find(f => f.type === 'image' && f.originalName === fileName);
+    if (imageFile) {
+      if (imageFile.url) {
+        setImagePathToBlobUrl(prev => ({ ...prev, [fileName]: imageFile.url, [href]: imageFile.url }));
+        return imageFile.url;
+      }
+      if (imageFile.dropboxPath) {
+        const ref = imageFile.dropboxId || imageFile.dropboxPath;
+        const blob = await dropbox.downloadFile(ref);
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          setImagePathToBlobUrl(prev => ({ ...prev, [fileName]: url, [href]: url }));
+          return url;
+        }
+      }
+    }
+
+    // 3. listFolder fallback (DB-nonrecursive or local absolute paths)
+    if (displayedFile?.dropboxPath) {
+      const mdFolder = displayedFile.dropboxPath.substring(0, displayedFile.dropboxPath.lastIndexOf('/'));
+      const topEntries = await dropbox.listFolder(mdFolder);
+      const allEntries = [...topEntries];
+      for (const sub of topEntries.filter(e => e.isFolder)) {
+        const subEntries = await dropbox.listFolder(sub.path);
+        allEntries.push(...subEntries);
+      }
+      const entry = allEntries.find(e => !e.isFolder && e.name === fileName);
+      if (entry) {
+        const ref = entry.id || entry.path;
+        const blob = await dropbox.downloadFile(ref);
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          setImagePathToBlobUrl(prev => ({ ...prev, [fileName]: url, [href]: url }));
+          return url;
+        }
+      }
+    }
+
+    // 4. Local file — imagePathToBlobUrl should already have it by filename
+    return null;
+  }, [files, dropbox, imagePathToBlobUrl, displayedFile]);
 
   const handleFileSelect = useCallback((index) => {
     if (isEditing) {
@@ -615,6 +619,7 @@ function TextViewer() {
           editContent={editContent}
           onEditChange={setEditContent}
           imagePathToBlobUrl={imagePathToBlobUrl}
+          onImageRequest={handleImageRequest}
           onPrev={handlePrev}
           onNext={handleNext}
           pdfState={pdfState}

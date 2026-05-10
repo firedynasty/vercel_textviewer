@@ -155,6 +155,58 @@ function TextViewer() {
         if (tags.length > 0) {
           setFileTags(prev => ({ ...prev, [index]: tags }));
         }
+
+        // For markdown files from Dropbox, resolve embedded image references
+        if (isMarkdownFile(file.originalName) && file.dropboxPath) {
+          const imageMatches = [...text.matchAll(/!\[[^\]]*\]\(([^)]+)\)/g)];
+          if (imageMatches.length > 0) {
+            // Determine the markdown file's parent folder in Dropbox
+            const mdFolder = file.dropboxPath.substring(0, file.dropboxPath.lastIndexOf('/'));
+
+            const downloadImages = async () => {
+              const newMappings = {};
+              for (const match of imageMatches) {
+                const imgPath = decodeURIComponent(match[1]);
+                // Skip URLs (http/https/data)
+                if (/^(https?:|data:)/i.test(imgPath)) continue;
+
+                // Extract just the filename
+                const fileName = imgPath.split('/').pop();
+                // Extract relative path components (e.g. "images/file.png")
+                const pathParts = imgPath.replace(/^\//, '').split('/');
+                // Try: last 2 components as subfolder/file, then just filename
+                const candidates = [];
+                if (pathParts.length >= 2) {
+                  candidates.push(mdFolder + '/' + pathParts.slice(-2).join('/'));
+                }
+                if (pathParts.length >= 3) {
+                  candidates.push(mdFolder + '/' + pathParts.slice(-3).join('/'));
+                }
+                candidates.push(mdFolder + '/' + fileName);
+
+                for (const candidatePath of candidates) {
+                  try {
+                    const imgBlob = await dropbox.downloadFile(candidatePath);
+                    if (imgBlob) {
+                      const imgBlobUrl = URL.createObjectURL(imgBlob);
+                      // Map both the original path and decoded path to the blob URL
+                      newMappings[match[1]] = imgBlobUrl;
+                      newMappings[imgPath] = imgBlobUrl;
+                      newMappings[fileName] = imgBlobUrl;
+                      break;
+                    }
+                  } catch (e) {
+                    // Try next candidate
+                  }
+                }
+              }
+              if (Object.keys(newMappings).length > 0) {
+                setImagePathToBlobUrl(prev => ({ ...prev, ...newMappings }));
+              }
+            };
+            downloadImages();
+          }
+        }
       }).catch(() => {});
     }
   }, [files, dropbox]);

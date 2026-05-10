@@ -277,6 +277,9 @@ export function processFiles(files) {
       const encodedPath = relativePathFromRoot.replace(/ /g, '%20');
       imagePathToBlobUrl[encodedPath] = blobUrl;
       imagePathToBlobUrl['./' + encodedPath] = blobUrl;
+      // Store by filename alone so absolute paths in markdown can match by filename
+      imagePathToBlobUrl[file.name] = blobUrl;
+      imagePathToBlobUrl[file.name.replace(/ /g, '%20')] = blobUrl;
     }
 
     if (pathParts.length <= 2) {

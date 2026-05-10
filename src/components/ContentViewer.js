@@ -297,20 +297,26 @@ function ContentViewer({
                 // Decode any URL encoding in the path
                 const decodedPath = decodeURIComponent(imgPath);
 
-                // Try various path formats to find a match
+                // Build path variants from most specific to least specific
+                const decodedParts = decodedPath.replace(/\\/g, '/').split('/').filter(Boolean);
                 const pathVariants = [
                   decodedPath,
                   imgPath,
                   decodedPath.replace(/^\.\//, ''),
                   imgPath.replace(/^\.\//, ''),
+                  // Last 3 components (e.g. "youtube_notes/images/file.png")
+                  ...(decodedParts.length >= 3 ? [decodedParts.slice(-3).join('/')] : []),
+                  // Last 2 components (e.g. "images/file.png")
+                  ...(decodedParts.length >= 2 ? [decodedParts.slice(-2).join('/')] : []),
+                  // Just filename
+                  decodedParts[decodedParts.length - 1],
                 ];
 
                 for (const variant of pathVariants) {
-                  if (imagePathToBlobUrl[variant]) {
+                  if (variant && imagePathToBlobUrl[variant]) {
                     return `![${alt}](${imagePathToBlobUrl[variant]})`;
                   }
-                  // Also try with ./ prefix
-                  if (imagePathToBlobUrl['./' + variant]) {
+                  if (variant && imagePathToBlobUrl['./' + variant]) {
                     return `![${alt}](${imagePathToBlobUrl['./' + variant]})`;
                   }
                 }
@@ -385,7 +391,7 @@ function ContentViewer({
           setLoading(false);
         });
     }
-  }, [file, imagePathToBlobUrl]);
+  }, [file, imagePathToBlobUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Extract headings when TXT>MD is toggled for text/rtf files
   useEffect(() => {

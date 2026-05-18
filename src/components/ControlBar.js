@@ -382,14 +382,14 @@ function ControlBar({
         className="dropbox-btn"
         onClick={onOpenDropbox}
       >
-        DB-nonrecursive
+        DB-nonr
       </button>
 
       <button
         className="dropbox-btn"
         onClick={onOpenDropboxRecursive}
       >
-        DB-recursive
+        DB-re
       </button>
 
       {/* Dropbox file operations - only for DB-nonrecursive */}
@@ -465,7 +465,13 @@ function ControlBar({
         </button>
       )}
 
-      {/* Copy/Paste content buttons - hidden */}
+      <button
+        className="paste-md-btn"
+        onClick={onPasteContent}
+        title="Load clipboard content as Markdown"
+      >
+        Paste as MD
+      </button>
 
       {/* Syntax Highlight button for markdown files */}
       {isMarkdown && (

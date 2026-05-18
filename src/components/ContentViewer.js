@@ -460,7 +460,7 @@ function ContentViewer({
         {!pdfState?.thumbnailMode ? (
           <>
             <button className="nav-btn prev-btn" onClick={onPrev} aria-label="Previous">
-              <svg width="64" height="64" viewBox="0 0 64 64">
+              <svg width="48" height="48" viewBox="0 0 64 64">
                 <path d="M44 8 L20 32 L44 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
@@ -470,7 +470,7 @@ function ContentViewer({
             </div>
 
             <button className="nav-btn next-btn" onClick={onNext} aria-label="Next">
-              <svg width="64" height="64" viewBox="0 0 64 64">
+              <svg width="48" height="48" viewBox="0 0 64 64">
                 <path d="M20 8 L44 32 L20 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
             </button>
@@ -487,7 +487,7 @@ function ContentViewer({
   return (
     <div className="content-viewer">
       <button className="nav-btn prev-btn" onClick={onPrev} aria-label="Previous">
-        <svg width="64" height="64" viewBox="0 0 64 64">
+        <svg width="48" height="48" viewBox="0 0 64 64">
           <path d="M44 8 L20 32 L44 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>
@@ -696,7 +696,7 @@ function ContentViewer({
       )}
 
       <button className="nav-btn next-btn" onClick={onNext} aria-label="Next">
-        <svg width="64" height="64" viewBox="0 0 64 64">
+        <svg width="48" height="48" viewBox="0 0 64 64">
           <path d="M20 8 L44 32 L20 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </button>

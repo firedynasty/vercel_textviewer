@@ -64,21 +64,8 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
               onClick={() => handleClick(file, index)}
             >
               <span className="sidebar-item-label" title={file.type === 'divider' ? file.key : undefined}>
-                {file.type === 'divider' ? shortenDividerPath(file.key) : file.key}
+                {file.type === 'divider' ? shortenDividerPath(file.key) : (file.originalName || file.key)}
               </span>
-              {file.type !== 'divider' && (
-                <span className="sidebar-item-type">
-                  {file.type === 'markdown' ? 'MD' :
-                   file.type === 'rtf' ? 'RTF' :
-                   file.type === 'text' ? 'TXT' :
-                   file.type === 'video' ? 'VID' :
-                   file.type === 'image' ? 'IMG' :
-                   file.type === 'pdf' ? 'PDF' :
-                   file.type === 'docx' ? 'DOCX' :
-                   file.type === 'csv' ? 'CSV' :
-                   file.type === 'xlsx' ? 'XLSX' : ''}
-                </span>
-              )}
             </div>
           );
         })}

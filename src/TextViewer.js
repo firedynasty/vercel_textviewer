@@ -383,14 +383,12 @@ function TextViewer() {
     if (result) {
       setFiles(prevFiles => {
         const newFiles = [...prevFiles];
-        const oldKey = newFiles[displayedFileIndex].key;
-        const prefix = oldKey.match(/^\d+_/)?.[0] || '';
         const newDisplayName = newName.replace(/\.[^.]+$/, '');
         newFiles[displayedFileIndex] = {
           ...newFiles[displayedFileIndex],
           dropboxPath: result.metadata?.path_lower || newPath,
           originalName: newName,
-          key: prefix + newDisplayName,
+          key: newDisplayName,
         };
         return newFiles;
       });

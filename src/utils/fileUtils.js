@@ -299,7 +299,6 @@ export function processFiles(files) {
 
   // Build the gallery items array
   const galleryItems = [];
-  let itemIndex = 0;
 
   // Natural sort function
   const naturalSort = (a, b) => {
@@ -332,7 +331,7 @@ export function processFiles(files) {
       const fileType = getFileType(file.name);
 
       galleryItems.push({
-        key: `${++itemIndex}_${displayName}`,
+        key: displayName,
         url: objectURL,
         type: fileType,
         file: file,
@@ -360,7 +359,7 @@ export function processFiles(files) {
       const fileType = getFileType(file.name);
 
       galleryItems.push({
-        key: `${++itemIndex}_${displayName}`,
+        key: displayName,
         url: objectURL,
         type: fileType,
         file: file,
@@ -409,7 +408,6 @@ export function processDropboxFolder(entries, folderPath) {
   });
 
   const galleryItems = [];
-  let itemIndex = 0;
 
   const folderNames = Object.keys(filesByFolder).sort((a, b) =>
     a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
@@ -424,7 +422,7 @@ export function processDropboxFolder(entries, folderPath) {
       const displayName = getDisplayName(entry.name);
       const fileType = getFileType(entry.name);
       galleryItems.push({
-        key: `${++itemIndex}_${displayName}`,
+        key: displayName,
         type: fileType,
         url: null,
         dropboxPath: entry.path,
@@ -441,7 +439,7 @@ export function processDropboxFolder(entries, folderPath) {
       const displayName = getDisplayName(entry.name);
       const fileType = getFileType(entry.name);
       galleryItems.push({
-        key: `${++itemIndex}_${displayName}`,
+        key: displayName,
         type: fileType,
         url: null,
         dropboxPath: entry.path,

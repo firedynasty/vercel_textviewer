@@ -8,7 +8,7 @@ function shortenDividerPath(path) {
   return shortened.join('/');
 }
 
-function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags, mdHeadings, onScrollToHeading }) {
+function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags, mdHeadings, onScrollToHeading, dropboxFileMode }) {
   const [searchFilter, setSearchFilter] = useState('');
 
   const handleClick = (file, index) => {
@@ -30,6 +30,8 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
       const query = searchFilter.toLowerCase();
       if (!file.key.toLowerCase().includes(query)) return false;
     }
+    // Display filter by file type
+    if (dropboxFileMode === 'imgs' && file.type !== 'image' && file.type !== 'video') return false;
     return true;
   };
 

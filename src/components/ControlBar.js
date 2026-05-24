@@ -361,12 +361,22 @@ function ControlBar({
 
       <button
         className="dropbox-btn"
+        onClick={() => shallowFolderInputRef.current?.click()}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDropShallow}
+      >
+        Drop
+      </button>
+
+      <button
+        className="dropbox-btn"
         onClick={() => folderInputRef.current?.click()}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        Drop
+        Drop(r)
       </button>
 
       <input
@@ -450,15 +460,15 @@ function ControlBar({
       )}
 
       <div className="dropbox-file-mode">
-        <label className={`file-mode-label ${dropboxFileMode === 'text' ? 'active' : ''}`}>
+        <label className={`file-mode-label ${dropboxFileMode === 'all' ? 'active' : ''}`}>
           <input
             type="radio"
             name="dropboxFileMode"
-            value="text"
-            checked={dropboxFileMode === 'text'}
-            onChange={() => onDropboxFileModeChange('text')}
+            value="all"
+            checked={dropboxFileMode === 'all'}
+            onChange={() => onDropboxFileModeChange('all')}
           />
-          txt/md
+          all
         </label>
         <label className={`file-mode-label ${dropboxFileMode === 'imgs' ? 'active' : ''}`}>
           <input
@@ -482,6 +492,7 @@ function ControlBar({
       <button
         className="dropbox-btn"
         onClick={onOpenDropboxRecursive}
+        style={{ display: 'none' }}
       >
         DB-re
       </button>
@@ -514,18 +525,6 @@ function ControlBar({
           </button>
         </>
       )}
-
-      <button
-        className="drop-folder-btn"
-        onClick={() => shallowFolderInputRef.current?.click()}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDropShallow}
-        title="Load folder without subfolders (depth 1)"
-        style={{ display: 'none' }}
-      >
-        Folder Flat
-      </button>
 
       <input
         type="file"
@@ -564,7 +563,7 @@ function ControlBar({
         onClick={onPasteContent}
         title="Load clipboard content as Markdown"
       >
-        Paste as MD
+        Paste in
       </button>
 
       {/* Syntax Highlight button for markdown files */}
@@ -716,7 +715,7 @@ function ControlBar({
         onDragLeave={handleDragLeave}
         onDrop={handleDropPicsOnly}
       >
-        Pics Only
+        Pics
       </button>
 
       <button
@@ -725,6 +724,14 @@ function ControlBar({
         title="Open Video Viewer"
       >
         Video Viewer
+      </button>
+
+      <button
+        className="drop-folder-btn"
+        onClick={() => window.open('https://pdf-viewer-six-ruby.vercel.app/pdfViewer.html', '_blank')}
+        title="Open PDF Viewer"
+      >
+        PDF V
       </button>
 
       <input
@@ -760,23 +767,6 @@ function ControlBar({
               </button>
             ))}
           </div>
-        </div>
-      )}
-
-      {/* Slideshow Toggle */}
-      {hasImages && (
-        <div className="slideshow-controls">
-          <label className="slideshow-switch">
-            <input
-              type="checkbox"
-              checked={slideshowEnabled}
-              onChange={onToggleSlideshow}
-            />
-            <span className="slideshow-slider"></span>
-          </label>
-          <span className="slideshow-label">
-            {slideshowEnabled ? 'Slideshow ON' : 'Slideshow'}
-          </span>
         </div>
       )}
 

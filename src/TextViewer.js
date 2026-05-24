@@ -20,7 +20,7 @@ function TextViewer() {
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
   const [dropboxFolderPath, setDropboxFolderPath] = useState(null);
   const [isDropboxNonRecursive, setIsDropboxNonRecursive] = useState(false);
-  const [dropboxFileMode, setDropboxFileMode] = useState('text'); // 'text' or 'imgs'
+  const [dropboxFileMode, setDropboxFileMode] = useState('all'); // 'all' or 'imgs'
 
 
   // PDF state
@@ -86,6 +86,7 @@ function TextViewer() {
     setEditContent('');
     setPdfState(null);
     setFileTags({});
+    setDropboxFileMode('all');
     setActiveTagFilter(null);
     setIsDropboxNonRecursive(false);
     setDropboxFolderPath(null);
@@ -108,7 +109,7 @@ function TextViewer() {
   }, []);
 
   const handleDropboxFolderSelected = useCallback((entries, folderPath, nonRecursive = false) => {
-    const result = processDropboxFolder(entries, folderPath, dropboxFileMode, !nonRecursive);
+    const result = processDropboxFolder(entries, folderPath);
 
     if (result.error) {
       alert(result.error);
@@ -131,7 +132,7 @@ function TextViewer() {
     setDropboxBrowserOpen(false);
     setDropboxFolderPath(folderPath);
     setIsDropboxNonRecursive(nonRecursive);
-  }, [dropboxFileMode]);
+  }, []);
 
   // Lazy-download a Dropbox file if it hasn't been fetched yet
   const ensureFileDownloaded = useCallback(async (index) => {
@@ -572,6 +573,7 @@ function TextViewer() {
         fileTags={fileTags}
         mdHeadings={mdHeadings}
         onScrollToHeading={setScrollToHeadingId}
+        dropboxFileMode={dropboxFileMode}
       />
 
       <div className="main-content">

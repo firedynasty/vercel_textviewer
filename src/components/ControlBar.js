@@ -1,5 +1,10 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { isImageFile, isVideoFile } from '../utils/fileUtils';
+
+function getShortLabel(path) {
+  const parts = path.replace(/\/+$/, '').split('/').filter(Boolean);
+  return parts.slice(-2).join('/');
+}
 
 function ControlBar({
   currentFile,
@@ -50,6 +55,25 @@ function ControlBar({
   const picsOnlyFolderInputRef = useRef(null);
   const pageInputRef = useRef(null);
   const [tagSearch, setTagSearch] = useState('');
+  const [showPathPicker, setShowPathPicker] = useState(false);
+  const [dirPaths, setDirPaths] = useState([]);
+  const [selectedPath, setSelectedPath] = useState(() => localStorage.getItem('selectedDirPath') || '');
+
+  useEffect(() => {
+    const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const url = isLocal ? '/dirpaths.json' : '/api/dirpaths';
+    fetch(url)
+      .then(res => res.json())
+      .then(paths => {
+        setDirPaths(paths);
+        // If no selection yet, default to first path
+        if (!localStorage.getItem('selectedDirPath') && paths.length > 0) {
+          setSelectedPath(paths[0]);
+          localStorage.setItem('selectedDirPath', paths[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const filteredTags = allTags && allTags.length > 0
     ? (tagSearch
@@ -312,7 +336,7 @@ function ControlBar({
   const isPdf = currentFile && currentFile.type === 'pdf';
   const isMarkdown = currentFile && currentFile.type === 'markdown';
   const isVideo = currentFile && currentFile.type === 'video';
-  const canCopy = currentFile && (currentFile.type === 'text' || currentFile.type === 'rtf' || currentFile.type === 'markdown' || currentFile.type === 'docx');
+
 
   const handleSpeedToggle = () => {
     const newSpeed = videoSpeed === 1 ? 0.5 : 1;
@@ -342,7 +366,7 @@ function ControlBar({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        Drop Folder
+        Drop
       </button>
 
       <input
@@ -354,6 +378,76 @@ function ControlBar({
         multiple
         onChange={handleFolderSelect}
       />
+
+      {/* Path picker button (orange, styled like bible app 2:bsb) */}
+      {dirPaths.length > 0 && (
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowPathPicker(prev => !prev)}
+            style={{
+              background: '#f97316',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '4px 8px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Pick a directory path (copies to clipboard)"
+          >
+            {selectedPath ? getShortLabel(selectedPath) : 'Path'}
+          </button>
+          {showPathPicker && (
+            <>
+              <div
+                style={{ position: 'fixed', inset: 0, zIndex: 40 }}
+                onClick={() => setShowPathPicker(false)}
+              />
+              <div style={{
+                position: 'absolute',
+                left: 0,
+                top: '100%',
+                marginTop: '4px',
+                zIndex: 50,
+                borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                border: '1px solid #555',
+                background: '#1f1f1f',
+                minWidth: '200px',
+              }}>
+                {dirPaths.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => {
+                      setSelectedPath(p);
+                      localStorage.setItem('selectedDirPath', p);
+                      navigator.clipboard.writeText(p);
+                      setShowPathPicker(false);
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '6px 12px',
+                      fontSize: '13px',
+                      color: '#fff',
+                      background: p === selectedPath ? 'rgba(249,115,22,0.3)' : 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: p === selectedPath ? 'bold' : 'normal',
+                    }}
+                    onMouseEnter={e => e.target.style.background = 'rgba(249,115,22,0.2)'}
+                    onMouseLeave={e => e.target.style.background = p === selectedPath ? 'rgba(249,115,22,0.3)' : 'transparent'}
+                  >
+                    {getShortLabel(p)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="dropbox-file-mode">
         <label className={`file-mode-label ${dropboxFileMode === 'text' ? 'active' : ''}`}>

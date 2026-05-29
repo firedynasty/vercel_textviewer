@@ -43,6 +43,9 @@ function TextViewer() {
   // Text wrap toggle
   const [wrapText, setWrapText] = useState(false);
 
+  // Raw text content of the currently displayed text/markdown file
+  const [currentTextContent, setCurrentTextContent] = useState('');
+
   // Markdown TOC / heading navigation
   const [mdHeadings, setMdHeadings] = useState([]);
   const [scrollToHeadingId, setScrollToHeadingId] = useState(null);
@@ -266,21 +269,49 @@ function TextViewer() {
   }, []);
 
   const handleCopyContent = useCallback(() => {
-    if (!displayedFile || (displayedFile.type !== 'text' && displayedFile.type !== 'rtf' && displayedFile.type !== 'markdown')) return;
+    if (!currentTextContent) return false;
+    const doFallbackCopy = (text) => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(currentTextContent)
+        .then(() => true)
+        .catch(() => doFallbackCopy(currentTextContent));
+    } else {
+      return Promise.resolve(doFallbackCopy(currentTextContent));
+    }
+  }, [currentTextContent]);
 
-    fetch(displayedFile.url)
-      .then(res => res.text())
-      .then(text => {
-        navigator.clipboard.writeText(text).then(() => {
-          // Brief visual feedback could be added here
-        }).catch(err => {
-          console.error('Failed to copy:', err);
-        });
-      })
-      .catch(err => {
-        console.error('Error loading file for copy:', err);
-      });
-  }, [displayedFile]);
+  const handleWrapContent = useCallback(() => {
+    if (!currentTextContent || !displayedFile) return;
+
+    const blob = new Blob([currentTextContent], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const wrappedFile = {
+      key: displayedFile.key || 'Wrapped',
+      originalName: (displayedFile.originalName || 'file').replace(/\.[^.]+$/, '') + '.md',
+      type: 'markdown',
+      url,
+    };
+
+    setFiles(prev => {
+      const newFiles = [...prev];
+      newFiles[currentIndex] = wrappedFile;
+      return newFiles;
+    });
+    setIsEditing(false);
+    setEditContent('');
+    setPdfState(null);
+  }, [currentTextContent, displayedFile, currentIndex]);
 
   const handlePasteContent = useCallback(async () => {
     try {
@@ -517,6 +548,10 @@ function TextViewer() {
     if (currentFile.type !== 'divider') {
       setDisplayedFileIndex(currentIndex);
     }
+    // Clear text content when switching to a non-text file
+    if (currentFile.type !== 'text' && currentFile.type !== 'rtf' && currentFile.type !== 'markdown') {
+      setCurrentTextContent('');
+    }
   }, [currentIndex, currentFile]);
 
   // Slideshow: cycle through image files on a timer
@@ -605,7 +640,7 @@ function TextViewer() {
           activeTagFilter={activeTagFilter}
           onTagFilterChange={setActiveTagFilter}
           wrapText={wrapText}
-          onToggleWrapText={() => setWrapText(prev => !prev)}
+          onToggleWrapText={handleWrapContent}
           onEdit={handleEdit}
           onRename={handleRename}
           onNewFile={handleNewFile}
@@ -630,6 +665,7 @@ function TextViewer() {
           onHeadingsExtracted={setMdHeadings}
           scrollToHeadingId={scrollToHeadingId}
           onScrollToHeadingDone={() => setScrollToHeadingId(null)}
+          onTextLoaded={setCurrentTextContent}
         />
 
       </div>

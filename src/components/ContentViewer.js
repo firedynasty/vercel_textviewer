@@ -63,6 +63,8 @@ function ContentViewer({
   onHeadingsExtracted,
   scrollToHeadingId,
   onScrollToHeadingDone,
+  // Reports raw text content to parent when loaded
+  onTextLoaded,
 }) {
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
@@ -305,8 +307,10 @@ function ContentViewer({
             setMarkdownHtml(html);
             setTextContent(text);
             if (onHeadingsExtracted) onHeadingsExtracted(extractMarkdownHeadings(text));
+            if (onTextLoaded) onTextLoaded(text);
           } else {
             setTextContent(text);
+            if (onTextLoaded) onTextLoaded(text);
           }
           setLoading(false);
         })
@@ -323,6 +327,7 @@ function ContentViewer({
         .then(arrayBuffer => mammoth.extractRawText({ arrayBuffer }))
         .then(result => {
           setTextContent(result.value);
+          if (onTextLoaded) onTextLoaded(result.value);
           setLoading(false);
         })
         .catch(err => {

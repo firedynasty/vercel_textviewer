@@ -55,6 +55,7 @@ function ControlBar({
   const picsOnlyFolderInputRef = useRef(null);
   const pageInputRef = useRef(null);
   const [tagSearch, setTagSearch] = useState('');
+  const [copyStatus, setCopyStatus] = useState('idle'); // 'idle' | 'ok' | 'fail'
   const [showPathPicker, setShowPathPicker] = useState(false);
   const [dirPaths, setDirPaths] = useState([]);
   const [selectedPath, setSelectedPath] = useState(() => localStorage.getItem('selectedDirPath') || '');
@@ -566,6 +567,24 @@ function ControlBar({
         Paste in
       </button>
 
+      <button
+        className={`copy-text-btn${copyStatus === 'ok' ? ' copied' : copyStatus === 'fail' ? ' failed' : ''}`}
+        onClick={() => {
+          const result = onCopyContent();
+          const p = result instanceof Promise ? result : Promise.resolve(result);
+          p.then(ok => {
+            setCopyStatus(ok !== false ? 'ok' : 'fail');
+            setTimeout(() => setCopyStatus('idle'), 2000);
+          }).catch(() => {
+            setCopyStatus('fail');
+            setTimeout(() => setCopyStatus('idle'), 2000);
+          });
+        }}
+        title="Copy all text from current page to clipboard"
+      >
+        {copyStatus === 'ok' ? '✓ Copied' : copyStatus === 'fail' ? '✗ Failed' : '📋 Copy'}
+      </button>
+
       {/* Syntax Highlight button for markdown files */}
       {isMarkdown && (
         <button
@@ -716,14 +735,6 @@ function ControlBar({
         onDrop={handleDropPicsOnly}
       >
         Pics
-      </button>
-
-      <button
-        className="drop-folder-btn"
-        onClick={() => window.open('/video_viewer.html', '_blank')}
-        title="Open Video Viewer"
-      >
-        Video Viewer
       </button>
 
       <button

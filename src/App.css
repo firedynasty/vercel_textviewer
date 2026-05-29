@@ -1588,6 +1588,21 @@ body {
 }
 .paste-md-btn:hover { background: #047857; }
 
+.copy-text-btn {
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 16px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(52, 152, 219, 0.9);
+}
+.copy-text-btn:hover { background: rgba(41, 128, 185, 1); }
+.copy-text-btn.copied { background: rgba(46, 204, 113, 0.9); }
+.copy-text-btn.failed { background: rgba(220, 53, 69, 0.9); }
+
 .wrap-btn {
   color: white;
   border: none;

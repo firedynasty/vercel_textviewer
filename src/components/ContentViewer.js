@@ -515,8 +515,10 @@ function ContentViewer({
     );
   }
 
+  const isHtml = file.type === 'html';
+
   return (
-    <div className="content-viewer">
+    <div className={`content-viewer${isHtml ? ' html-fullscreen' : ''}`}>
       <button className="nav-btn prev-btn" onClick={onPrev} aria-label="Previous">
         <svg width="48" height="48" viewBox="0 0 64 64">
           <path d="M44 8 L20 32 L44 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>

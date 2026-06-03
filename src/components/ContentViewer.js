@@ -76,6 +76,7 @@ function ContentViewer({
   const [sheetPickerOpen, setSheetPickerOpen] = useState(false);
   const [sheetNames, setSheetNames] = useState([]);
   const [pendingWorkbook, setPendingWorkbook] = useState(null);
+  const [htmlContent, setHtmlContent] = useState('');
 
   // PDF state
   const canvasRef = useRef(null);
@@ -279,6 +280,7 @@ function ContentViewer({
     setSheetNames([]);
     setPendingWorkbook(null);
     setRenderAsMarkdown(false);
+    setHtmlContent('');
     if (onHeadingsExtracted) onHeadingsExtracted([]);
 
     if (file.type === 'text' || file.type === 'rtf' || file.type === 'markdown') {
@@ -367,6 +369,30 @@ function ContentViewer({
         })
         .catch(err => {
           console.error('Error loading XLSX:', err);
+          setLoading(false);
+        });
+    } else if (file.type === 'html') {
+      if (!file.url) return;
+      setLoading(true);
+      fetch(file.url)
+        .then(res => res.text())
+        .then(html => {
+          // Rewrite relative image src attributes to blob URLs
+          const processed = html.replace(
+            /(<img\s[^>]*?\bsrc\s*=\s*["'])([^"']+)(["'])/gi,
+            (match, prefix, src, suffix) => {
+              // Skip absolute URLs and data URIs
+              if (/^(https?:|data:|blob:)/i.test(src)) return match;
+              const fileName = decodeURIComponent(src).split('/').filter(Boolean).pop();
+              const blobUrl = imagePathToBlobUrl[src] || imagePathToBlobUrl[fileName] || imagePathToBlobUrl['./' + src];
+              return blobUrl ? `${prefix}${blobUrl}${suffix}` : match;
+            }
+          );
+          setHtmlContent(processed);
+          setLoading(false);
+        })
+        .catch(err => {
+          console.error('Error loading HTML:', err);
           setLoading(false);
         });
     }
@@ -639,15 +665,15 @@ function ContentViewer({
           />
         )}
 
-        {file.type === 'html' && file.url && (
-          <div className="preview-html" style={{ width: '100%', height: '100%' }}>
+        {file.type === 'html' && htmlContent && (
+          <div className="preview-html" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div className="content-title">{file.key}</div>
             <iframe
-              src={file.url}
+              srcDoc={htmlContent}
               title={file.key}
               style={{
+                flex: 1,
                 width: '100%',
-                height: 'calc(100% - 30px)',
                 border: 'none',
                 background: '#fff',
               }}

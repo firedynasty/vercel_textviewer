@@ -552,6 +552,18 @@ function ContentViewer({
           />
         )}
 
+        {file.type === 'audio' && (
+          <div className="preview-audio">
+            <div className="content-title">{file.key}</div>
+            <audio
+              src={file.url}
+              controls
+              autoPlay
+              className="audio-player"
+            />
+          </div>
+        )}
+
         {(file.type === 'text' || file.type === 'rtf') && !isEditing && !renderAsMarkdown && (
           <div
             className="preview-text"

@@ -639,6 +639,23 @@ function ContentViewer({
           />
         )}
 
+        {file.type === 'html' && file.url && (
+          <div className="preview-html" style={{ width: '100%', height: '100%' }}>
+            <div className="content-title">{file.key}</div>
+            <iframe
+              src={file.url}
+              title={file.key}
+              style={{
+                width: '100%',
+                height: 'calc(100% - 30px)',
+                border: 'none',
+                background: '#fff',
+              }}
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
+        )}
+
         {file.type === 'docx' && (
           <div
             className="preview-text"

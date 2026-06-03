@@ -9,6 +9,7 @@ const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.wav', '.ogg', '.aac', '.flac'];
 const DOCX_EXTENSIONS = ['.docx'];
 const CSV_EXTENSIONS = ['.csv'];
 const XLSX_EXTENSIONS = ['.xlsx', '.xls'];
+const HTML_EXTENSIONS = ['.html', '.htm'];
 
 export function isVideoFile(filename) {
   const lower = filename.toLowerCase();
@@ -59,8 +60,13 @@ export function isRtfFile(filename) {
   return filename.toLowerCase().endsWith('.rtf');
 }
 
+export function isHtmlFile(filename) {
+  const lower = filename.toLowerCase();
+  return HTML_EXTENSIONS.some(ext => lower.endsWith(ext));
+}
+
 export function isValidFile(filename) {
-  return isVideoFile(filename) || isImageFile(filename) || isTextFile(filename) || isMarkdownFile(filename) || isPdfFile(filename) || isAudioFile(filename) || isDocxFile(filename) || isCsvFile(filename) || isXlsxFile(filename);
+  return isVideoFile(filename) || isImageFile(filename) || isTextFile(filename) || isMarkdownFile(filename) || isPdfFile(filename) || isAudioFile(filename) || isDocxFile(filename) || isCsvFile(filename) || isXlsxFile(filename) || isHtmlFile(filename);
 }
 
 export function getFileType(filename) {
@@ -74,6 +80,7 @@ export function getFileType(filename) {
   if (isDocxFile(filename)) return 'docx';
   if (isCsvFile(filename)) return 'csv';
   if (isXlsxFile(filename)) return 'xlsx';
+  if (isHtmlFile(filename)) return 'html';
   return 'unknown';
 }
 

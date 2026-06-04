@@ -49,6 +49,10 @@ function ControlBar({
   isEditing,
   onSave,
   onCancel,
+  // Local file system props
+  isLocalFS,
+  onLocalDirOpen,
+  onLocalDirOpenRecursive,
 }) {
   const folderInputRef = useRef(null);
   const shallowFolderInputRef = useRef(null);
@@ -362,7 +366,7 @@ function ControlBar({
 
       <button
         className="dropbox-btn"
-        onClick={() => shallowFolderInputRef.current?.click()}
+        onClick={onLocalDirOpen}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDropShallow}
@@ -372,7 +376,7 @@ function ControlBar({
 
       <button
         className="dropbox-btn"
-        onClick={() => folderInputRef.current?.click()}
+        onClick={onLocalDirOpenRecursive}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -498,27 +502,31 @@ function ControlBar({
         DB-re
       </button>
 
-      {/* Dropbox file operations - only for DB-nonrecursive */}
-      {isDropboxNonRecursive && !isEditing && (
+      {/* File operations - for DB-nonrecursive or Local FS */}
+      {(isDropboxNonRecursive || isLocalFS) && !isEditing && (
         <>
           <button className="copy-btn" onClick={onCopyContent} title="Copy file contents to clipboard">
             Copy
           </button>
-          <button className="edit-btn" onClick={onEdit} title="Edit and save back to Dropbox">
+          <button className="edit-btn" onClick={onEdit} title={isLocalFS ? "Edit and save back to local file" : "Edit and save back to Dropbox"}>
             Edit
           </button>
-          <button className="rename-btn" onClick={onRename} title="Rename file on Dropbox">
-            Rename
-          </button>
-          <button className="new-file-btn" onClick={onNewFile} title="Create new file from clipboard">
-            + New File
-          </button>
+          {isDropboxNonRecursive && (
+            <>
+              <button className="rename-btn" onClick={onRename} title="Rename file on Dropbox">
+                Rename
+              </button>
+              <button className="new-file-btn" onClick={onNewFile} title="Create new file from clipboard">
+                + New File
+              </button>
+            </>
+          )}
         </>
       )}
 
       {isEditing && (
         <>
-          <button className="save-btn" onClick={onSave} title="Save changes to Dropbox">
+          <button className="save-btn" onClick={onSave} title={isLocalFS ? "Save changes to local file" : "Save changes to Dropbox"}>
             Save
           </button>
           <button className="cancel-btn" onClick={onCancel} title="Discard changes">

@@ -3,7 +3,6 @@ import { marked } from 'marked';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
 import { rtfToPlainText, isRtfFile, parseCsv } from '../utils/fileUtils';
-import CursiveWriterModal from './CursiveWriterModal';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
@@ -435,15 +434,6 @@ function ContentViewer({
     }
   }, [syntaxHighlightEnabled, markdownHtml, file]);
 
-  // Close image modal on Escape
-  useEffect(() => {
-    if (!imageModal) return;
-    const handleKey = (e) => {
-      if (e.key === 'Escape') setImageModal(null);
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [imageModal]);
 
   const pickSheet = (sheetName) => {
     if (!pendingWorkbook) return;
@@ -519,12 +509,6 @@ function ContentViewer({
 
   return (
     <div className={`content-viewer${isHtml ? ' html-fullscreen' : ''}`}>
-      <button className="nav-btn prev-btn" onClick={onPrev} aria-label="Previous">
-        <svg width="48" height="48" viewBox="0 0 64 64">
-          <path d="M44 8 L20 32 L44 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
-
       <div className={`content-area${wrapText ? ' wrap-text' : ''}`}>
         {file.type === 'image' && (
           <img
@@ -639,7 +623,6 @@ function ContentViewer({
           <div
             className="md-image-modal-overlay"
             onClick={() => setImageModal(null)}
-            onKeyDown={(e) => e.key === 'Escape' && setImageModal(null)}
           >
             <div className="md-image-modal-box" onClick={e => e.stopPropagation()}>
               <button className="md-image-modal-close" onClick={() => setImageModal(null)}>×</button>
@@ -708,10 +691,6 @@ function ContentViewer({
           </div>
         )}
 
-        {/* Cursive Writer Modal for text-based files */}
-        {(file.type === 'text' || file.type === 'rtf' || file.type === 'markdown' || file.type === 'docx') && !isEditing && textContent && (
-          <CursiveWriterModal textContent={textContent} fontSize={fontSize} />
-        )}
 
         {(file.type === 'csv' || file.type === 'xlsx') && tableData && (
           <div className="csv-table-wrapper" style={{ fontSize: `${fontSize}px` }}>
@@ -757,11 +736,6 @@ function ContentViewer({
         </div>
       )}
 
-      <button className="nav-btn next-btn" onClick={onNext} aria-label="Next">
-        <svg width="48" height="48" viewBox="0 0 64 64">
-          <path d="M20 8 L44 32 L20 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      </button>
     </div>
   );
 }

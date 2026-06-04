@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Sidebar from './components/Sidebar';
 import ContentViewer from './components/ContentViewer';
 import ControlBar from './components/ControlBar';
@@ -21,6 +21,8 @@ function TextViewer() {
   const [dropboxFolderPath, setDropboxFolderPath] = useState(null);
   const [isDropboxNonRecursive, setIsDropboxNonRecursive] = useState(false);
   const [dropboxFileMode, setDropboxFileMode] = useState('all'); // 'all' or 'imgs'
+  const [isLocalFS, setIsLocalFS] = useState(false);
+  const [fileHandles, setFileHandles] = useState({}); // index -> FileSystemFileHandle
 
 
   // PDF state
@@ -93,6 +95,8 @@ function TextViewer() {
     setActiveTagFilter(null);
     setIsDropboxNonRecursive(false);
     setDropboxFolderPath(null);
+    setIsLocalFS(false);
+    setFileHandles({});
 
     // Async scan text/md files for hashtags
     const loadedFiles = result.files;
@@ -109,6 +113,98 @@ function TextViewer() {
           .catch(() => {});
       }
     });
+  }, []);
+
+  const handleLocalDirOpen = useCallback(async (recursive = false) => {
+    if (!window.showDirectoryPicker) {
+      alert('Your browser does not support the File System Access API. Please use Chrome or Edge.');
+      return;
+    }
+    try {
+      const dirHandle = await window.showDirectoryPicker();
+      const files = [];
+
+      // Walk the directory tree, optionally recursive
+      const walkDir = async (handle, pathPrefix, depth = 0) => {
+        for await (const [name, entry] of handle.entries()) {
+          if (entry.kind === 'file') {
+            const file = await entry.getFile();
+            const relativePath = pathPrefix + name;
+            Object.defineProperty(file, 'webkitRelativePath', {
+              value: relativePath,
+              writable: false
+            });
+            files.push({ file, handle: entry, relativePath });
+          } else if (entry.kind === 'directory' && (recursive || depth < 0)) {
+            await walkDir(entry, pathPrefix + name + '/', depth + 1);
+          }
+        }
+      };
+
+      await walkDir(dirHandle, dirHandle.name + '/', 0);
+
+      if (files.length === 0) {
+        alert('No files found in the selected directory.');
+        return;
+      }
+
+      const fileList = files.map(f => f.file);
+      const result = processFiles(fileList);
+
+      if (result.error) {
+        alert(result.error);
+        return;
+      }
+
+      // Map file handles by matching relativePath in result.files
+      const handleMap = {};
+      result.files.forEach((item, index) => {
+        if (item.originalName && item.file) {
+          const filePath = item.file.webkitRelativePath || item.file.name;
+          const match = files.find(f => f.relativePath === filePath);
+          if (match) {
+            handleMap[index] = match.handle;
+          }
+        }
+      });
+
+      const firstDisplayableIndex = result.files.findIndex(f => f.type !== 'divider');
+
+      setFiles(result.files);
+      setImagePathToBlobUrl(result.imagePathToBlobUrl || {});
+      setCurrentIndex(0);
+      setDisplayedFileIndex(firstDisplayableIndex >= 0 ? firstDisplayableIndex : 0);
+      setIsEditing(false);
+      setEditContent('');
+      setPdfState(null);
+      setFileTags({});
+      setDropboxFileMode('all');
+      setActiveTagFilter(null);
+      setIsDropboxNonRecursive(false);
+      setDropboxFolderPath(null);
+      setIsLocalFS(true);
+      setFileHandles(handleMap);
+
+      // Scan for hashtags
+      result.files.forEach((file, index) => {
+        if (file.url && file.originalName && (isTextFile(file.originalName) || isMarkdownFile(file.originalName))) {
+          fetch(file.url)
+            .then(res => res.text())
+            .then(text => {
+              const tags = extractHashtags(text);
+              if (tags.length > 0) {
+                setFileTags(prev => ({ ...prev, [index]: tags }));
+              }
+            })
+            .catch(() => {});
+        }
+      });
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        console.error('Failed to open directory:', err);
+        alert('Failed to open directory: ' + err.message);
+      }
+    }
   }, []);
 
   const handleDropboxFolderSelected = useCallback((entries, folderPath, nonRecursive = false) => {
@@ -135,6 +231,8 @@ function TextViewer() {
     setDropboxBrowserOpen(false);
     setDropboxFolderPath(folderPath);
     setIsDropboxNonRecursive(nonRecursive);
+    setIsLocalFS(false);
+    setFileHandles({});
   }, []);
 
   // Lazy-download a Dropbox file if it hasn't been fetched yet
@@ -358,11 +456,21 @@ function TextViewer() {
       return newFiles;
     });
 
-    // If Dropbox file, upload back; otherwise download locally
+    // If Dropbox file, upload back; if local FS, write via handle; otherwise download
     if (displayedFile.dropboxPath) {
       const result = await dropbox.uploadFile(displayedFile.dropboxPath, editContent, 'overwrite');
       if (!result) {
         alert('Failed to save to Dropbox');
+      }
+    } else if (isLocalFS && fileHandles[displayedFileIndex]) {
+      try {
+        const handle = fileHandles[displayedFileIndex];
+        const writable = await handle.createWritable();
+        await writable.write(editContent);
+        await writable.close();
+      } catch (err) {
+        console.error('Failed to save to local file:', err);
+        alert('Failed to save to local file: ' + err.message);
       }
     } else {
       const a = document.createElement('a');
@@ -373,7 +481,7 @@ function TextViewer() {
 
     setIsEditing(false);
     setEditContent('');
-  }, [displayedFile, displayedFileIndex, editContent, isEditing, dropbox]);
+  }, [displayedFile, displayedFileIndex, editContent, isEditing, dropbox, isLocalFS, fileHandles]);
 
   const handleCancel = useCallback(() => {
     setIsEditing(false);
@@ -382,7 +490,8 @@ function TextViewer() {
 
   // Edit: enter edit mode and load file content
   const handleEdit = useCallback(async () => {
-    if (!displayedFile || !displayedFile.dropboxPath) return;
+    if (!displayedFile) return;
+    if (!displayedFile.dropboxPath && !isLocalFS) return;
     if (!['text', 'markdown'].includes(displayedFile.type)) return;
 
     if (displayedFile.url) {
@@ -391,7 +500,7 @@ function TextViewer() {
       setEditContent(text);
       setIsEditing(true);
     }
-  }, [displayedFile]);
+  }, [displayedFile, isLocalFS]);
 
   // Rename: rename file on Dropbox
   const handleRename = useCallback(async () => {
@@ -495,6 +604,17 @@ function TextViewer() {
   }, [pdfDocument, pdfState]);
 
 
+  // Auto-wrap: trigger wrap 500ms after changing file
+  const autoWrapIndexRef = useRef(null);
+  useEffect(() => {
+    if (autoWrapIndexRef.current === currentIndex) return;
+    const timer = setTimeout(() => {
+      autoWrapIndexRef.current = currentIndex;
+      handleWrapContent();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [currentIndex, handleWrapContent]);
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -515,12 +635,14 @@ function TextViewer() {
         }
       } else if (e.key === 'Enter') {
         handleNext();
+      } else if (e.key === 'Escape') {
+        handleWrapContent();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrev, handleNext, isEditing]);
+  }, [handlePrev, handleNext, isEditing, handleWrapContent]);
 
   // Global drag and drop
   useEffect(() => {
@@ -645,6 +767,9 @@ function TextViewer() {
           onRename={handleRename}
           onNewFile={handleNewFile}
           isDropboxNonRecursive={isDropboxNonRecursive}
+          isLocalFS={isLocalFS}
+          onLocalDirOpen={() => handleLocalDirOpen(false)}
+          onLocalDirOpenRecursive={() => handleLocalDirOpen(true)}
         />
 
         <ContentViewer

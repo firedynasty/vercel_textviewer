@@ -613,7 +613,7 @@ function ControlBar({
             onClick={() => onPdfStateChange({ ...pdfState, thumbnailMode: !pdfState.thumbnailMode })}
             title="Toggle Thumbnail View"
           >
-            {pdfState.thumbnailMode ? '📄' : '🔲'}
+            🔲 Thumbnails
           </button>
 
           {/* Prev page */}

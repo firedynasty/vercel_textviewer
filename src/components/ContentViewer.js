@@ -54,6 +54,7 @@ function ContentViewer({
   pdfState,
   onPdfStateChange,
   onPdfDocumentLoad,
+  onPdfPageTextExtracted,
   // Syntax highlighting
   syntaxHighlightEnabled,
   // Text wrap toggle
@@ -84,6 +85,9 @@ function ContentViewer({
   const textPreviewRef = useRef(null);
   const markdownPreviewRef = useRef(null);
   const [pdfDoc, setPdfDoc] = useState(null);
+  const [thumbnailWidth, setThumbnailWidth] = useState(200);
+  const [sliderValue, setSliderValue] = useState(200);
+  const renderIdRef = useRef(0);
 
   // Auto-focus content area when file changes so spacebar scrolls content, not sidebar
   useEffect(() => {
@@ -174,6 +178,25 @@ function ContentViewer({
     };
   }, [pdfDoc, pdfState]);
 
+  // Extract text from current PDF page whenever page changes
+  useEffect(() => {
+    if (!pdfDoc || !pdfState || !onPdfPageTextExtracted) return;
+
+    const extractText = async () => {
+      try {
+        const page = await pdfDoc.getPage(pdfState.currentPage);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items.map(item => item.str).join(' ');
+        onPdfPageTextExtracted(pageText);
+      } catch (error) {
+        console.error('Error extracting PDF text:', error);
+        onPdfPageTextExtracted('');
+      }
+    };
+
+    extractText();
+  }, [pdfDoc, pdfState?.currentPage, onPdfPageTextExtracted]);
+
   // Keyboard handler for PDF - spacebar scrolls down, then next page at bottom
   useEffect(() => {
     if (!file || file.type !== 'pdf' || !pdfState || pdfState.thumbnailMode) return;
@@ -217,14 +240,16 @@ function ContentViewer({
   const generateThumbnails = useCallback(async () => {
     if (!pdfDoc || !thumbnailContainerRef.current) return;
 
+    const renderId = ++renderIdRef.current;
     thumbnailContainerRef.current.innerHTML = '';
-    const thumbScale = 0.3;
 
     for (let pageNum = 1; pageNum <= pdfDoc.numPages; pageNum++) {
-      // Check if container still exists (user may have switched modes)
+      if (renderId !== renderIdRef.current) return; // cancelled by newer render
       if (!thumbnailContainerRef.current) return;
 
       const page = await pdfDoc.getPage(pageNum);
+      const baseViewport = page.getViewport({ scale: 1 });
+      const thumbScale = thumbnailWidth / baseViewport.width;
       const viewport = page.getViewport({ scale: thumbScale });
 
       const thumbCanvas = document.createElement('canvas');
@@ -232,17 +257,13 @@ function ContentViewer({
       thumbCanvas.height = viewport.height;
       const thumbCtx = thumbCanvas.getContext('2d');
 
-      await page.render({
-        canvasContext: thumbCtx,
-        viewport: viewport
-      }).promise;
+      await page.render({ canvasContext: thumbCtx, viewport }).promise;
 
-      // Check again after async render
+      if (renderId !== renderIdRef.current) return;
       if (!thumbnailContainerRef.current) return;
 
       const thumbItem = document.createElement('div');
       thumbItem.className = `thumbnail-item ${pageNum === pdfState?.currentPage ? 'current' : ''}`;
-      thumbItem.dataset.page = pageNum;
       thumbItem.appendChild(thumbCanvas);
 
       const label = document.createElement('div');
@@ -251,16 +272,12 @@ function ContentViewer({
       thumbItem.appendChild(label);
 
       thumbItem.addEventListener('click', () => {
-        onPdfStateChange({
-          ...pdfState,
-          currentPage: pageNum,
-          thumbnailMode: false
-        });
+        onPdfStateChange({ ...pdfState, currentPage: pageNum, thumbnailMode: false });
       });
 
       thumbnailContainerRef.current.appendChild(thumbItem);
     }
-  }, [pdfDoc, pdfState, onPdfStateChange]);
+  }, [pdfDoc, pdfState, onPdfStateChange, thumbnailWidth]);
 
   // Generate thumbnails when entering thumbnail mode
   useEffect(() => {
@@ -478,27 +495,54 @@ function ContentViewer({
   if (file.type === 'pdf') {
     return (
       <div className="content-viewer pdf-viewer">
-        {!pdfState?.thumbnailMode ? (
-          <>
-            <button className="nav-btn prev-btn" onClick={onPrev} aria-label="Previous">
-              <svg width="48" height="48" viewBox="0 0 64 64">
-                <path d="M44 8 L20 32 L44 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
+        <button className="nav-btn prev-btn" onClick={onPrev} aria-label="Previous">
+          <svg width="48" height="48" viewBox="0 0 64 64">
+            <path d="M44 8 L20 32 L44 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
 
-            <div className="pdf-canvas-container" ref={pdfContainerRef} tabIndex={-1}>
-              <canvas ref={canvasRef} className="pdf-canvas" />
+        <div className="pdf-canvas-container" ref={pdfContainerRef} tabIndex={-1}>
+          <canvas ref={canvasRef} className="pdf-canvas" />
+        </div>
+
+        <button className="nav-btn next-btn" onClick={onNext} aria-label="Next">
+          <svg width="48" height="48" viewBox="0 0 64 64">
+            <path d="M20 8 L44 32 L20 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+
+        {/* Thumbnail modal overlay */}
+        {pdfState?.thumbnailMode && (
+          <div
+            className="thumbnail-modal-overlay"
+            onClick={() => onPdfStateChange({ ...pdfState, thumbnailMode: false })}
+          >
+            <div className="thumbnail-modal-content" onClick={e => e.stopPropagation()}>
+              <div className="thumbnail-modal-header">
+                <span className="thumbnail-modal-title">Page Thumbnails</span>
+                <div className="thumbnail-size-control">
+                  <label>Size:</label>
+                  <input
+                    type="range"
+                    min={100}
+                    max={400}
+                    value={sliderValue}
+                    onChange={e => setSliderValue(Number(e.target.value))}
+                    onPointerUp={e => setThumbnailWidth(Number(e.target.value))}
+                  />
+                  <span>{sliderValue}px</span>
+                </div>
+                <button
+                  className="thumbnail-modal-close"
+                  onClick={() => onPdfStateChange({ ...pdfState, thumbnailMode: false })}
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="thumbnail-modal-body">
+                <div className="thumbnail-grid" ref={thumbnailContainerRef} />
+              </div>
             </div>
-
-            <button className="nav-btn next-btn" onClick={onNext} aria-label="Next">
-              <svg width="48" height="48" viewBox="0 0 64 64">
-                <path d="M20 8 L44 32 L20 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </button>
-          </>
-        ) : (
-          <div className="thumbnail-container" ref={thumbnailContainerRef}>
-            {/* Thumbnails generated dynamically */}
           </div>
         )}
       </div>

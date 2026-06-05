@@ -28,6 +28,7 @@ function TextViewer() {
   // PDF state
   const [pdfState, setPdfState] = useState(null);
   const [pdfDocument, setPdfDocument] = useState(null);
+  const [currentPdfPageText, setCurrentPdfPageText] = useState('');
 
   // Tag filter state
   const [fileTags, setFileTags] = useState({}); // { fileIndex: ['tag1', 'tag2'] }
@@ -367,6 +368,11 @@ function TextViewer() {
   }, []);
 
   const handleCopyContent = useCallback(() => {
+    console.log('[handleCopyContent] currentPdfPageText len:', currentPdfPageText?.length, 'currentTextContent len:', currentTextContent?.length);
+    // For PDFs, delegate to the PDF page text handler
+    if (currentPdfPageText) {
+      return navigator.clipboard.writeText(currentPdfPageText).then(() => true).catch(() => false);
+    }
     if (!currentTextContent) return false;
     const doFallbackCopy = (text) => {
       const ta = document.createElement('textarea');
@@ -387,7 +393,7 @@ function TextViewer() {
     } else {
       return Promise.resolve(doFallbackCopy(currentTextContent));
     }
-  }, [currentTextContent]);
+  }, [currentTextContent, currentPdfPageText]);
 
   const handleWrapContent = useCallback(() => {
     if (!currentTextContent || !displayedFile) return;
@@ -578,30 +584,30 @@ function TextViewer() {
     }
   }, [dropboxFolderPath, dropbox, files.length]);
 
-  // Copy current PDF page text to clipboard
+  // Copy current PDF page text to clipboard (uses pre-extracted text, falls back to on-demand)
   const handleCopyPageText = useCallback(async () => {
-    if (!pdfDocument || !pdfState) {
-      console.log('No PDF document loaded');
-      return;
+    let textToCopy = currentPdfPageText;
+
+    // Fallback: extract on-demand if pre-extracted text isn't available
+    if (!textToCopy && pdfDocument && pdfState) {
+      try {
+        const page = await pdfDocument.getPage(pdfState.currentPage);
+        const textContent = await page.getTextContent();
+        textToCopy = textContent.items.map(item => item.str).join(' ');
+      } catch (error) {
+        console.error('Failed to extract PDF text:', error);
+      }
     }
 
+    if (!textToCopy) return;
+
     try {
-      const page = await pdfDocument.getPage(pdfState.currentPage);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items.map(item => item.str).join(' ');
-
-      if (!pageText) {
-        console.log('No text content available on current page');
-        return;
-      }
-
-      await navigator.clipboard.writeText(pageText);
-      console.log('Page text copied to clipboard:', pageText.length, 'characters');
+      await navigator.clipboard.writeText(textToCopy);
     } catch (error) {
       console.error('Failed to copy text:', error);
       alert('Failed to copy text to clipboard');
     }
-  }, [pdfDocument, pdfState]);
+  }, [currentPdfPageText, pdfDocument, pdfState]);
 
 
   // Auto-wrap: trigger wrap 500ms after changing file
@@ -785,6 +791,7 @@ function TextViewer() {
           pdfState={pdfState}
           onPdfStateChange={setPdfState}
           onPdfDocumentLoad={setPdfDocument}
+          onPdfPageTextExtracted={setCurrentPdfPageText}
           syntaxHighlightEnabled={syntaxHighlightEnabled}
           wrapText={wrapText}
           onHeadingsExtracted={setMdHeadings}

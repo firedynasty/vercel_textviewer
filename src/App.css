@@ -280,6 +280,102 @@ body {
   z-index: 100;
   position: relative;
   flex-wrap: wrap;
+  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+  max-height: 400px;
+  overflow: hidden;
+}
+
+.control-bar.control-bar--hidden {
+  max-height: 0;
+  opacity: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  pointer-events: none;
+}
+
+/* Pin button */
+.toolbar-pin-btn {
+  background: rgba(52, 152, 219, 0.9);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.toolbar-pin-btn:hover {
+  background: rgba(41, 128, 185, 1);
+  transform: scale(1.05);
+}
+
+.toolbar-pin-btn.pinned {
+  background: rgba(46, 204, 113, 0.9);
+}
+
+.toolbar-pin-btn.pinned:hover {
+  background: rgba(39, 174, 96, 1);
+}
+
+/* Ruler button */
+.toolbar-ruler-btn {
+  background: rgba(155, 89, 182, 0.9);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.toolbar-ruler-btn:hover {
+  background: rgba(142, 68, 173, 1);
+  transform: scale(1.05);
+}
+
+.toolbar-ruler-btn.active {
+  background: rgba(46, 204, 113, 0.9);
+}
+
+.toolbar-ruler-btn.active:hover {
+  background: rgba(39, 174, 96, 1);
+}
+
+/* Reading guide ruler line */
+.reading-guide {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255, 165, 0, 0.75);
+  pointer-events: none;
+  z-index: 9999;
+  box-shadow: 0 0 10px rgba(255, 165, 0, 0.5);
+  transform: translateY(-50%);
+}
+
+/* Custom cursor dot */
+.custom-cursor {
+  position: fixed;
+  width: 6px;
+  height: 6px;
+  background: #ff4444;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10000;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 4px rgba(255, 68, 68, 0.9);
+}
+
+/* Hide default cursor on content area when ruler is active */
+.ruler-active .content-viewer {
+  cursor: none;
 }
 
 .drop-folder-btn {

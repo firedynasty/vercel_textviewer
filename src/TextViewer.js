@@ -30,6 +30,13 @@ function TextViewer() {
   const [pdfDocument, setPdfDocument] = useState(null);
   const [currentPdfPageText, setCurrentPdfPageText] = useState('');
 
+  // Pin / ruler state
+  const [isPinned, setIsPinned] = useState(true);
+  const [controlBarVisible, setControlBarVisible] = useState(true);
+  const [rulerEnabled, setRulerEnabled] = useState(false);
+  const [rulerPos, setRulerPos] = useState({ x: 0, y: 0 });
+  const hideTimerRef = useRef(null);
+
   // Tag filter state
   const [fileTags, setFileTags] = useState({}); // { fileIndex: ['tag1', 'tag2'] }
   const [activeTagFilter, setActiveTagFilter] = useState(null);
@@ -367,6 +374,33 @@ function TextViewer() {
     setDarkMode((prev) => !prev);
   }, []);
 
+  // Pin / ruler callbacks
+  const showControlBar = useCallback(() => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    setControlBarVisible(true);
+  }, []);
+
+  const startHideTimer = useCallback(() => {
+    setIsPinned(pinned => {
+      if (!pinned) {
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = setTimeout(() => setControlBarVisible(false), 2000);
+      }
+      return pinned;
+    });
+  }, []);
+
+  const handleTogglePin = useCallback(() => {
+    setIsPinned(prev => {
+      if (!prev) setControlBarVisible(true); // pinning: always show
+      return !prev;
+    });
+  }, []);
+
+  const handleToggleRuler = useCallback(() => {
+    setRulerEnabled(prev => !prev);
+  }, []);
+
   const handleCopyContent = useCallback(() => {
     console.log('[handleCopyContent] currentPdfPageText len:', currentPdfPageText?.length, 'currentTextContent len:', currentTextContent?.length);
     // For PDFs, delegate to the PDF page text handler
@@ -643,12 +677,30 @@ function TextViewer() {
         handleNext();
       } else if (e.key === 'Escape') {
         handleWrapContent();
+      } else if (e.key === '/') {
+        e.preventDefault();
+        handleTogglePin();
+      } else if (e.key === 'u' || e.key === 'U') {
+        handleToggleRuler();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrev, handleNext, isEditing, handleWrapContent]);
+  }, [handlePrev, handleNext, isEditing, handleWrapContent, handleTogglePin, handleToggleRuler]);
+
+  // Global mouse move: ruler tracking + reveal ControlBar when near top (unpinned)
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (rulerEnabled) setRulerPos({ x: e.clientX, y: e.clientY });
+      if (!isPinned && e.clientY < 10) {
+        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+        setControlBarVisible(true);
+      }
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, [rulerEnabled, isPinned]);
 
   // Global drag and drop
   useEffect(() => {
@@ -722,7 +774,7 @@ function TextViewer() {
   }, [dropbox.isAuthenticated]);
 
   return (
-    <div className={`text-viewer ${darkMode ? 'dark-mode' : ''}`}>
+    <div className={`text-viewer ${darkMode ? 'dark-mode' : ''}${rulerEnabled ? ' ruler-active' : ''}`}>
       <Sidebar
         files={files}
         currentIndex={currentIndex}
@@ -776,6 +828,13 @@ function TextViewer() {
           isLocalFS={isLocalFS}
           onLocalDirOpen={() => handleLocalDirOpen(false)}
           onLocalDirOpenRecursive={() => handleLocalDirOpen(true)}
+          isPinned={isPinned}
+          onTogglePin={handleTogglePin}
+          rulerEnabled={rulerEnabled}
+          onToggleRuler={handleToggleRuler}
+          controlBarHidden={!isPinned && !controlBarVisible}
+          onMouseEnterBar={showControlBar}
+          onMouseLeaveBar={startHideTimer}
         />
 
         <ContentViewer
@@ -801,6 +860,14 @@ function TextViewer() {
         />
 
       </div>
+
+      {/* Ruler reading aid */}
+      {rulerEnabled && (
+        <>
+          <div className="reading-guide" style={{ top: rulerPos.y }} />
+          <div className="custom-cursor" style={{ left: rulerPos.x, top: rulerPos.y }} />
+        </>
+      )}
 
       <DropboxBrowser
         isOpen={dropboxBrowserOpen}

@@ -19,6 +19,14 @@ function ControlBar({
   pdfState,
   onPdfStateChange,
   onCopyPageText,
+  // Pin / ruler props
+  isPinned,
+  onTogglePin,
+  rulerEnabled,
+  onToggleRuler,
+  controlBarHidden,
+  onMouseEnterBar,
+  onMouseLeaveBar,
   // Syntax highlight props
   syntaxHighlightEnabled,
   onToggleSyntaxHighlight,
@@ -353,7 +361,11 @@ function ControlBar({
   };
 
   return (
-    <div className="control-bar">
+    <div
+      className={`control-bar${controlBarHidden ? ' control-bar--hidden' : ''}`}
+      onMouseEnter={onMouseEnterBar}
+      onMouseLeave={onMouseLeaveBar}
+    >
       {!showSidebar && (
         <button
           className="hamburger-btn"
@@ -788,6 +800,24 @@ function ControlBar({
           </div>
         </div>
       )}
+
+      {/* Pin button */}
+      <button
+        className={`toolbar-pin-btn${isPinned ? ' pinned' : ''}`}
+        onClick={onTogglePin}
+        title={isPinned ? 'Unpin toolbar (/)' : 'Pin toolbar (/)'}
+      >
+        📌 {isPinned ? 'Pinned' : 'Pin'}
+      </button>
+
+      {/* Ruler button */}
+      <button
+        className={`toolbar-ruler-btn${rulerEnabled ? ' active' : ''}`}
+        onClick={onToggleRuler}
+        title={rulerEnabled ? 'Disable ruler (U)' : 'Enable ruler (U)'}
+      >
+        {rulerEnabled ? '✓ Ruler' : '👁 Ruler'}
+      </button>
 
     </div>
   );

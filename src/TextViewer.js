@@ -36,6 +36,7 @@ function TextViewer() {
   const [rulerEnabled, setRulerEnabled] = useState(false);
   const [rulerPos, setRulerPos] = useState({ x: 0, y: 0 });
   const hideTimerRef = useRef(null);
+  const isPinnedRef = useRef(true); // mirrors isPinned without closure issues
 
   // Tag filter state
   const [fileTags, setFileTags] = useState({}); // { fileIndex: ['tag1', 'tag2'] }
@@ -374,6 +375,9 @@ function TextViewer() {
     setDarkMode((prev) => !prev);
   }, []);
 
+  // Keep isPinnedRef in sync
+  useEffect(() => { isPinnedRef.current = isPinned; }, [isPinned]);
+
   // Pin / ruler callbacks
   const showControlBar = useCallback(() => {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -381,20 +385,18 @@ function TextViewer() {
   }, []);
 
   const startHideTimer = useCallback(() => {
-    setIsPinned(pinned => {
-      if (!pinned) {
-        if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-        hideTimerRef.current = setTimeout(() => setControlBarVisible(false), 2000);
-      }
-      return pinned;
-    });
+    if (isPinnedRef.current) return;
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = setTimeout(() => setControlBarVisible(false), 1500);
   }, []);
 
   const handleTogglePin = useCallback(() => {
-    setIsPinned(prev => {
-      if (!prev) setControlBarVisible(true); // pinning: always show
-      return !prev;
-    });
+    const newPinned = !isPinnedRef.current;
+    setIsPinned(newPinned);
+    if (newPinned) {
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+      setControlBarVisible(true);
+    }
   }, []);
 
   const handleToggleRuler = useCallback(() => {
@@ -402,7 +404,6 @@ function TextViewer() {
   }, []);
 
   const handleCopyContent = useCallback(() => {
-    console.log('[handleCopyContent] currentPdfPageText len:', currentPdfPageText?.length, 'currentTextContent len:', currentTextContent?.length);
     // For PDFs, delegate to the PDF page text handler
     if (currentPdfPageText) {
       return navigator.clipboard.writeText(currentPdfPageText).then(() => true).catch(() => false);
@@ -693,14 +694,14 @@ function TextViewer() {
   useEffect(() => {
     const handleMouseMove = (e) => {
       if (rulerEnabled) setRulerPos({ x: e.clientX, y: e.clientY });
-      if (!isPinned && e.clientY < 10) {
+      if (!isPinnedRef.current && e.clientY < 10) {
         if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
         setControlBarVisible(true);
       }
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [rulerEnabled, isPinned]);
+  }, [rulerEnabled]);
 
   // Global drag and drop
   useEffect(() => {

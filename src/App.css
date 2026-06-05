@@ -280,16 +280,13 @@ body {
   z-index: 100;
   position: relative;
   flex-wrap: wrap;
-  transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
-  max-height: 400px;
-  overflow: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  transform-origin: top;
 }
 
 .control-bar.control-bar--hidden {
-  max-height: 0;
   opacity: 0;
-  padding-top: 0;
-  padding-bottom: 0;
+  transform: scaleY(0);
   pointer-events: none;
 }
 

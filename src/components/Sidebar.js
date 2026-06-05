@@ -59,7 +59,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
           if (!isFileVisible(file, index)) return null;
           return (
             <div
-              key={file.key}
+              key={`${file.key}-${index}`}
               className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}`}
               onClick={() => handleClick(file, index)}
             >

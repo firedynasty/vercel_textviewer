@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
@@ -84,6 +84,7 @@ function ContentViewer({
   const pdfContainerRef = useRef(null);
   const textPreviewRef = useRef(null);
   const markdownPreviewRef = useRef(null);
+  const iframeRef = useRef(null);
   const [pdfDoc, setPdfDoc] = useState(null);
   const [thumbnailWidth, setThumbnailWidth] = useState(200);
   const [sliderValue, setSliderValue] = useState(200);
@@ -235,6 +236,16 @@ function ContentViewer({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [file, pdfState, onPdfStateChange]);
+
+  // Build srcDoc with zoom injected — scales entire document regardless of fixed px sizes
+  const htmlSrcDoc = useMemo(() => {
+    if (!htmlContent) return '';
+    const zoom = (fontSize / 18).toFixed(3);
+    const styleTag = `<style>html{zoom:${zoom}}</style>`;
+    if (htmlContent.includes('</head>')) return htmlContent.replace('</head>', styleTag + '</head>');
+    if (htmlContent.includes('<body')) return htmlContent.replace('<body', styleTag + '<body');
+    return styleTag + htmlContent;
+  }, [htmlContent, fontSize]);
 
   // Generate thumbnails
   const generateThumbnails = useCallback(async () => {
@@ -495,20 +506,26 @@ function ContentViewer({
   if (file.type === 'pdf') {
     return (
       <div className="content-viewer pdf-viewer">
-        <button className="nav-btn prev-btn" onClick={onPrev} aria-label="Previous">
-          <svg width="48" height="48" viewBox="0 0 64 64">
-            <path d="M44 8 L20 32 L44 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+        <button
+          className="pdf-nav-btn pdf-nav-btn--overlay prev"
+          onClick={() => pdfState?.currentPage > 1 && onPdfStateChange({ ...pdfState, currentPage: pdfState.currentPage - 1 })}
+          disabled={!pdfState || pdfState.currentPage <= 1}
+          title="Previous Page"
+        >
+          ◀
         </button>
 
         <div className="pdf-canvas-container" ref={pdfContainerRef} tabIndex={-1}>
           <canvas ref={canvasRef} className="pdf-canvas" />
         </div>
 
-        <button className="nav-btn next-btn" onClick={onNext} aria-label="Next">
-          <svg width="48" height="48" viewBox="0 0 64 64">
-            <path d="M20 8 L44 32 L20 56" stroke="white" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
+        <button
+          className="pdf-nav-btn pdf-nav-btn--overlay next"
+          onClick={() => pdfState?.currentPage < pdfState?.totalPages && onPdfStateChange({ ...pdfState, currentPage: pdfState.currentPage + 1 })}
+          disabled={!pdfState || pdfState.currentPage >= pdfState.totalPages}
+          title="Next Page"
+        >
+          ▶
         </button>
 
         {/* Thumbnail modal overlay */}
@@ -710,7 +727,8 @@ function ContentViewer({
           <div className="preview-html" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <div className="content-title">{file.key}</div>
             <iframe
-              srcDoc={htmlContent}
+              key={`html-${fontSize}`}
+              srcDoc={htmlSrcDoc}
               title={file.key}
               style={{
                 flex: 1,
@@ -718,7 +736,7 @@ function ContentViewer({
                 border: 'none',
                 background: '#fff',
               }}
-              sandbox="allow-scripts allow-same-origin"
+              sandbox="allow-scripts"
             />
           </div>
         )}

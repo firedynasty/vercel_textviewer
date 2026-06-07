@@ -736,7 +736,7 @@ function ContentViewer({
                 border: 'none',
                 background: '#fff',
               }}
-              sandbox="allow-scripts"
+              sandbox="allow-scripts allow-same-origin"
             />
           </div>
         )}

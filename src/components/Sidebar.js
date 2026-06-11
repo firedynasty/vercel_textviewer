@@ -48,7 +48,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
           onChange={(e) => setSearchFilter(e.target.value)}
         />
         <button className="sidebar-next-btn" onClick={onNext} title="Next file">
-          &#9654;
+          &raquo;
         </button>
         <button className="sidebar-close-btn" onClick={onClose} title="Close sidebar">
           &times;

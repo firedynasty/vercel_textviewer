@@ -339,9 +339,15 @@ function TextViewer() {
     ensureFileDownloaded(index);
   }, [isEditing, ensureFileDownloaded]);
 
+  const matchesFileMode = useCallback((file) => {
+    if (dropboxFileMode === 'all') return file.type !== 'divider';
+    if (dropboxFileMode === 'imgs') return file.type === 'image' || file.type === 'video';
+    if (dropboxFileMode === 'txt') return ['text', 'markdown', 'rtf', 'docx'].includes(file.type);
+    return file.type !== 'divider';
+  }, [dropboxFileMode]);
+
   const handlePrev = useCallback(() => {
     if (files.length === 0) return;
-    const nextIndex = currentIndex > 0 ? currentIndex - 1 : files.length - 1;
 
     if (isEditing) {
       if (!window.confirm('You have unsaved changes. Discard them?')) {
@@ -349,13 +355,18 @@ function TextViewer() {
       }
       setIsEditing(false);
     }
+
+    let nextIndex = currentIndex;
+    for (let i = 0; i < files.length; i++) {
+      nextIndex = nextIndex > 0 ? nextIndex - 1 : files.length - 1;
+      if (matchesFileMode(files[nextIndex])) break;
+    }
     setCurrentIndex(nextIndex);
     ensureFileDownloaded(nextIndex);
-  }, [files, currentIndex, isEditing, ensureFileDownloaded]);
+  }, [files, currentIndex, isEditing, ensureFileDownloaded, matchesFileMode]);
 
   const handleNext = useCallback(() => {
     if (files.length === 0) return;
-    const nextIndex = currentIndex < files.length - 1 ? currentIndex + 1 : 0;
 
     if (isEditing) {
       if (!window.confirm('You have unsaved changes. Discard them?')) {
@@ -363,9 +374,15 @@ function TextViewer() {
       }
       setIsEditing(false);
     }
+
+    let nextIndex = currentIndex;
+    for (let i = 0; i < files.length; i++) {
+      nextIndex = nextIndex < files.length - 1 ? nextIndex + 1 : 0;
+      if (matchesFileMode(files[nextIndex])) break;
+    }
     setCurrentIndex(nextIndex);
     ensureFileDownloaded(nextIndex);
-  }, [files, currentIndex, isEditing, ensureFileDownloaded]);
+  }, [files, currentIndex, isEditing, ensureFileDownloaded, matchesFileMode]);
 
   const handleFontSizeChange = useCallback((delta) => {
     setFontSize((prev) => Math.max(10, Math.min(40, prev + delta)));

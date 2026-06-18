@@ -32,10 +32,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
     }
     // Display filter by file type
     if (dropboxFileMode === 'imgs' && file.type !== 'image' && file.type !== 'video') return false;
-    if (dropboxFileMode === 'txt') {
-      const ext = file.key.split('.').pop().toLowerCase();
-      if (!['rtf', 'txt', 'md', 'docx'].includes(ext)) return false;
-    }
+    if (dropboxFileMode === 'txt' && !['text', 'markdown', 'rtf', 'docx'].includes(file.type)) return false;
     return true;
   };
 

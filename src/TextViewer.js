@@ -20,7 +20,7 @@ function TextViewer() {
   const [imagePathToBlobUrl, setImagePathToBlobUrl] = useState({});
   const [dropboxFolderPath, setDropboxFolderPath] = useState(null);
   const [isDropboxNonRecursive, setIsDropboxNonRecursive] = useState(false);
-  const [dropboxFileMode, setDropboxFileMode] = useState('all'); // 'all' or 'imgs'
+  const [dropboxFileMode, setDropboxFileMode] = useState('all'); // 'all', 'imgs', or 'txt'
   const [isLocalFS, setIsLocalFS] = useState(false);
   const [fileHandles, setFileHandles] = useState({}); // index -> FileSystemFileHandle
 

@@ -497,6 +497,16 @@ function ControlBar({
           />
           imgs
         </label>
+        <label className={`file-mode-label ${dropboxFileMode === 'txt' ? 'active' : ''}`}>
+          <input
+            type="radio"
+            name="dropboxFileMode"
+            value="txt"
+            checked={dropboxFileMode === 'txt'}
+            onChange={() => onDropboxFileModeChange('txt')}
+          />
+          txt
+        </label>
       </div>
 
       <button

@@ -64,7 +64,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
               className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}`}
               onClick={() => handleClick(file, index)}
             >
-              <span className="sidebar-item-label" title={file.type === 'divider' ? file.key : undefined}>
+              <span className="sidebar-item-label" title={file.key}>
                 {file.type === 'divider' ? shortenDividerPath(file.key) : (file.originalName || file.key)}
               </span>
             </div>

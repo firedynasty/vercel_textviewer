@@ -8,12 +8,36 @@ function shortenDividerPath(path) {
   return shortened.join('/');
 }
 
+function getFullPath(files, index) {
+  const file = files[index];
+  if (!file) return '';
+  if (file.type === 'divider') return file.key;
+  // If Dropbox file, use dropboxPath
+  if (file.dropboxPath) return file.dropboxPath;
+  // Otherwise, find the nearest preceding divider to build the path
+  const fileName = file.originalName || file.key;
+  for (let i = index - 1; i >= 0; i--) {
+    if (files[i].type === 'divider') {
+      const folder = files[i].key;
+      return folder === './' ? fileName : `${folder}/${fileName}`;
+    }
+  }
+  return fileName;
+}
+
 function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags, mdHeadings, onScrollToHeading, dropboxFileMode }) {
   const [searchFilter, setSearchFilter] = useState('');
+  const [pathModal, setPathModal] = useState(null); // { path, x, y }
 
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
     onFileSelect(index);
+  };
+
+  const handleLabelClick = (e, index) => {
+    const fullPath = getFullPath(files, index);
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPathModal({ path: fullPath, x: rect.left, y: rect.bottom + 4 });
   };
 
   // Determine which files are visible when a tag filter is active
@@ -64,13 +88,30 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
               className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}`}
               onClick={() => handleClick(file, index)}
             >
-              <span className="sidebar-item-label" title={file.key}>
+              <span
+                className="sidebar-item-label"
+                title={file.key}
+                onClick={(e) => handleLabelClick(e, index)}
+              >
                 {file.type === 'divider' ? shortenDividerPath(file.key) : (file.originalName || file.key)}
               </span>
             </div>
           );
         })}
       </div>
+
+      {pathModal && (
+        <div className="sidebar-path-modal-overlay" onClick={() => setPathModal(null)}>
+          <div
+            className="sidebar-path-modal"
+            style={{ left: pathModal.x, top: pathModal.y }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sidebar-path-modal-text">{pathModal.path}</div>
+            <button className="sidebar-path-modal-close" onClick={() => setPathModal(null)}>&times;</button>
+          </div>
+        </div>
+      )}
 
       <div className="sidebar-tail">
         {mdHeadings && mdHeadings.length > 0 && (

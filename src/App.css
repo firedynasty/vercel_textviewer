@@ -248,6 +248,69 @@ body {
   color: #555;
 }
 
+/* Sidebar path modal */
+.sidebar-path-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+}
+
+.sidebar-path-modal {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  padding: 10px 14px;
+  max-width: 400px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 10000;
+}
+
+.sidebar-path-modal-text {
+  font-size: 13px;
+  color: #222;
+  word-break: break-all;
+  user-select: text;
+}
+
+.sidebar-path-modal-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #888;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.sidebar-path-modal-close:hover {
+  color: #333;
+}
+
+.text-viewer.dark-mode .sidebar-path-modal {
+  background: #2a2a2a;
+  border-color: #555;
+}
+
+.text-viewer.dark-mode .sidebar-path-modal-text {
+  color: #ddd;
+}
+
+.text-viewer.dark-mode .sidebar-path-modal-close {
+  color: #aaa;
+}
+
+.text-viewer.dark-mode .sidebar-path-modal-close:hover {
+  color: #fff;
+}
+
 /* Main Content Area */
 .main-content {
   flex: 1;
@@ -1246,6 +1309,32 @@ body {
 .pdf-nav-btn:disabled {
   background: rgba(100, 100, 100, 0.5);
   cursor: not-allowed;
+}
+
+/* Overlay prev/next buttons on the PDF canvas */
+.pdf-nav-btn--overlay {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.pdf-nav-btn--overlay:hover:not(:disabled) {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.pdf-nav-btn--overlay.prev {
+  left: 12px;
+}
+
+.pdf-nav-btn--overlay.next {
+  right: 12px;
 }
 
 .pdf-page-input {

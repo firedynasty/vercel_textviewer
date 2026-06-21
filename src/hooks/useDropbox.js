@@ -169,6 +169,7 @@ export function useDropbox() {
           path: entry.path_lower || entry.path_display,
           id: entry.id || null,
           isFolder: entry['.tag'] === 'folder',
+          serverModified: entry.server_modified || null,
         }));
 
         allEntries = allEntries.concat(entries);
@@ -224,6 +225,7 @@ export function useDropbox() {
           path: entry.path_lower || entry.path_display,
           id: entry.id || null,
           isFolder: entry['.tag'] === 'folder',
+          serverModified: entry.server_modified || null,
         }));
 
         allEntries = allEntries.concat(entries);

@@ -25,10 +25,20 @@ function getFullPath(files, index) {
   return fileName;
 }
 
+function formatModifiedDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const mon = (d.getMonth() + 1).toString().padStart(2, '0');
+  const day = d.getDate().toString().padStart(2, '0');
+  const yr = d.getFullYear().toString().slice(-2);
+  return `${mon}/${day}/${yr}`;
+}
+
 function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags, mdHeadings, onScrollToHeading, dropboxFileMode }) {
   const [searchFilter, setSearchFilter] = useState('');
   const [pathModal, setPathModal] = useState(null); // { path, x, y }
   const [showAllPaths, setShowAllPaths] = useState(false);
+  const [sortByDate, setSortByDate] = useState(false);
 
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
@@ -77,6 +87,13 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
         <button className="sidebar-paths-btn" onClick={() => setShowAllPaths(true)} title="Show all folder paths">
           &#128193;
         </button>
+        <button
+          className={`sidebar-sort-btn ${sortByDate ? 'active' : ''}`}
+          onClick={() => setSortByDate(!sortByDate)}
+          title={sortByDate ? 'Sort by folder (default)' : 'Sort by last modified'}
+        >
+          &#128337;
+        </button>
         <button className="sidebar-next-btn" onClick={onNext} title="Next file">
           &raquo;
         </button>
@@ -85,24 +102,53 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
         </button>
       </div>
       <div className="sidebar-content">
-        {files.map((file, index) => {
-          if (!isFileVisible(file, index)) return null;
-          return (
-            <div
-              key={`${file.key}-${index}`}
-              className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}`}
-              onClick={() => handleClick(file, index)}
-            >
-              <span
-                className="sidebar-item-label"
-                title={file.type === 'divider' ? file.key : undefined}
-                onClick={(e) => handleLabelClick(e, index)}
+        {(() => {
+          if (sortByDate) {
+            // Build sorted list: non-divider files sorted by serverModified descending
+            const indexedFiles = files
+              .map((file, index) => ({ file, index }))
+              .filter(({ file, index }) => file.type !== 'divider' && isFileVisible(file, index))
+              .sort((a, b) => {
+                const aDate = a.file.serverModified || a.file.file?.lastModified || 0;
+                const bDate = b.file.serverModified || b.file.file?.lastModified || 0;
+                const aTime = typeof aDate === 'number' ? aDate : new Date(aDate).getTime();
+                const bTime = typeof bDate === 'number' ? bDate : new Date(bDate).getTime();
+                return bTime - aTime; // newest first
+              });
+            return indexedFiles.map(({ file, index }) => (
+              <div
+                key={`${file.key}-${index}`}
+                className={`sidebar-item ${index === currentIndex ? 'active' : ''}`}
+                onClick={() => handleClick(file, index)}
               >
-                {file.type === 'divider' ? shortenDividerPath(file.key) : (file.originalName || file.key)}
-              </span>
-            </div>
-          );
-        })}
+                <span className="sidebar-item-label" style={{ flex: 1 }}>
+                  {file.originalName || file.key}
+                </span>
+                {file.serverModified && (
+                  <span className="sidebar-item-date">{formatModifiedDate(file.serverModified)}</span>
+                )}
+              </div>
+            ));
+          }
+          return files.map((file, index) => {
+            if (!isFileVisible(file, index)) return null;
+            return (
+              <div
+                key={`${file.key}-${index}`}
+                className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}`}
+                onClick={() => handleClick(file, index)}
+              >
+                <span
+                  className="sidebar-item-label"
+                  title={file.type === 'divider' ? file.key : undefined}
+                  onClick={(e) => handleLabelClick(e, index)}
+                >
+                  {file.type === 'divider' ? shortenDividerPath(file.key) : (file.originalName || file.key)}
+                </span>
+              </div>
+            );
+          });
+        })()}
       </div>
 
       {pathModal && (

@@ -435,6 +435,7 @@ export function processDropboxFolder(entries, folderPath) {
         dropboxPath: entry.path,
         dropboxId: entry.id || null,
         originalName: entry.name,
+        serverModified: entry.serverModified || null,
       });
     });
   }
@@ -452,6 +453,7 @@ export function processDropboxFolder(entries, folderPath) {
         dropboxPath: entry.path,
         dropboxId: entry.id || null,
         originalName: entry.name,
+        serverModified: entry.serverModified || null,
       });
     });
   });

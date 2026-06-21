@@ -35,6 +35,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
   };
 
   const handleLabelClick = (e, index) => {
+    if (files[index] && files[index].type !== 'divider') return;
     const fullPath = getFullPath(files, index);
     const rect = e.currentTarget.getBoundingClientRect();
     setPathModal({ path: fullPath, x: rect.left, y: rect.bottom + 4 });

@@ -28,6 +28,7 @@ function getFullPath(files, index) {
 function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags, mdHeadings, onScrollToHeading, dropboxFileMode }) {
   const [searchFilter, setSearchFilter] = useState('');
   const [pathModal, setPathModal] = useState(null); // { path, x, y }
+  const [showAllPaths, setShowAllPaths] = useState(false);
 
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
@@ -73,6 +74,9 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
         />
+        <button className="sidebar-paths-btn" onClick={() => setShowAllPaths(true)} title="Show all folder paths">
+          &#128193;
+        </button>
         <button className="sidebar-next-btn" onClick={onNext} title="Next file">
           &raquo;
         </button>
@@ -110,6 +114,24 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
           >
             <div className="sidebar-path-modal-text">{pathModal.path}</div>
             <button className="sidebar-path-modal-close" onClick={() => setPathModal(null)}>&times;</button>
+          </div>
+        </div>
+      )}
+
+      {showAllPaths && (
+        <div className="sidebar-all-paths-overlay" onClick={() => setShowAllPaths(false)}>
+          <div className="sidebar-all-paths-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="sidebar-all-paths-header">
+              <span>All Folder Paths</span>
+              <button className="sidebar-path-modal-close" onClick={() => setShowAllPaths(false)}>&times;</button>
+            </div>
+            <div className="sidebar-all-paths-list">
+              {files
+                .filter(f => f.type === 'divider')
+                .map((f, i) => (
+                  <div key={i} className="sidebar-all-paths-item">{f.key}</div>
+                ))}
+            </div>
           </div>
         </div>
       )}

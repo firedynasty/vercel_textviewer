@@ -90,7 +90,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
             >
               <span
                 className="sidebar-item-label"
-                title={file.key}
+                title={file.type === 'divider' ? file.key : undefined}
                 onClick={(e) => handleLabelClick(e, index)}
               >
                 {file.type === 'divider' ? shortenDividerPath(file.key) : (file.originalName || file.key)}

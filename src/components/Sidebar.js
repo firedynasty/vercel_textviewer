@@ -38,7 +38,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
   const [searchFilter, setSearchFilter] = useState('');
   const [pathModal, setPathModal] = useState(null); // { path, x, y }
   const [showAllPaths, setShowAllPaths] = useState(false);
-  const [sortByDate, setSortByDate] = useState(false);
+  const [sortMode, setSortMode] = useState(null); // null | 'date' | 'name'
 
   const handleClick = (file, index) => {
     if (file.type === 'divider') return;
@@ -88,11 +88,18 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
           &#128193;
         </button>
         <button
-          className={`sidebar-sort-btn ${sortByDate ? 'active' : ''}`}
-          onClick={() => setSortByDate(!sortByDate)}
-          title={sortByDate ? 'Sort by folder (default)' : 'Sort by last modified'}
+          className={`sidebar-sort-btn ${sortMode === 'date' ? 'active' : ''}`}
+          onClick={() => setSortMode(sortMode === 'date' ? null : 'date')}
+          title={sortMode === 'date' ? 'Sort by folder (default)' : 'Sort by last modified'}
         >
           &#128337;
+        </button>
+        <button
+          className={`sidebar-sort-btn ${sortMode === 'name' ? 'active' : ''}`}
+          onClick={() => setSortMode(sortMode === 'name' ? null : 'name')}
+          title={sortMode === 'name' ? 'Sort by folder (default)' : 'Sort by name'}
+        >
+          A&#8595;
         </button>
         <button className="sidebar-next-btn" onClick={onNext} title="Next file">
           &raquo;
@@ -103,17 +110,23 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
       </div>
       <div className="sidebar-content">
         {(() => {
-          if (sortByDate) {
-            // Build sorted list: non-divider files sorted by serverModified descending
+          if (sortMode === 'date' || sortMode === 'name') {
+            // Build sorted list: non-divider files sorted by date or name
             const indexedFiles = files
               .map((file, index) => ({ file, index }))
               .filter(({ file, index }) => file.type !== 'divider' && isFileVisible(file, index))
               .sort((a, b) => {
-                const aDate = a.file.serverModified || a.file.file?.lastModified || 0;
-                const bDate = b.file.serverModified || b.file.file?.lastModified || 0;
-                const aTime = typeof aDate === 'number' ? aDate : new Date(aDate).getTime();
-                const bTime = typeof bDate === 'number' ? bDate : new Date(bDate).getTime();
-                return bTime - aTime; // newest first
+                if (sortMode === 'date') {
+                  const aDate = a.file.serverModified || a.file.file?.lastModified || 0;
+                  const bDate = b.file.serverModified || b.file.file?.lastModified || 0;
+                  const aTime = typeof aDate === 'number' ? aDate : new Date(aDate).getTime();
+                  const bTime = typeof bDate === 'number' ? bDate : new Date(bDate).getTime();
+                  return bTime - aTime; // newest first
+                } else {
+                  const aName = (a.file.originalName || a.file.key).toLowerCase();
+                  const bName = (b.file.originalName || b.file.key).toLowerCase();
+                  return aName.localeCompare(bName);
+                }
               });
             return indexedFiles.map(({ file, index }) => (
               <div
@@ -124,7 +137,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
                 <span className="sidebar-item-label" style={{ flex: 1 }}>
                   {file.originalName || file.key}
                 </span>
-                {file.serverModified && (
+                {sortMode === 'date' && file.serverModified && (
                   <span className="sidebar-item-date">{formatModifiedDate(file.serverModified)}</span>
                 )}
               </div>

@@ -567,26 +567,66 @@ function ControlBar({
         onChange={handleShallowFolderSelect}
       />
 
-      {/* Video speed toggle */}
+      {/* Video controls: skip -5s, +5s, speed toggle */}
       {isVideo && (
-        <button
-          className="speed-toggle-btn"
-          onClick={handleSpeedToggle}
-          style={{
-            background: videoSpeed === 0.5
-              ? 'linear-gradient(45deg, #00BCD4, #0097A7)'
-              : 'linear-gradient(45deg, #7E57C2, #5E35B1)',
-            padding: '6px 12px',
-            fontSize: '12px',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-          title="Toggle playback speed (1x / 0.5x)"
-        >
-          {videoSpeed}x
-        </button>
+        <>
+          <button
+            className="video-skip-btn"
+            onClick={() => {
+              const video = document.querySelector('.preview-video');
+              if (video) video.currentTime = Math.max(0, video.currentTime - 5);
+            }}
+            style={{
+              background: '#333',
+              padding: '6px 10px',
+              fontSize: '12px',
+              color: '#fff',
+              border: '1px solid #555',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+            title="Skip back 5 seconds"
+          >
+            -5s
+          </button>
+          <button
+            className="video-skip-btn"
+            onClick={() => {
+              const video = document.querySelector('.preview-video');
+              if (video) video.currentTime = Math.min(video.duration || 0, video.currentTime + 5);
+            }}
+            style={{
+              background: '#333',
+              padding: '6px 10px',
+              fontSize: '12px',
+              color: '#fff',
+              border: '1px solid #555',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+            title="Skip forward 5 seconds"
+          >
+            +5s
+          </button>
+          <button
+            className="speed-toggle-btn"
+            onClick={handleSpeedToggle}
+            style={{
+              background: videoSpeed === 0.5
+                ? 'linear-gradient(45deg, #00BCD4, #0097A7)'
+                : 'linear-gradient(45deg, #7E57C2, #5E35B1)',
+              padding: '6px 12px',
+              fontSize: '12px',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+            title="Toggle playback speed (1x / 0.5x)"
+          >
+            {videoSpeed}x
+          </button>
+        </>
       )}
 
       <button

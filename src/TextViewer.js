@@ -680,7 +680,17 @@ function TextViewer() {
       if (isEditing) return;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
 
-      if (e.key === 'ArrowLeft') {
+      if (e.key === ' ') {
+        e.preventDefault();
+        if (e.target && e.target.blur) e.target.blur();
+        const iframe = document.querySelector('.preview-html iframe');
+        if (iframe && iframe.contentDocument) {
+          iframe.contentDocument.documentElement.scrollBy({ top: iframe.clientHeight * 0.9, behavior: 'smooth' });
+        } else {
+          const scrollable = document.querySelector('.preview-text') || document.querySelector('.preview-markdown') || document.querySelector('.content-area');
+          if (scrollable) scrollable.scrollBy({ top: scrollable.clientHeight * 0.9, behavior: 'smooth' });
+        }
+      } else if (e.key === 'ArrowLeft') {
         handlePrev();
       } else if (e.key === 'ArrowRight') {
         handleNext();

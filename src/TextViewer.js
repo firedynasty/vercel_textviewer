@@ -878,6 +878,28 @@ function TextViewer() {
           onTextLoaded={setCurrentTextContent}
         />
 
+        {/* Page down button */}
+        <button
+          onClick={() => {
+            const iframe = document.querySelector('.preview-html iframe');
+            if (iframe && iframe.contentDocument) {
+              const doc = iframe.contentDocument.documentElement;
+              doc.scrollBy({ top: iframe.clientHeight * 0.9, behavior: 'smooth' });
+              return;
+            }
+            const scrollable = document.querySelector('.preview-text') || document.querySelector('.preview-markdown') || document.querySelector('.content-area');
+            if (scrollable) {
+              scrollable.scrollBy({ top: scrollable.clientHeight * 0.9, behavior: 'smooth' });
+            }
+          }}
+          style={{ position: 'absolute', top: '50%', left: 6, zIndex: 10, width: 48, height: 48, background: 'rgba(0,0,0,0.08)', borderRadius: '50%', border: '1.5px solid rgba(0,0,0,1)', opacity: 0.15, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s ease' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.12)'; e.currentTarget.style.opacity = '0.2'; e.currentTarget.style.transform = 'scale(1.1)'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.08)'; e.currentTarget.style.opacity = '0.15'; e.currentTarget.style.transform = ''; }}
+          title="Page down"
+        >
+          <svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" strokeWidth="8" fill="none" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+
       </div>
 
       {/* Ruler reading aid */}

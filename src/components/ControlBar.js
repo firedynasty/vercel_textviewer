@@ -869,6 +869,23 @@ function ControlBar({
         {rulerEnabled ? '✓ Ruler' : '👁 Ruler'}
       </button>
 
+      {/* Page down button */}
+      <button
+        className="toolbar-ruler-btn"
+        onClick={() => {
+          const iframe = document.querySelector('.preview-html iframe');
+          if (iframe && iframe.contentDocument) {
+            iframe.contentDocument.documentElement.scrollBy({ top: iframe.clientHeight * 0.9, behavior: 'smooth' });
+            return;
+          }
+          const scrollable = document.querySelector('.preview-text') || document.querySelector('.preview-markdown') || document.querySelector('.content-area');
+          if (scrollable) scrollable.scrollBy({ top: scrollable.clientHeight * 0.9, behavior: 'smooth' });
+        }}
+        title="Page down"
+      >
+        ⬇ Page
+      </button>
+
     </div>
   );
 }

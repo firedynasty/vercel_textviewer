@@ -342,7 +342,7 @@ function TextViewer() {
   const matchesFileMode = useCallback((file) => {
     if (dropboxFileMode === 'all') return file.type !== 'divider';
     if (dropboxFileMode === 'imgs') return file.type === 'image' || file.type === 'video';
-    if (dropboxFileMode === 'txt') return ['text', 'markdown', 'rtf', 'docx'].includes(file.type);
+    if (dropboxFileMode === 'txt') return ['text', 'markdown', 'rtf', 'docx', 'html'].includes(file.type);
     return file.type !== 'divider';
   }, [dropboxFileMode]);
 

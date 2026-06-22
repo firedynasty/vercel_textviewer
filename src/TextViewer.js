@@ -694,7 +694,8 @@ function TextViewer() {
       } else if (e.key === 'Enter') {
         handleNext();
       } else if (e.key === 'Escape') {
-        handleWrapContent();
+        const modalClose = document.querySelector('.md-image-modal-close');
+        if (modalClose) modalClose.click();
       } else if (e.key === '/') {
         e.preventDefault();
         handleTogglePin();
@@ -705,7 +706,7 @@ function TextViewer() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrev, handleNext, isEditing, handleWrapContent, handleTogglePin, handleToggleRuler]);
+  }, [handlePrev, handleNext, isEditing, handleTogglePin, handleToggleRuler]);
 
   // Global mouse move: ruler tracking + reveal ControlBar when near top (unpinned)
   useEffect(() => {

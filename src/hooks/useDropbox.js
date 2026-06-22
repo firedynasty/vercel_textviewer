@@ -258,13 +258,21 @@ export function useDropbox() {
     if (!accessToken) return null;
 
     try {
-      const response = await fetch('https://content.dropboxapi.com/2/files/download', {
+      // Use get_temporary_link (api.dropboxapi.com, supports CORS) instead of
+      // content.dropboxapi.com/2/files/download which blocks browser requests.
+      const linkRes = await fetch('https://api.dropboxapi.com/2/files/get_temporary_link', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          'Dropbox-API-Arg': JSON.stringify({ path: dropboxPath }),
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ path: dropboxPath }),
       });
+
+      if (!linkRes.ok) throw new Error('Failed to get temporary link');
+
+      const { link } = await linkRes.json();
+      const response = await fetch(link);
 
       if (!response.ok) throw new Error('Download failed');
 

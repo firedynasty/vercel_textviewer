@@ -857,6 +857,11 @@ function TextViewer() {
           isLocalFS={isLocalFS}
           onLocalDirOpen={() => handleLocalDirOpen(false)}
           onLocalDirOpenRecursive={() => handleLocalDirOpen(true)}
+          onLoadDropboxPath={async (path) => {
+            const entries = await dropbox.listFolder(path);
+            handleDropboxFolderSelected(entries, path, true);
+          }}
+          dropbox={dropbox}
           isPinned={isPinned}
           onTogglePin={handleTogglePin}
           rulerEnabled={rulerEnabled}

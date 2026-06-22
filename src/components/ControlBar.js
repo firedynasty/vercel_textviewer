@@ -61,6 +61,9 @@ function ControlBar({
   isLocalFS,
   onLocalDirOpen,
   onLocalDirOpenRecursive,
+  // Direct Dropbox folder load (skips browser modal)
+  onLoadDropboxPath,
+  dropbox,
 }) {
   const folderInputRef = useRef(null);
   const shallowFolderInputRef = useRef(null);
@@ -71,6 +74,7 @@ function ControlBar({
   const [showPathPicker, setShowPathPicker] = useState(false);
   const [dirPaths, setDirPaths] = useState([]);
   const [selectedPath, setSelectedPath] = useState(() => localStorage.getItem('selectedDirPath') || '');
+  const [imagePaths, setImagePaths] = useState([]);
 
   useEffect(() => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -85,6 +89,12 @@ function ControlBar({
           localStorage.setItem('selectedDirPath', paths[0]);
         }
       })
+      .catch(() => {});
+
+    const imageUrl = isLocal ? '/imagepaths.json' : '/api/imagepaths';
+    fetch(imageUrl)
+      .then(res => res.json())
+      .then(paths => setImagePaths(paths))
       .catch(() => {});
   }, []);
 
@@ -523,6 +533,42 @@ function ControlBar({
       >
         DB-re
       </button>
+
+      {dropbox && !dropbox.isAuthenticated && (
+        <button
+          className="dropbox-btn"
+          onClick={() => dropbox.signIn('nonrecursive')}
+          style={{ background: '#0061fe', fontSize: '11px' }}
+        >
+          DB Sign In
+        </button>
+      )}
+
+      {imagePaths.length > 0 && dropbox && dropbox.isAuthenticated && (
+        <select
+          defaultValue=""
+          onChange={async (e) => {
+            const path = e.target.value;
+            if (!path) return;
+            e.target.value = '';
+            if (onLoadDropboxPath) onLoadDropboxPath(path);
+          }}
+          style={{
+            background: '#2a2a3e',
+            color: '#eee',
+            border: '1px solid #555',
+            borderRadius: '4px',
+            padding: '2px 4px',
+            fontSize: '11px',
+            cursor: 'pointer',
+          }}
+        >
+          <option value="">-- Images --</option>
+          {imagePaths.map((p) => (
+            <option key={p.path} value={p.path}>{p.label}</option>
+          ))}
+        </select>
+      )}
 
       {/* File operations - for DB-nonrecursive or Local FS */}
       {(isDropboxNonRecursive || isLocalFS) && !isEditing && (

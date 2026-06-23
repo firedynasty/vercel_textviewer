@@ -665,16 +665,17 @@ function TextViewer() {
   }, [currentPdfPageText, pdfDocument, pdfState]);
 
 
-  // Auto-wrap: trigger wrap 500ms after changing file
+  // Auto-wrap: trigger wrap 500ms after changing file (skip audio files)
   const autoWrapIndexRef = useRef(null);
   useEffect(() => {
     if (autoWrapIndexRef.current === currentIndex) return;
+    if (files[currentIndex]?.type === 'audio') return;
     const timer = setTimeout(() => {
       autoWrapIndexRef.current = currentIndex;
       handleWrapContent();
     }, 500);
     return () => clearTimeout(timer);
-  }, [currentIndex, handleWrapContent]);
+  }, [currentIndex, handleWrapContent, files]);
 
   // Keyboard navigation
   useEffect(() => {

@@ -66,6 +66,7 @@ function ControlBar({
   dropbox,
   // Persistent audio player
   persistentAudio,
+  onClearAudio,
 }) {
   const folderInputRef = useRef(null);
   const shallowFolderInputRef = useRef(null);
@@ -958,6 +959,11 @@ function ControlBar({
           <span className="toolbar-audio-name" title={persistentAudio.name}>
             {persistentAudio.name}
           </span>
+          <button
+            className="toolbar-audio-clear"
+            onClick={onClearAudio}
+            title="Clear audio player"
+          >✕</button>
         </div>
       )}
 

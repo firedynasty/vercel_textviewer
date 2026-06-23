@@ -885,6 +885,7 @@ function TextViewer() {
           onMouseEnterBar={showControlBar}
           onMouseLeaveBar={startHideTimer}
           persistentAudio={persistentAudio}
+          onClearAudio={() => setPersistentAudio(null)}
         />
 
         <ContentViewer

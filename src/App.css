@@ -557,6 +557,21 @@ body {
   color: #27ae60;
 }
 
+.toolbar-audio-clear {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.toolbar-audio-clear:hover {
+  color: #e74c3c;
+}
+
 /* Reading guide ruler line */
 .reading-guide {
   position: fixed;

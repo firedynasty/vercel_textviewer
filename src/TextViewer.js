@@ -710,6 +710,12 @@ function TextViewer() {
       } else if (e.key === 'Escape') {
         const modalClose = document.querySelector('.md-image-modal-close');
         if (modalClose) modalClose.click();
+        // Stop persistent audio player
+        const audioEl = document.getElementById('audioElement');
+        if (audioEl) {
+          audioEl.pause();
+          setPersistentAudio(null);
+        }
       } else if (e.key === '/') {
         e.preventDefault();
         handleTogglePin();

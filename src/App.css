@@ -159,6 +159,14 @@ body {
   background-color: #d0d0d0;
 }
 
+.sidebar-item.audio-active {
+  background-color: rgba(155, 89, 182, 0.2);
+}
+
+.sidebar-item.active.audio-active {
+  background-color: rgba(155, 89, 182, 0.3);
+}
+
 .sidebar-item.divider {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   font-weight: bold;
@@ -509,6 +517,44 @@ body {
 
 .toolbar-ruler-btn.active:hover {
   background: rgba(39, 174, 96, 1);
+}
+
+/* Persistent audio player in toolbar */
+.toolbar-audio-player {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(41, 128, 185, 0.15);
+  border: 1px solid rgba(41, 128, 185, 0.3);
+  transition: all 0.3s ease;
+  max-width: 460px;
+}
+
+.toolbar-audio-player.notify {
+  background: rgba(46, 204, 113, 0.25);
+  border-color: rgba(46, 204, 113, 0.6);
+  box-shadow: 0 0 8px rgba(46, 204, 113, 0.4);
+}
+
+.toolbar-audio-player audio {
+  height: 30px;
+  min-width: 280px;
+}
+
+.toolbar-audio-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2980b9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.toolbar-audio-player.notify .toolbar-audio-name {
+  color: #27ae60;
 }
 
 /* Reading guide ruler line */

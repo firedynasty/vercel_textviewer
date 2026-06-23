@@ -64,6 +64,8 @@ function ControlBar({
   // Direct Dropbox folder load (skips browser modal)
   onLoadDropboxPath,
   dropbox,
+  // Persistent audio player
+  persistentAudio,
 }) {
   const folderInputRef = useRef(null);
   const shallowFolderInputRef = useRef(null);
@@ -75,6 +77,18 @@ function ControlBar({
   const [dirPaths, setDirPaths] = useState([]);
   const [selectedPath, setSelectedPath] = useState(() => localStorage.getItem('selectedDirPath') || '');
   const [imagePaths, setImagePaths] = useState([]);
+  const [audioNotify, setAudioNotify] = useState(false);
+  const prevAudioRef = useRef(null);
+
+  // Flash notification when persistent audio changes
+  useEffect(() => {
+    if (persistentAudio && persistentAudio.url !== prevAudioRef.current) {
+      prevAudioRef.current = persistentAudio.url;
+      setAudioNotify(true);
+      const timer = setTimeout(() => setAudioNotify(false), 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [persistentAudio]);
 
   useEffect(() => {
     const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
@@ -540,7 +554,7 @@ function ControlBar({
           onClick={() => dropbox.signIn('nonrecursive')}
           style={{ background: '#0061fe', fontSize: '11px' }}
         >
-          DB Sign In
+          DB Sign In (images)
         </button>
       )}
 
@@ -931,6 +945,21 @@ function ControlBar({
       >
         ⬇ Page
       </button>
+
+      {/* Persistent audio player */}
+      {persistentAudio && (
+        <div className={`toolbar-audio-player${audioNotify ? ' notify' : ''}`}>
+          <audio
+            id="audioElement"
+            src={persistentAudio.url}
+            controls
+            autoPlay
+          />
+          <span className="toolbar-audio-name" title={persistentAudio.name}>
+            {persistentAudio.name}
+          </span>
+        </div>
+      )}
 
     </div>
   );

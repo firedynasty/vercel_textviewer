@@ -61,6 +61,9 @@ function TextViewer() {
   const [mdHeadings, setMdHeadings] = useState([]);
   const [scrollToHeadingId, setScrollToHeadingId] = useState(null);
 
+  // Persistent audio player (survives non-audio file clicks)
+  const [persistentAudio, setPersistentAudio] = useState(null); // { url, name }
+
   // Dropbox hook
   const dropbox = useDropbox();
 
@@ -754,11 +757,22 @@ function TextViewer() {
   useEffect(() => {
     if (!currentFile) return;
 
-    if (currentFile.type !== 'divider') {
+    if (currentFile.type === 'audio') {
+      // Audio files only update the persistent player, not the content area
+      const name = (currentFile.originalName || currentFile.key || '')
+        .replace(/\.[^.]+$/, '');
+      // Use dropboxPath as stable ID (Dropbox files start with url:null until downloaded)
+      const stableId = currentFile.dropboxPath || currentFile.url || currentFile.key;
+      setPersistentAudio(prev => ({
+        url: currentFile.url || prev?.url,
+        name,
+        stableId,
+      }));
+    } else if (currentFile.type !== 'divider') {
       setDisplayedFileIndex(currentIndex);
     }
     // Clear text content when switching to a non-text file
-    if (currentFile.type !== 'text' && currentFile.type !== 'rtf' && currentFile.type !== 'markdown') {
+    if (currentFile.type !== 'text' && currentFile.type !== 'rtf' && currentFile.type !== 'markdown' && currentFile.type !== 'audio') {
       setCurrentTextContent('');
     }
   }, [currentIndex, currentFile]);
@@ -806,7 +820,8 @@ function TextViewer() {
     <div className={`text-viewer ${darkMode ? 'dark-mode' : ''}${rulerEnabled ? ' ruler-active' : ''}`}>
       <Sidebar
         files={files}
-        currentIndex={currentIndex}
+        currentIndex={displayedFileIndex}
+        persistentAudio={persistentAudio}
         onFileSelect={handleFileSelect}
         onNext={handleNext}
         isOpen={showSidebar}
@@ -869,6 +884,7 @@ function TextViewer() {
           controlBarHidden={!isPinned && !controlBarVisible}
           onMouseEnterBar={showControlBar}
           onMouseLeaveBar={startHideTimer}
+          persistentAudio={persistentAudio}
         />
 
         <ContentViewer

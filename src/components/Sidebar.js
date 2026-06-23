@@ -34,7 +34,7 @@ function formatModifiedDate(dateStr) {
   return `${mon}/${day}/${yr}`;
 }
 
-function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags, mdHeadings, onScrollToHeading, dropboxFileMode }) {
+function Sidebar({ files, currentIndex, persistentAudio, onFileSelect, onNext, isOpen, onClose, activeTagFilter, fileTags, mdHeadings, onScrollToHeading, dropboxFileMode }) {
   const [searchFilter, setSearchFilter] = useState('');
   const [pathModal, setPathModal] = useState(null); // { path, x, y }
   const [showAllPaths, setShowAllPaths] = useState(false);
@@ -131,7 +131,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
             return indexedFiles.map(({ file, index }) => (
               <div
                 key={`${file.key}-${index}`}
-                className={`sidebar-item ${index === currentIndex ? 'active' : ''}`}
+                className={`sidebar-item ${index === currentIndex ? 'active' : ''}${file.type === 'audio' && (file.dropboxPath || file.url || file.key) === persistentAudio?.stableId ? ' audio-active' : ''}`}
                 onClick={() => handleClick(file, index)}
               >
                 <span className="sidebar-item-label" style={{ flex: 1 }}>
@@ -148,7 +148,7 @@ function Sidebar({ files, currentIndex, onFileSelect, onNext, isOpen, onClose, a
             return (
               <div
                 key={`${file.key}-${index}`}
-                className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}`}
+                className={`sidebar-item ${index === currentIndex ? 'active' : ''} ${file.type === 'divider' ? 'divider' : ''}${file.type === 'audio' && (file.dropboxPath || file.url || file.key) === persistentAudio?.stableId ? ' audio-active' : ''}`}
                 onClick={() => handleClick(file, index)}
               >
                 <span

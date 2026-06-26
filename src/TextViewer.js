@@ -51,6 +51,9 @@ function TextViewer() {
   // Sidebar visibility state
   const [showSidebar, setShowSidebar] = useState(true);
 
+  // Reader mode (immersive fullscreen — hides sidebar + control bar, "/" to toggle)
+  const [readerMode, setReaderMode] = useState(false);
+
   // Text wrap toggle
   const [wrapText, setWrapText] = useState(false);
 
@@ -708,6 +711,11 @@ function TextViewer() {
       } else if (e.key === 'Enter') {
         handleNext();
       } else if (e.key === 'Escape') {
+        // Exit reader mode first if active
+        if (readerMode) {
+          setReaderMode(false);
+          return;
+        }
         const modalClose = document.querySelector('.md-image-modal-close');
         if (modalClose) modalClose.click();
         // Stop persistent audio player
@@ -718,7 +726,7 @@ function TextViewer() {
         }
       } else if (e.key === '/') {
         e.preventDefault();
-        handleTogglePin();
+        setReaderMode(prev => !prev);
       } else if (e.key === 'u' || e.key === 'U') {
         handleToggleRuler();
       }
@@ -726,7 +734,7 @@ function TextViewer() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handlePrev, handleNext, isEditing, handleTogglePin, handleToggleRuler]);
+  }, [handlePrev, handleNext, isEditing, handleTogglePin, handleToggleRuler, readerMode]);
 
   // Global mouse move: ruler tracking + reveal ControlBar when near top (unpinned)
   useEffect(() => {
@@ -824,8 +832,8 @@ function TextViewer() {
   }, [dropbox.isAuthenticated]);
 
   return (
-    <div className={`text-viewer ${darkMode ? 'dark-mode' : ''}${rulerEnabled ? ' ruler-active' : ''}`}>
-      <Sidebar
+    <div className={`text-viewer ${darkMode ? 'dark-mode' : ''}${rulerEnabled ? ' ruler-active' : ''}${readerMode ? ' reader-mode' : ''}`}>
+      {!readerMode && <Sidebar
         files={files}
         currentIndex={displayedFileIndex}
         persistentAudio={persistentAudio}
@@ -838,10 +846,10 @@ function TextViewer() {
         mdHeadings={mdHeadings}
         onScrollToHeading={setScrollToHeadingId}
         dropboxFileMode={dropboxFileMode}
-      />
+      />}
 
       <div className="main-content">
-        <ControlBar
+        {!readerMode && <ControlBar
           currentFile={displayedFile}
           fontSize={fontSize}
           showSidebar={showSidebar}
@@ -893,7 +901,7 @@ function TextViewer() {
           onMouseLeaveBar={startHideTimer}
           persistentAudio={persistentAudio}
           onClearAudio={() => setPersistentAudio(null)}
-        />
+        />}
 
         <ContentViewer
           file={displayedFile}

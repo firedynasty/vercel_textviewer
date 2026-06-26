@@ -912,15 +912,6 @@ function ControlBar({
         </div>
       )}
 
-      {/* Pin button */}
-      <button
-        className={`toolbar-pin-btn${isPinned ? ' pinned' : ''}`}
-        onClick={onTogglePin}
-        title={isPinned ? 'Unpin toolbar (/)' : 'Pin toolbar (/)'}
-      >
-        📌 {isPinned ? 'Pinned' : 'Pin'}
-      </button>
-
       {/* Ruler button */}
       <button
         className={`toolbar-ruler-btn${rulerEnabled ? ' active' : ''}`}
@@ -946,6 +937,8 @@ function ControlBar({
       >
         ⬇ Page
       </button>
+
+      <span style={{ color: '#aaa', fontSize: '12px' }}>Note: '/' will hide navbar / sidebar</span>
 
       {/* Persistent audio player */}
       {persistentAudio && (

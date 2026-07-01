@@ -1,18 +1,5 @@
 <?php
-// --- Multi-content dir support: pick up ALL subdirectories ---
-$allContentDirs = [];
-foreach (scandir('.') as $entry) {
-    if ($entry === '.' || $entry === '..') continue;
-    if (substr($entry, 0, 1) === '.') continue; // skip hidden dirs
-    if (is_dir('./' . $entry)) $allContentDirs[] = './' . $entry;
-}
-sort($allContentDirs);
-if (empty($allContentDirs)) $allContentDirs = ['./content'];
-
-// Validate ?dir= against whitelist to prevent path traversal
-$requestedDir = isset($_GET['dir']) ? $_GET['dir'] : '';
-$contentDir = in_array($requestedDir, $allContentDirs) ? $requestedDir : $allContentDirs[0];
-$dirKey = ltrim($contentDir, './'); // e.g. "content" or "content2"
+$contentDir = '.';
 
 $currentFile   = isset($_GET['file'])   ? $_GET['file']   : null;
 $currentFolder = isset($_GET['folder']) ? $_GET['folder'] : null;
@@ -77,24 +64,17 @@ function getFolderThumb($dir, $folder) {
     return null;
 }
 
-// Build URLs preserving dir + sort
+// Build URLs preserving sort
 function sortUrl($sort) {
-    global $contentDir, $allContentDirs;
     $params = $_GET;
     $params['sort'] = $sort;
-    $params['dir'] = $contentDir;
     return '?' . http_build_query($params);
 }
 
 function itemUrl($params) {
-    global $sortBy, $contentDir;
+    global $sortBy;
     $params['sort'] = $sortBy;
-    $params['dir']  = $contentDir;
     return '?' . http_build_query($params);
-}
-
-function dirUrl($dir, $sortBy) {
-    return '?' . http_build_query(['dir' => $dir, 'sort' => $sortBy]);
 }
 
 // --- Data ---
@@ -113,12 +93,17 @@ if ($currentFile) {
     if (file_exists($filePath)) {
         $ext = strtolower(pathinfo($currentFile, PATHINFO_EXTENSION));
         $imageExts = ['png','jpg','jpeg','gif','webp','bmp','svg'];
-        $textExts  = ['txt','md','csv','json','log'];
+        $textExts  = ['txt','csv','json','log'];
+        $videoExts = ['mp4','webm','ogg','mov','avi','mkv','m4v'];
+        $audioExts = ['mp3','m4a'];
         if (in_array($ext, $imageExts))             { $displayType = 'image'; $displayContent = $filePath; }
+        elseif (in_array($ext, $audioExts))         { $displayType = 'audio'; $displayContent = $filePath; }
+        elseif (in_array($ext, $videoExts))         { $displayType = 'video'; $displayContent = $filePath; }
         elseif ($ext === 'html' || $ext === 'htm')  { $displayType = 'html';  $displayContent = $filePath; }
         elseif ($ext === 'pdf')                     { $displayType = 'pdf';   $displayContent = $filePath; }
         elseif ($ext === 'docx')                    { $displayType = 'docx';  $displayContent = $filePath; }
         elseif ($ext === 'rtf')                     { $displayType = 'rtf';   $displayContent = $filePath; }
+        elseif ($ext === 'md')                        { $displayType = 'markdown'; $displayContent = file_get_contents($filePath); }
         elseif (in_array($ext, $textExts))          { $displayType = 'text';  $displayContent = file_get_contents($filePath); }
     }
 }
@@ -157,6 +142,34 @@ foreach ($fileList as $f) {
     }
 }
 
+// Audio list for audio modal
+$audioList = [];
+$audioExtsAll = ['mp3','m4a'];
+$audioMimeMap = ['mp3'=>'audio/mpeg','m4a'=>'audio/mp4'];
+foreach ($fileList as $f) {
+    $fext = $f['ext'] ?? '';
+    if (in_array($fext, $audioExtsAll)) {
+        $encodedPath = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
+        $audioList[] = [
+            'name' => $f['name'],
+            'src'  => $contentDir . '/' . $encodedPath,
+            'mime' => isset($audioMimeMap[$fext]) ? $audioMimeMap[$fext] : 'audio/mpeg',
+            'url'  => $currentFolder
+                ? itemUrl(['folder'=>$currentFolder,'file'=>$f['path']])
+                : itemUrl(['file'=>$f['path']])
+        ];
+    }
+}
+
+// Current audio index (for auto-opening modal)
+$currentAudioIdx = -1;
+if ($displayType === 'audio' && !empty($audioList)) {
+    $encodedCurrentAudio = $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $currentFile)));
+    foreach ($audioList as $ai => $aEntry) {
+        if ($aEntry['src'] === $encodedCurrentAudio) { $currentAudioIdx = $ai; break; }
+    }
+}
+
 // Folder thumbnails for landing page
 $folderCards = [];
 foreach ($items as $item) {
@@ -176,6 +189,10 @@ foreach ($items as $item) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Content Viewer</title>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link id="hljs-light" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github.min.css">
+<link id="hljs-dark" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github-dark.min.css" disabled>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -210,24 +227,6 @@ body {
     text-decoration: none;
     font-size: 12px;
 }
-
-/* Dir tabs */
-.dir-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    border-bottom: 1px solid #333;
-    background: #111122;
-}
-.dir-tab {
-    padding: 5px 10px;
-    font-size: 11px;
-    text-decoration: none;
-    color: #888;
-    border-right: 1px solid #333;
-    white-space: nowrap;
-}
-.dir-tab:hover { background: #16213e; color: #ccc; }
-.dir-tab.active { color: #7ec8e3; background: #16213e; }
 
 /* Sort bar */
 .sort-bar {
@@ -336,12 +335,52 @@ body {
     white-space: pre-wrap; font-family: 'Courier New', monospace;
     font-size: 14px; line-height: 1.6; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+.markdown-content {
+    background: #fff; padding: 20px 30px; border-radius: 4px;
+    font-size: 15px; line-height: 1.7; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    max-width: 900px; color: #222;
+}
+.markdown-content h1, .markdown-content h2, .markdown-content h3,
+.markdown-content h4, .markdown-content h5, .markdown-content h6 {
+    margin-top: 1.4em; margin-bottom: 0.6em; line-height: 1.3;
+}
+.markdown-content h1 { font-size: 1.8em; border-bottom: 1px solid #ddd; padding-bottom: 0.3em; }
+.markdown-content h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.2em; }
+.markdown-content h3 { font-size: 1.25em; }
+.markdown-content p { margin: 0.8em 0; }
+.markdown-content ul, .markdown-content ol { margin: 0.8em 0; padding-left: 2em; }
+.markdown-content li { margin: 0.3em 0; }
+.markdown-content blockquote {
+    border-left: 4px solid #7ec8e3; margin: 1em 0; padding: 0.5em 1em;
+    background: #f8f9fa; color: #555;
+}
+.markdown-content code {
+    background: #f0f0f0; padding: 2px 6px; border-radius: 3px;
+    font-family: 'Courier New', monospace; font-size: 0.9em;
+}
+.markdown-content pre {
+    margin: 1em 0; border-radius: 6px; overflow-x: auto;
+}
+.markdown-content pre code {
+    background: none; padding: 0; display: block;
+}
+.markdown-content table {
+    border-collapse: collapse; margin: 1em 0; width: 100%;
+}
+.markdown-content th, .markdown-content td {
+    border: 1px solid #ddd; padding: 8px 12px; text-align: left;
+}
+.markdown-content th { background: #f5f5f5; font-weight: 600; }
+.markdown-content img { max-width: 100%; height: auto; border-radius: 4px; }
+.markdown-content a { color: #7ec8e3; }
+.markdown-content hr { border: none; border-top: 1px solid #ddd; margin: 1.5em 0; }
 .docx-content {
     background: #fff; padding: 30px; border-radius: 4px;
     font-size: 15px; line-height: 1.7; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 800px;
 }
 .docx-content img { max-width: 100%; }
 .content-area iframe { width: 100%; height: 80vh; border: none; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.content-area video { max-width: 100%; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 
 /* Folder thumbnail grid (landing page) */
 .folder-grid {
@@ -424,6 +463,91 @@ body {
 .modal-caption { color: #ccc; font-size: 13px; margin-top: 12px; }
 .modal-counter { color: #888; font-size: 11px; margin-top: 4px; }
 
+/* Audio modal */
+.audio-modal {
+    display: none;
+    position: fixed; bottom: 0; left: 220px; right: 0;
+    background: #1a1a2e;
+    z-index: 1500;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 20px 25px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+    border-top: 2px solid #7ec8e3;
+}
+.audio-modal.open { display: flex; }
+.audio-modal-header {
+    display: flex;
+    width: 100%;
+    max-width: 600px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.audio-modal-title {
+    color: #eee;
+    font-size: 14px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 10px;
+}
+.audio-modal-close {
+    background: none; border: none; color: #888; font-size: 22px;
+    cursor: pointer; padding: 0 4px;
+}
+.audio-modal-close:hover { color: #fff; }
+.audio-modal-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 600px;
+}
+.audio-modal-controls audio {
+    flex: 1;
+    height: 40px;
+}
+.audio-nav-btn {
+    background: rgba(255,255,255,0.1); border: none; color: #7ec8e3;
+    font-size: 20px; width: 36px; height: 36px; border-radius: 50%;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.audio-nav-btn:hover { background: rgba(255,255,255,0.2); }
+.audio-nav-btn:disabled { color: #444; cursor: default; }
+.audio-nav-btn:disabled:hover { background: rgba(255,255,255,0.1); }
+.audio-toggle-btn {
+    width: 32px; height: 32px; font-size: 16px; font-weight: 700;
+    border: none; border-radius: 8px; cursor: pointer;
+    background: rgb(224,224,224); color: rgb(51,51,51);
+    display: flex; align-items: center; justify-content: center;
+}
+.audio-toggle-btn.playing { background: #7ec8e3; color: #1a1a2e; }
+
+/* Dark mode */
+body.dark .main { background: #1e1e1e; }
+body.dark .main-header { background: #2a2a2a; border-bottom-color: #444; color: #ccc; }
+body.dark .content-area { color: #ddd; }
+body.dark .text-content { background: #2a2a2a; color: #ddd; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.dark .markdown-content { background: #2a2a2a; color: #ddd; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.dark .markdown-content h1 { border-bottom-color: #444; }
+body.dark .markdown-content h2 { border-bottom-color: #444; }
+body.dark .markdown-content code { background: #383838; }
+body.dark .markdown-content blockquote { background: #333; color: #aaa; border-left-color: #7ec8e3; }
+body.dark .markdown-content th { background: #333; }
+body.dark .markdown-content th, body.dark .markdown-content td { border-color: #555; }
+body.dark .markdown-content a { color: #7ec8e3; }
+body.dark .markdown-content hr { border-top-color: #555; }
+body.dark .docx-content { background: #2a2a2a; color: #ddd; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.dark .folder-card { background: #2a2a2a; color: #ddd; }
+body.dark .folder-card .label { border-top-color: #444; }
+body.dark .gallery-item .caption { color: #aaa; }
+body.dark .content-area img { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.dark #darkModeBtn { background: #555; color: #ffdd57; }
+
 /* Mobile */
 @media (max-width: 768px) {
     .sidebar { position: fixed; left: -250px; z-index: 999; width: 250px; transition: left 0.3s; }
@@ -436,6 +560,7 @@ body {
     .modal-arrow { padding: 10px 14px; font-size: 24px; }
     .modal-arrow.left { left: 5px; }
     .modal-arrow.right { right: 5px; }
+    .audio-modal { left: 0; }
 }
 </style>
 </head>
@@ -449,21 +574,11 @@ body {
             <span><?= htmlspecialchars($currentFolder) ?></span>
             <a href="<?= itemUrl([]) ?>">Back</a>
         <?php else: ?>
-            <span><?= htmlspecialchars($dirKey) ?></span>
+            <span>Basketball</span>
             <span style="font-size:11px;color:#888"><?= count($items) ?> items</span>
         <?php endif; ?>
     </div>
 
-    <?php if (count($allContentDirs) > 1): ?>
-    <div class="dir-tabs">
-        <?php foreach ($allContentDirs as $d): ?>
-            <a class="dir-tab <?= ($d === $contentDir ? 'active' : '') ?>"
-               href="<?= dirUrl($d, $sortBy) ?>">
-                <?= htmlspecialchars(ltrim($d, './')) ?>
-            </a>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
 
     <div class="sort-bar">
         <a href="<?= sortUrl('name') ?>" class="<?= $sortBy === 'name' ? 'active' : '' ?>">Name</a>
@@ -540,6 +655,10 @@ body {
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             <button title="Decrease font size" onclick="adjustFontSize(-1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">-</button>
             <button title="Increase font size" onclick="adjustFontSize(1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">+</button>
+            <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
+            <?php if (!empty($audioList)): ?>
+                <button class="audio-toggle-btn" id="audioToggleBtn" title="Toggle audio player" onclick="toggleAudioModal()">&#9835;</button>
+            <?php endif; ?>
             <?php if ($currentFile): ?>
                 <a class="download-link" href="<?= $contentDir . '/' . htmlspecialchars($currentFile) ?>" download>Download</a>
             <?php endif; ?>
@@ -583,6 +702,29 @@ body {
                         <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
                     </div>
                 <?php $imgIdx++;
+                    elseif (in_array($f['ext'], ['mp4','webm','ogg','mov','avi','mkv','m4v'])):
+                        $encVid = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
+                ?>
+                    <div class="gallery-item">
+                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
+                            <video style="width:100%;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1)" muted preload="metadata">
+                                <source src="<?= $contentDir . '/' . htmlspecialchars($encVid) ?>" type="video/mp4">
+                            </video>
+                        </a>
+                        <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
+                    </div>
+                <?php
+                    elseif (in_array($f['ext'], ['mp3','m4a'])):
+                ?>
+                    <div class="gallery-item">
+                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>"
+                           style="display:block;padding:20px;background:#1a1a2e;border-radius:4px;text-decoration:none;color:#eee;box-shadow:0 2px 8px rgba(0,0,0,0.08);text-align:center">
+                            <div style="font-size:28px;margin-bottom:8px">&#9835;</div>
+                            <?= htmlspecialchars($f['name']) ?>
+                        </a>
+                        <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
+                    </div>
+                <?php
                     elseif (in_array($f['ext'], ['txt','md','html','htm','docx','rtf','pdf'])):
                 ?>
                     <div class="gallery-item">
@@ -604,6 +746,34 @@ body {
             <img src="<?= htmlspecialchars($encodedCurrentPath) ?>"
                  alt="<?= htmlspecialchars($currentFile) ?>"
                  style="cursor:pointer" onclick="openModalAt(<?= $currentImgIdx ?>)" title="Click to enlarge">
+
+        <?php elseif ($displayType === 'video'):
+            $encodedVideoPath = $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $currentFile)));
+            $videoMime = [
+                'mp4'=>'video/mp4','webm'=>'video/webm','ogg'=>'video/ogg',
+                'mov'=>'video/mp4','m4v'=>'video/mp4','avi'=>'video/x-msvideo','mkv'=>'video/x-matroska'
+            ];
+            $ext = strtolower(pathinfo($currentFile, PATHINFO_EXTENSION));
+            $mime = isset($videoMime[$ext]) ? $videoMime[$ext] : 'video/mp4';
+        ?>
+            <video controls autoplay style="max-height:80vh">
+                <source src="<?= htmlspecialchars($encodedVideoPath) ?>" type="<?= $mime ?>">
+                Your browser does not support this video format.
+                <a href="<?= htmlspecialchars($encodedVideoPath) ?>" download>Download video</a>
+            </video>
+
+        <?php elseif ($displayType === 'markdown'): ?>
+            <div class="markdown-content" id="markdown-render"></div>
+            <script>
+            (function() {
+                var raw = <?= json_encode($displayContent, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+                marked.setOptions({ breaks: true, gfm: true });
+                document.getElementById('markdown-render').innerHTML = marked.parse(raw);
+                document.querySelectorAll('#markdown-render pre code').forEach(function(block) {
+                    hljs.highlightElement(block);
+                });
+            })();
+            </script>
 
         <?php elseif ($displayType === 'text'): ?>
             <div class="text-content"><?= htmlspecialchars($displayContent) ?></div>
@@ -673,6 +843,19 @@ body {
     <div class="modal-counter" id="modalCounter"></div>
 </div>
 
+<!-- Audio Modal -->
+<div class="audio-modal" id="audioModal">
+    <div class="audio-modal-header">
+        <div class="audio-modal-title" id="audioTitle">No audio</div>
+        <button class="audio-modal-close" onclick="toggleAudioModal()">&times;</button>
+    </div>
+    <div class="audio-modal-controls">
+        <button class="audio-nav-btn" id="audioPrevBtn" onclick="audioNav(-1)">&#8249;</button>
+        <audio controls id="audioPlayer"></audio>
+        <button class="audio-nav-btn" id="audioNextBtn" onclick="audioNav(1)">&#8250;</button>
+    </div>
+</div>
+
 <script>
 var imageList = <?= json_encode($imageList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
 var modalIndex = 0;
@@ -695,6 +878,28 @@ function adjustFontSize(dir) {
     fontSize = Math.min(32, Math.max(8, fontSize + dir * 2));
     document.getElementById('contentArea').style.fontSize = fontSize + 'px';
 }
+
+function setHljsTheme(isDark) {
+    document.getElementById('hljs-light').disabled = isDark;
+    document.getElementById('hljs-dark').disabled = !isDark;
+}
+function toggleDarkMode() {
+    var isDark = document.body.classList.toggle('dark');
+    var btn = document.getElementById('darkModeBtn');
+    btn.innerHTML = isDark ? '&#9788;' : '&#9789;';
+    setHljsTheme(isDark);
+    try { localStorage.setItem('darkMode', isDark ? '1' : '0'); } catch(e) {}
+}
+(function() {
+    try {
+        if (localStorage.getItem('darkMode') === '1') {
+            document.body.classList.add('dark');
+            var btn = document.getElementById('darkModeBtn');
+            if (btn) btn.innerHTML = '&#9788;';
+            setHljsTheme(true);
+        }
+    } catch(e) {}
+})();
 
 function openModalAt(idx) {
     if (!imageList.length) return;
@@ -757,6 +962,78 @@ document.querySelectorAll('.sidebar-item').forEach(function(item) {
             document.getElementById('sidebar').classList.remove('open');
         }
     });
+});
+
+// --- Audio Modal ---
+var audioListData = <?= json_encode($audioList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
+var audioIndex = 0;
+var audioModal = document.getElementById('audioModal');
+var audioPlayer = document.getElementById('audioPlayer');
+var audioTitle = document.getElementById('audioTitle');
+var audioToggleBtn = document.getElementById('audioToggleBtn');
+
+function toggleAudioModal() {
+    if (audioModal.classList.contains('open')) {
+        audioModal.classList.remove('open');
+        audioPlayer.pause();
+        if (audioToggleBtn) audioToggleBtn.classList.remove('playing');
+    } else {
+        if (!audioListData.length) return;
+        audioModal.classList.add('open');
+        showAudioTrack();
+        if (audioToggleBtn) audioToggleBtn.classList.add('playing');
+    }
+}
+
+function audioNav(dir) {
+    audioIndex += dir;
+    if (audioIndex < 0) audioIndex = audioListData.length - 1;
+    if (audioIndex >= audioListData.length) audioIndex = 0;
+    showAudioTrack();
+    audioPlayer.play();
+}
+
+function showAudioTrack() {
+    if (!audioListData.length) return;
+    var track = audioListData[audioIndex];
+    audioPlayer.src = track.src;
+    audioPlayer.type = track.mime;
+    audioTitle.textContent = track.name;
+    document.getElementById('audioPrevBtn').disabled = audioListData.length <= 1;
+    document.getElementById('audioNextBtn').disabled = audioListData.length <= 1;
+}
+
+// Auto-open audio modal if an audio file was clicked
+<?php if ($currentAudioIdx >= 0): ?>
+(function() {
+    audioIndex = <?= $currentAudioIdx ?>;
+    audioModal.classList.add('open');
+    showAudioTrack();
+    audioPlayer.play();
+    if (audioToggleBtn) audioToggleBtn.classList.add('playing');
+})();
+<?php endif; ?>
+
+// Make sidebar audio file clicks open modal instead of navigating
+document.querySelectorAll('.sidebar-item').forEach(function(item) {
+    var href = item.getAttribute('href');
+    if (!href) return;
+    var isAudio = false;
+    for (var i = 0; i < audioListData.length; i++) {
+        if (href === audioListData[i].url) { isAudio = true; item.dataset.audioIdx = i; break; }
+    }
+    if (isAudio) {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            audioIndex = parseInt(this.dataset.audioIdx);
+            if (!audioModal.classList.contains('open')) {
+                audioModal.classList.add('open');
+                if (audioToggleBtn) audioToggleBtn.classList.add('playing');
+            }
+            showAudioTrack();
+            audioPlayer.play();
+        });
+    }
 });
 </script>
 </body>

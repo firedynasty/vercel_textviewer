@@ -830,11 +830,35 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             $ext = strtolower(pathinfo($currentFile, PATHINFO_EXTENSION));
             $mime = isset($videoMime[$ext]) ? $videoMime[$ext] : 'video/mp4';
         ?>
-            <video controls autoplay style="max-height:80vh">
+            <video id="mainVideo" controls autoplay style="max-height:80vh">
                 <source src="<?= htmlspecialchars($encodedVideoPath) ?>" type="<?= $mime ?>">
                 Your browser does not support this video format.
                 <a href="<?= htmlspecialchars($encodedVideoPath) ?>" download>Download video</a>
             </video>
+            <div style="display:flex;gap:8px;margin-top:8px;justify-content:center;">
+                <button id="loopBtn" onclick="toggleLoop()" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#333;color:#ccc;cursor:pointer;font-size:13px;">Loop</button>
+                <button id="speedBtn" onclick="toggleSpeed()" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#333;color:#ccc;cursor:pointer;font-size:13px;">1x</button>
+            </div>
+            <script>
+            (function() {
+                var video = document.getElementById('mainVideo');
+                window.toggleLoop = function() {
+                    video.loop = !video.loop;
+                    var btn = document.getElementById('loopBtn');
+                    btn.textContent = video.loop ? 'Loop ON' : 'Loop';
+                    btn.style.background = video.loop ? '#555' : '#333';
+                };
+                window.toggleSpeed = function() {
+                    if (video.playbackRate === 1) {
+                        video.playbackRate = 0.5;
+                        document.getElementById('speedBtn').textContent = '0.5x';
+                    } else {
+                        video.playbackRate = 1;
+                        document.getElementById('speedBtn').textContent = '1x';
+                    }
+                };
+            })();
+            </script>
 
         <?php elseif ($displayType === 'markdown'): ?>
             <div class="markdown-content" id="markdown-render"></div>

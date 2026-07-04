@@ -1,0 +1,3 @@
+https://www.youtube.com/watch?v=G_iKvjXbsuM&t=1308s
+
+8:00 mark shooting form

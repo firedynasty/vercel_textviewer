@@ -30,21 +30,29 @@ function scanContent($dir, $sortBy) {
 
 function scanSubfolder($dir, $folder, $sortBy) {
     $path = $dir . '/' . $folder;
-    $files = [];
-    if (!is_dir($path)) return $files;
+    $items = [];
+    if (!is_dir($path)) return $items;
     foreach (scandir($path) as $entry) {
         if ($entry === '.' || $entry === '..') continue;
         $fullPath = $path . '/' . $entry;
-        if (is_file($fullPath)) {
+        if (is_dir($fullPath)) {
+            $items[] = ['type'=>'folder','name'=>$entry,'path'=>$folder.'/'.$entry,'mtime'=>filemtime($fullPath)];
+        } elseif (is_file($fullPath)) {
             $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
-            $files[] = ['name'=>$entry,'path'=>$folder.'/'.$entry,'ext'=>$ext,'mtime'=>filemtime($fullPath)];
+            $items[] = ['type'=>'file','name'=>$entry,'path'=>$folder.'/'.$entry,'ext'=>$ext,'mtime'=>filemtime($fullPath)];
         }
     }
-    usort($files, function($a, $b) use ($sortBy) {
+    usort($items, function($a, $b) use ($sortBy) {
+        if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
         if ($sortBy === 'modified') return $b['mtime'] - $a['mtime'];
         return strnatcasecmp($a['name'], $b['name']);
     });
-    return $files;
+    return $items;
+}
+
+function getParentFolder($folder) {
+    $parent = dirname($folder);
+    return ($parent === '.' || $parent === '') ? null : $parent;
 }
 
 // Get first image found in a folder (for thumbnail)
@@ -80,10 +88,15 @@ function itemUrl($params) {
 // --- Data ---
 $items = scanContent($contentDir, $sortBy);
 
+$folderItems = [];
 $folderFiles = [];
+$folderSubfolders = [];
 if ($currentFolder) {
-    $folderFiles = scanSubfolder($contentDir, $currentFolder, $sortBy);
+    $folderItems = scanSubfolder($contentDir, $currentFolder, $sortBy);
+    $folderFiles = array_values(array_filter($folderItems, function($i) { return $i['type'] === 'file'; }));
+    $folderSubfolders = array_values(array_filter($folderItems, function($i) { return $i['type'] === 'folder'; }));
 }
+$parentFolder = $currentFolder ? getParentFolder($currentFolder) : null;
 
 // Determine display type
 $displayContent = null;
@@ -547,6 +560,7 @@ body.dark .folder-card .label { border-top-color: #444; }
 body.dark .gallery-item .caption { color: #aaa; }
 body.dark .content-area img { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 body.dark #darkModeBtn { background: #555; color: #ffdd57; }
+body.dark #copyBtn { background: #555; color: #ffdd57; }
 
 /* Mobile */
 @media (max-width: 768px) {
@@ -571,10 +585,14 @@ body.dark #darkModeBtn { background: #555; color: #ffdd57; }
 <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <?php if ($currentFolder): ?>
-            <span><?= htmlspecialchars($currentFolder) ?></span>
-            <a href="<?= itemUrl([]) ?>">Back</a>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars(basename($currentFolder)) ?></span>
+            <?php if ($parentFolder !== null): ?>
+                <a href="<?= itemUrl(['folder'=>$parentFolder]) ?>">Back</a>
+            <?php else: ?>
+                <a href="<?= itemUrl([]) ?>">Back</a>
+            <?php endif; ?>
         <?php else: ?>
-            <span>Basketball</span>
+            <span>Content</span>
             <span style="font-size:11px;color:#888"><?= count($items) ?> items</span>
         <?php endif; ?>
     </div>
@@ -609,11 +627,25 @@ body.dark #darkModeBtn { background: #555; color: #ffdd57; }
 
     <div class="sidebar-list">
         <?php if ($currentFolder): ?>
-            <a class="sidebar-item back" href="<?= itemUrl([]) ?>">All folders</a>
+            <?php if ($parentFolder !== null): ?>
+                <a class="sidebar-item back" href="<?= itemUrl(['folder'=>$parentFolder]) ?>"><?= htmlspecialchars(basename($parentFolder)) ?></a>
+            <?php else: ?>
+                <a class="sidebar-item back" href="<?= itemUrl([]) ?>">All folders</a>
+            <?php endif; ?>
+            <?php if (!empty($folderFiles)): ?>
             <a class="sidebar-item <?= (!$currentFile && isset($_GET['view']) ? 'active' : '') ?>"
                href="<?= itemUrl(['folder'=>$currentFolder,'view'=>'all']) ?>">
                 View all images
             </a>
+            <?php endif; ?>
+            <?php foreach ($folderSubfolders as $sf): ?>
+                <a class="sidebar-item folder" href="<?= itemUrl(['folder'=>$sf['path']]) ?>">
+                    <?= htmlspecialchars($sf['name']) ?>
+                    <?php if ($sortBy === 'modified'): ?>
+                        <span class="file-date"><?= date('M j, Y g:ia', $sf['mtime']) ?></span>
+                    <?php endif; ?>
+                </a>
+            <?php endforeach; ?>
             <?php foreach ($folderFiles as $f): ?>
                 <a class="sidebar-item <?= ($currentFile === $f['path'] ? 'active' : '') ?>"
                    href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
@@ -651,11 +683,32 @@ body.dark #darkModeBtn { background: #555; color: #ffdd57; }
 <div class="main">
     <?php if ($currentFile || $currentFolder): ?>
     <div class="main-header">
-        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:10px"><?= htmlspecialchars($currentFile ?? $currentFolder) ?></span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:10px">
+            <?php if ($currentFolder && !$currentFile):
+                // Breadcrumb navigation for folder path
+                $parts = explode('/', $currentFolder);
+                $crumbPath = '';
+                echo '<a href="' . itemUrl([]) . '" style="color:#7ec8e3;text-decoration:none">Home</a>';
+                foreach ($parts as $pi => $part):
+                    $crumbPath .= ($pi > 0 ? '/' : '') . $part;
+                    echo ' / ';
+                    if ($pi === count($parts) - 1):
+                        echo htmlspecialchars($part);
+                    else:
+                        echo '<a href="' . itemUrl(['folder'=>$crumbPath]) . '" style="color:#7ec8e3;text-decoration:none">' . htmlspecialchars($part) . '</a>';
+                    endif;
+                endforeach;
+            else:
+                echo htmlspecialchars($currentFile ?? $currentFolder);
+            endif; ?>
+        </span>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             <button title="Decrease font size" onclick="adjustFontSize(-1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">-</button>
             <button title="Increase font size" onclick="adjustFontSize(1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">+</button>
             <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
+            <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
+                <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
+            <?php endif; ?>
             <?php if (!empty($audioList)): ?>
                 <button class="audio-toggle-btn" id="audioToggleBtn" title="Toggle audio player" onclick="toggleAudioModal()">&#9835;</button>
             <?php endif; ?>
@@ -686,6 +739,27 @@ body.dark #darkModeBtn { background: #555; color: #ffdd57; }
             </div>
 
         <?php elseif ($currentFolder && !$currentFile): ?>
+            <!-- Subfolder cards -->
+            <?php if (!empty($folderSubfolders)): ?>
+            <div class="folder-grid" style="margin-bottom:20px">
+                <?php foreach ($folderSubfolders as $sf):
+                    $sfThumb = getFolderThumb($contentDir, $sf['path']);
+                    $sfEncodedThumb = $sfThumb
+                        ? $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $sf['path'] . '/' . basename($sfThumb))))
+                        : null;
+                ?>
+                    <a class="folder-card" href="<?= itemUrl(['folder'=>$sf['path']]) ?>">
+                        <?php if ($sfEncodedThumb): ?>
+                            <img class="thumb" src="<?= htmlspecialchars($sfEncodedThumb) ?>" alt="">
+                        <?php else: ?>
+                            <div class="no-thumb">&#128193;</div>
+                        <?php endif; ?>
+                        <div class="label"><?= htmlspecialchars($sf['name']) ?></div>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+
             <!-- Gallery grid inside folder -->
             <div class="gallery">
                 <?php
@@ -851,7 +925,9 @@ body.dark #darkModeBtn { background: #555; color: #ffdd57; }
     </div>
     <div class="audio-modal-controls">
         <button class="audio-nav-btn" id="audioPrevBtn" onclick="audioNav(-1)">&#8249;</button>
+        <button class="audio-nav-btn" onclick="audioSeek(-10)" style="font-size:13px;font-weight:700">-10</button>
         <audio controls id="audioPlayer"></audio>
+        <button class="audio-nav-btn" onclick="audioSeek(10)" style="font-size:13px;font-weight:700">+10</button>
         <button class="audio-nav-btn" id="audioNextBtn" onclick="audioNav(1)">&#8250;</button>
     </div>
 </div>
@@ -874,10 +950,19 @@ function contentPageDown() {
 }
 
 var fontSize = 14;
+try { var saved = localStorage.getItem('fontSize'); if (saved) fontSize = parseInt(saved); } catch(e) {}
 function adjustFontSize(dir) {
     fontSize = Math.min(32, Math.max(8, fontSize + dir * 2));
-    document.getElementById('contentArea').style.fontSize = fontSize + 'px';
+    applyFontSize();
+    try { localStorage.setItem('fontSize', fontSize); } catch(e) {}
 }
+function applyFontSize() {
+    var area = document.getElementById('contentArea');
+    area.style.fontSize = fontSize + 'px';
+    var targets = area.querySelectorAll('.text-content, .markdown-content, .docx-content');
+    targets.forEach(function(el) { el.style.fontSize = fontSize + 'px'; });
+}
+if (fontSize !== 14) applyFontSize();
 
 function setHljsTheme(isDark) {
     document.getElementById('hljs-light').disabled = isDark;
@@ -985,6 +1070,11 @@ function toggleAudioModal() {
     }
 }
 
+function audioSeek(seconds) {
+    if (!audioPlayer.duration) return;
+    audioPlayer.currentTime = Math.max(0, Math.min(audioPlayer.duration, audioPlayer.currentTime + seconds));
+}
+
 function audioNav(dir) {
     audioIndex += dir;
     if (audioIndex < 0) audioIndex = audioListData.length - 1;
@@ -1013,6 +1103,46 @@ function showAudioTrack() {
     if (audioToggleBtn) audioToggleBtn.classList.add('playing');
 })();
 <?php endif; ?>
+
+// --- Copy content ---
+var rawContent = <?= ($displayType === 'text' || $displayType === 'markdown') ? json_encode($displayContent, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
+function copyContent() {
+    if (!rawContent) return;
+    var btn = document.getElementById('copyBtn');
+    var fallback = function(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    };
+    var onSuccess = function() {
+        btn.innerHTML = '&#10003;';
+        btn.style.background = '#4caf50';
+        btn.style.color = '#fff';
+        setTimeout(function() {
+            btn.innerHTML = '&#128203;';
+            btn.style.background = 'rgb(224,224,224)';
+            btn.style.color = 'rgb(51,51,51)';
+            if (document.body.classList.contains('dark')) {
+                btn.style.background = '#555';
+                btn.style.color = '#ffdd57';
+            }
+        }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(rawContent).then(onSuccess).catch(function() {
+            if (fallback(rawContent)) onSuccess();
+        });
+    } else {
+        if (fallback(rawContent)) onSuccess();
+    }
+}
 
 // Make sidebar audio file clicks open modal instead of navigating
 document.querySelectorAll('.sidebar-item').forEach(function(item) {

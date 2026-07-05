@@ -1,6 +1,49 @@
 <?php
 $contentDir = '.';
 
+// --- Range-request video proxy (enables seeking in PHP dev server) ---
+if (isset($_GET['stream'])) {
+    $videoExts = ['mp4','webm','ogg','mov','avi','mkv','m4v'];
+    $streamPath = $contentDir . '/' . $_GET['stream'];
+    $ext = strtolower(pathinfo($streamPath, PATHINFO_EXTENSION));
+    if (!in_array($ext, $videoExts) || !file_exists($streamPath)) {
+        http_response_code(404);
+        exit;
+    }
+    $mimeMap = [
+        'mp4'=>'video/mp4','webm'=>'video/webm','ogg'=>'video/ogg',
+        'mov'=>'video/mp4','m4v'=>'video/mp4','avi'=>'video/x-msvideo','mkv'=>'video/x-matroska'
+    ];
+    $mime = isset($mimeMap[$ext]) ? $mimeMap[$ext] : 'video/mp4';
+    $size = filesize($streamPath);
+    $start = 0;
+    $end = $size - 1;
+
+    header("Content-Type: $mime");
+    header("Accept-Ranges: bytes");
+
+    if (isset($_SERVER['HTTP_RANGE'])) {
+        preg_match('/bytes=(\d+)-(\d*)/', $_SERVER['HTTP_RANGE'], $m);
+        $start = intval($m[1]);
+        if (!empty($m[2])) $end = intval($m[2]);
+        header('HTTP/1.1 206 Partial Content');
+        header("Content-Range: bytes $start-$end/$size");
+    }
+
+    header("Content-Length: " . ($end - $start + 1));
+    $fp = fopen($streamPath, 'rb');
+    fseek($fp, $start);
+    $remaining = $end - $start + 1;
+    while ($remaining > 0 && !feof($fp)) {
+        $chunk = min(8192, $remaining);
+        echo fread($fp, $chunk);
+        $remaining -= $chunk;
+        flush();
+    }
+    fclose($fp);
+    exit;
+}
+
 $currentFile   = isset($_GET['file'])   ? $_GET['file']   : null;
 $currentFolder = isset($_GET['folder']) ? $_GET['folder'] : null;
 $sortBy        = isset($_GET['sort'])   ? $_GET['sort']   : 'name';
@@ -830,18 +873,23 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             $ext = strtolower(pathinfo($currentFile, PATHINFO_EXTENSION));
             $mime = isset($videoMime[$ext]) ? $videoMime[$ext] : 'video/mp4';
         ?>
-            <video id="mainVideo" controls autoplay style="max-height:80vh">
-                <source src="<?= htmlspecialchars($encodedVideoPath) ?>" type="<?= $mime ?>">
+            <video id="mainVideo" controls autoplay loop style="max-height:80vh">
+                <source src="?stream=<?= htmlspecialchars($currentFile) ?>" type="<?= $mime ?>">
                 Your browser does not support this video format.
                 <a href="<?= htmlspecialchars($encodedVideoPath) ?>" download>Download video</a>
             </video>
-            <div style="display:flex;gap:8px;margin-top:8px;justify-content:center;">
-                <button id="loopBtn" onclick="toggleLoop()" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#333;color:#ccc;cursor:pointer;font-size:13px;">Loop</button>
-                <button id="speedBtn" onclick="toggleSpeed()" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#333;color:#ccc;cursor:pointer;font-size:13px;">1x</button>
+            <div style="display:flex;gap:8px;margin-top:8px;justify-content:center;align-items:center;">
+                <button id="loopBtn" onclick="toggleLoop()" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#555;color:#ccc;cursor:pointer;font-size:13px;">Loop ON</button>
+                <button id="speedBtn" onclick="toggleSpeed()" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#333;color:#ccc;cursor:pointer;font-size:13px;">0.5x</button>
+                <span style="border-left:1px solid #555;height:20px;margin:0 4px;"></span>
+                <input id="jumpTimeInput" type="text" placeholder="1:15" style="width:60px;padding:4px 6px;border:1px solid #555;border-radius:6px;background:#222;color:#fff;font-size:12px;text-align:center;">
+                <button id="addTimeBtn" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#333;color:#ccc;cursor:pointer;font-size:13px;">Add</button>
             </div>
+            <div id="savedTimesRow" style="display:flex;gap:6px;margin-top:6px;justify-content:center;flex-wrap:wrap;"></div>
             <script>
             (function() {
                 var video = document.getElementById('mainVideo');
+                video.playbackRate = 0.5;
                 window.toggleLoop = function() {
                     video.loop = !video.loop;
                     var btn = document.getElementById('loopBtn');
@@ -857,6 +905,32 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                         document.getElementById('speedBtn').textContent = '1x';
                     }
                 };
+
+                function parseTime(str) {
+                    var parts = str.split(':').map(Number);
+                    if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+                    if (parts.length === 2) return parts[0]*60 + parts[1];
+                    return parts[0] || 0;
+                }
+
+                function addTime() {
+                    var input = document.getElementById('jumpTimeInput');
+                    var val = input.value.trim();
+                    if (!val) return;
+                    var seconds = parseTime(val);
+                    var row = document.getElementById('savedTimesRow');
+                    var btn = document.createElement('button');
+                    btn.textContent = val;
+                    btn.style.cssText = 'padding:4px 10px;border-radius:6px;border:1px solid #555;background:#444;color:#fff;cursor:pointer;font-size:12px;';
+                    btn.addEventListener('click', function() { video.currentTime = seconds; video.play(); });
+                    row.appendChild(btn);
+                    input.value = '';
+                }
+
+                document.getElementById('addTimeBtn').addEventListener('click', addTime);
+                document.getElementById('jumpTimeInput').addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); addTime(); }
+                });
             })();
             </script>
 

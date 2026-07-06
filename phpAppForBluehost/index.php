@@ -1,18 +1,19 @@
 <?php
 $contentDir = '.';
 
-// --- Range-request video proxy (enables seeking in PHP dev server) ---
+// --- Range-request media proxy (enables seeking in PHP dev server) ---
 if (isset($_GET['stream'])) {
-    $videoExts = ['mp4','webm','ogg','mov','avi','mkv','m4v'];
+    $mediaExts = ['mp4','webm','ogg','mov','avi','mkv','m4v','mp3','m4a','wav','flac','aac'];
     $streamPath = $contentDir . '/' . $_GET['stream'];
     $ext = strtolower(pathinfo($streamPath, PATHINFO_EXTENSION));
-    if (!in_array($ext, $videoExts) || !file_exists($streamPath)) {
+    if (!in_array($ext, $mediaExts) || !file_exists($streamPath)) {
         http_response_code(404);
         exit;
     }
     $mimeMap = [
         'mp4'=>'video/mp4','webm'=>'video/webm','ogg'=>'video/ogg',
-        'mov'=>'video/mp4','m4v'=>'video/mp4','avi'=>'video/x-msvideo','mkv'=>'video/x-matroska'
+        'mov'=>'video/mp4','m4v'=>'video/mp4','avi'=>'video/x-msvideo','mkv'=>'video/x-matroska',
+        'mp3'=>'audio/mpeg','m4a'=>'audio/mp4','wav'=>'audio/wav','flac'=>'audio/flac','aac'=>'audio/aac'
     ];
     $mime = isset($mimeMap[$ext]) ? $mimeMap[$ext] : 'video/mp4';
     $size = filesize($streamPath);
@@ -208,7 +209,7 @@ foreach ($fileList as $f) {
         $encodedPath = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
         $audioList[] = [
             'name' => $f['name'],
-            'src'  => $contentDir . '/' . $encodedPath,
+            'src'  => '?stream=' . ($currentFolder ? $currentFolder . '/' : '') . $f['path'],
             'mime' => isset($audioMimeMap[$fext]) ? $audioMimeMap[$fext] : 'audio/mpeg',
             'url'  => $currentFolder
                 ? itemUrl(['folder'=>$currentFolder,'file'=>$f['path']])
@@ -618,6 +619,55 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     .modal-arrow.left { left: 5px; }
     .modal-arrow.right { right: 5px; }
     .audio-modal { left: 0; }
+    .yt-modal { left: 0; }
+}
+
+/* YouTube modal */
+.yt-modal {
+    display: none;
+    position: fixed; top: 0; left: 220px; right: 0;
+    background: #1a1a2e;
+    z-index: 1400;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 16px 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    border-bottom: 2px solid #ff0000;
+}
+.yt-modal.open { display: flex; }
+.yt-modal-header {
+    display: flex;
+    width: 100%;
+    max-width: 700px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.yt-modal-title {
+    color: #eee; font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1; margin-right: 10px;
+}
+.yt-modal-close {
+    background: none; border: none; color: #888; font-size: 22px;
+    cursor: pointer; padding: 0 4px;
+}
+.yt-modal-close:hover { color: #fff; }
+.yt-track-list {
+    display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;
+    justify-content: center; max-width: 700px; width: 100%;
+}
+.yt-track-btn {
+    padding: 4px 10px; border-radius: 6px; border: 1px solid #555;
+    background: #333; color: #ccc; cursor: pointer; font-size: 11px;
+    white-space: nowrap;
+}
+.yt-track-btn.active { background: #c00; color: #fff; border-color: #f00; }
+.yt-iframe-wrap {
+    width: 100%; max-width: 700px;
+}
+.yt-iframe-wrap iframe {
+    width: 100%; height: 200px; border: none; border-radius: 6px;
 }
 </style>
 </head>
@@ -724,7 +774,6 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 </nav>
 
 <div class="main">
-    <?php if ($currentFile || $currentFolder): ?>
     <div class="main-header">
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:10px">
             <?php if ($currentFolder && !$currentFile):
@@ -741,8 +790,10 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                         echo '<a href="' . itemUrl(['folder'=>$crumbPath]) . '" style="color:#7ec8e3;text-decoration:none">' . htmlspecialchars($part) . '</a>';
                     endif;
                 endforeach;
+            elseif ($currentFile):
+                echo htmlspecialchars($currentFile);
             else:
-                echo htmlspecialchars($currentFile ?? $currentFolder);
+                echo '<a href="' . itemUrl([]) . '" style="color:#7ec8e3;text-decoration:none">Home</a>';
             endif; ?>
         </span>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
@@ -755,12 +806,12 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <?php if (!empty($audioList)): ?>
                 <button class="audio-toggle-btn" id="audioToggleBtn" title="Toggle audio player" onclick="toggleAudioModal()">&#9835;</button>
             <?php endif; ?>
+            <button title="YouTube music" onclick="toggleYtModal()" style="width:32px;height:32px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);display:flex;align-items:center;justify-content:center;padding:0"><svg width="20" height="14" viewBox="0 0 68 48"><path d="M66.5 7.7s-.7-4.7-2.7-6.8C61-1.7 58-1.7 56.6-1.9 47.3-2.6 34-2.6 34-2.6s-13.3 0-22.6.7C10-1.7 7-1.7 4.2.9 2.2 3 1.5 7.7 1.5 7.7S.8 13.2.8 18.8v5.2c0 5.5.7 11.1.7 11.1s.7 4.7 2.7 6.8c2.8 2.6 6.4 2.5 8 2.8 5.8.5 24.8.7 24.8.7s13.3 0 22.6-.7c1.4-.2 4.4-.2 7.2-2.8 2-2.1 2.7-6.8 2.7-6.8s.7-5.5.7-11.1v-5.2c0-5.6-.7-11.1-.7-11.1z" fill="red"/><path d="M27 33V13l18.2 10L27 33z" fill="white"/></svg></button>
             <?php if ($currentFile): ?>
                 <a class="download-link" href="<?= $contentDir . '/' . htmlspecialchars($currentFile) ?>" download>Download</a>
             <?php endif; ?>
         </div>
     </div>
-    <?php endif; ?>
 
     <div class="content-area" id="contentArea">
         <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
@@ -1016,6 +1067,15 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 </div>
 
 <!-- Audio Modal -->
+<div class="yt-modal" id="ytModal">
+    <div class="yt-modal-header">
+        <div class="yt-modal-title" id="ytTitle">YouTube Music</div>
+        <button class="yt-modal-close" onclick="toggleYtModal()">&times;</button>
+    </div>
+    <div class="yt-track-list" id="ytTrackList"></div>
+    <div class="yt-iframe-wrap" id="ytIframeWrap"></div>
+</div>
+
 <div class="audio-modal" id="audioModal">
     <div class="audio-modal-header">
         <div class="audio-modal-title" id="audioTitle">No audio</div>
@@ -1150,6 +1210,49 @@ document.querySelectorAll('.sidebar-item').forEach(function(item) {
 // --- Audio Modal ---
 var audioListData = <?= json_encode($audioList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
 var audioIndex = 0;
+/* YouTube modal */
+var ytModal = document.getElementById('ytModal');
+var ytTracks = [
+    { id: 'rdoq4yi9cV0', title: '4 Classical Pieces | Relaxing Piano [15min]' },
+    { id: 'oPEBWXvo1Xc', title: '4 Pieces by Yiruma | Relaxing Piano [15min]' },
+    { id: 'RFltDM86o90', title: '15 Min Relaxing Piano Timer with Alarm' },
+    { id: 'mdJU5ogrPMY', title: 'Classical Music for Studying (2 hrs)' }
+];
+var ytCurrentIdx = -1;
+
+function toggleYtModal() {
+    if (ytModal.classList.contains('open')) {
+        ytModal.classList.remove('open');
+    } else {
+        ytModal.classList.add('open');
+        if (ytCurrentIdx < 0) { buildYtTrackList(); loadYtTrack(0); }
+    }
+}
+
+function buildYtTrackList() {
+    var list = document.getElementById('ytTrackList');
+    list.innerHTML = '';
+    ytTracks.forEach(function(t, i) {
+        var btn = document.createElement('button');
+        btn.className = 'yt-track-btn';
+        btn.textContent = t.title;
+        btn.addEventListener('click', function() { loadYtTrack(i); });
+        list.appendChild(btn);
+    });
+}
+
+function loadYtTrack(idx) {
+    ytCurrentIdx = idx;
+    var t = ytTracks[idx];
+    document.getElementById('ytTitle').textContent = t.title;
+    document.getElementById('ytIframeWrap').innerHTML =
+        '<iframe src="https://www.youtube.com/embed/' + t.id + '?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+    var btns = document.querySelectorAll('.yt-track-btn');
+    btns.forEach(function(b, i) {
+        b.className = 'yt-track-btn' + (i === idx ? ' active' : '');
+    });
+}
+
 var audioModal = document.getElementById('audioModal');
 var audioPlayer = document.getElementById('audioPlayer');
 var audioTitle = document.getElementById('audioTitle');
@@ -1169,8 +1272,9 @@ function toggleAudioModal() {
 }
 
 function audioSeek(seconds) {
-    if (!audioPlayer.duration) return;
-    audioPlayer.currentTime = Math.max(0, Math.min(audioPlayer.duration, audioPlayer.currentTime + seconds));
+    if (!audioPlayer.duration || isNaN(audioPlayer.duration)) return;
+    var newTime = audioPlayer.currentTime + seconds;
+    audioPlayer.currentTime = Math.max(0, Math.min(audioPlayer.duration, newTime));
 }
 
 function audioNav(dir) {

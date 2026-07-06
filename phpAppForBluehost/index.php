@@ -45,6 +45,76 @@ if (isset($_GET['stream'])) {
     exit;
 }
 
+// --- Save file endpoint (edit & save back) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['save'])) {
+    header('Content-Type: application/json');
+    $savePath = $contentDir . '/' . $_GET['save'];
+    $allowedExts = ['txt','csv','json','log','md'];
+    $saveExt = strtolower(pathinfo($savePath, PATHINFO_EXTENSION));
+    if (!in_array($saveExt, $allowedExts)) {
+        echo json_encode(['ok' => false, 'error' => 'File type not editable']);
+        exit;
+    }
+    $realContent = realpath($contentDir);
+    $realSave = realpath(dirname($savePath));
+    if ($realSave === false || strpos($realSave, $realContent) !== 0) {
+        echo json_encode(['ok' => false, 'error' => 'Invalid path']);
+        exit;
+    }
+    if (!file_exists($savePath)) {
+        echo json_encode(['ok' => false, 'error' => 'File not found']);
+        exit;
+    }
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!isset($input['content'])) {
+        echo json_encode(['ok' => false, 'error' => 'No content provided']);
+        exit;
+    }
+    $bytes = file_put_contents($savePath, $input['content']);
+    if ($bytes === false) {
+        echo json_encode(['ok' => false, 'error' => 'Write failed']);
+        exit;
+    }
+    echo json_encode(['ok' => true, 'bytes' => $bytes]);
+    exit;
+}
+
+// --- Search endpoint (recursive file/folder search) ---
+if (isset($_GET['search']) && $_GET['search'] !== '') {
+    header('Content-Type: application/json');
+    $query = strtolower(trim($_GET['search']));
+    $maxResults = 50;
+    $results = [];
+
+    function searchRecursive($dir, $prefix, $query, &$results, $maxResults) {
+        if (count($results) >= $maxResults) return;
+        if (!is_dir($dir)) return;
+        $entries = scandir($dir);
+        if ($entries === false) return;
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..') continue;
+            if (count($results) >= $maxResults) return;
+            $fullPath = $dir . '/' . $entry;
+            $relPath = $prefix ? $prefix . '/' . $entry : $entry;
+            if (stripos($entry, $query) !== false) {
+                if (is_dir($fullPath)) {
+                    $results[] = ['type'=>'folder','name'=>$entry,'path'=>$relPath,'parent'=>$prefix];
+                } else {
+                    $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                    $results[] = ['type'=>'file','name'=>$entry,'path'=>$relPath,'ext'=>$ext,'parent'=>$prefix];
+                }
+            }
+            if (is_dir($fullPath)) {
+                searchRecursive($fullPath, $relPath, $query, $results, $maxResults);
+            }
+        }
+    }
+
+    searchRecursive($contentDir, '', $query, $results, $maxResults);
+    echo json_encode($results);
+    exit;
+}
+
 $currentFile   = isset($_GET['file'])   ? $_GET['file']   : null;
 $currentFolder = isset($_GET['folder']) ? $_GET['folder'] : null;
 $sortBy        = isset($_GET['sort'])   ? $_GET['sort']   : 'name';
@@ -300,6 +370,26 @@ body {
 }
 .sort-bar a:hover { background: #16213e; color: #ccc; }
 .sort-bar a.active { color: #7ec8e3; background: #16213e; }
+
+/* Search bar */
+.search-bar {
+    padding: 6px 8px;
+    border-bottom: 1px solid #333;
+}
+.search-bar input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #16213e;
+    color: #eee;
+    font-size: 12px;
+    outline: none;
+    box-sizing: border-box;
+}
+.search-bar input::placeholder { color: #666; }
+.search-bar input:focus { border-color: #7ec8e3; }
+.search-result-parent { font-size: 10px; color: #666; display: block; margin-top: 2px; }
 
 /* Sidebar prev/next nav */
 .sidebar-nav {
@@ -696,6 +786,12 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <a href="<?= sortUrl('modified') ?>" class="<?= $sortBy === 'modified' ? 'active' : '' ?>">Modified</a>
     </div>
 
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search files &amp; folders..." autocomplete="off">
+    </div>
+
+    <div id="searchResults" class="sidebar-list" style="display:none"></div>
+
     <?php if ($currentFile): ?>
     <div class="sidebar-nav">
         <?php if ($prevFile): ?>
@@ -718,7 +814,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     </div>
     <?php endif; ?>
 
-    <div class="sidebar-list">
+    <div class="sidebar-list" id="sidebarList">
         <?php if ($currentFolder): ?>
             <?php if ($parentFolder !== null): ?>
                 <a class="sidebar-item back" href="<?= itemUrl(['folder'=>$parentFolder]) ?>"><?= htmlspecialchars(basename($parentFolder)) ?></a>
@@ -802,6 +898,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
             <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
+                <button id="editBtn" class="edit-btn" title="Edit and save back to local file" onclick="toggleEdit()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
             <?php endif; ?>
             <?php if (!empty($audioList)): ?>
                 <button class="audio-toggle-btn" id="audioToggleBtn" title="Toggle audio player" onclick="toggleAudioModal()">&#9835;</button>
@@ -1359,6 +1456,210 @@ function copyContent() {
     } else {
         if (fallback(rawContent)) onSuccess();
     }
+}
+
+// --- Search ---
+(function() {
+    var searchInput = document.getElementById('searchInput');
+    var searchResults = document.getElementById('searchResults');
+    var sidebarList = document.getElementById('sidebarList');
+    var debounceTimer = null;
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        var query = this.value.trim();
+        if (!query) {
+            searchResults.style.display = 'none';
+            sidebarList.style.display = '';
+            searchResults.innerHTML = '';
+            return;
+        }
+        debounceTimer = setTimeout(function() { doSearch(query); }, 300);
+    });
+
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            this.value = '';
+            searchResults.style.display = 'none';
+            sidebarList.style.display = '';
+            searchResults.innerHTML = '';
+            this.blur();
+        }
+    });
+
+    function doSearch(query) {
+        fetch('?search=' + encodeURIComponent(query))
+            .then(function(r) { return r.json(); })
+            .then(function(items) {
+                searchResults.innerHTML = '';
+                if (items.length === 0) {
+                    searchResults.innerHTML = '<div style="padding:12px 15px;color:#666;font-size:12px">No results found</div>';
+                } else {
+                    items.forEach(function(item) {
+                        var a = document.createElement('a');
+                        a.className = 'sidebar-item' + (item.type === 'folder' ? ' folder' : '');
+                        a.target = '_blank';
+                        if (item.type === 'folder') {
+                            a.href = '?folder=' + encodeURIComponent(item.path) + '&sort=<?= $sortBy ?>';
+                        } else {
+                            var parentFolder = item.parent || '';
+                            if (parentFolder) {
+                                a.href = '?folder=' + encodeURIComponent(parentFolder) + '&file=' + encodeURIComponent(item.path) + '&sort=<?= $sortBy ?>';
+                            } else {
+                                a.href = '?file=' + encodeURIComponent(item.path) + '&sort=<?= $sortBy ?>';
+                            }
+                        }
+                        var nameSpan = document.createElement('span');
+                        nameSpan.textContent = item.name;
+                        a.appendChild(nameSpan);
+                        if (item.ext) {
+                            var extSpan = document.createElement('span');
+                            extSpan.className = 'file-ext';
+                            extSpan.textContent = item.ext;
+                            a.appendChild(extSpan);
+                        }
+                        if (item.parent) {
+                            var parentSpan = document.createElement('span');
+                            parentSpan.className = 'search-result-parent';
+                            parentSpan.textContent = item.parent;
+                            a.appendChild(parentSpan);
+                        }
+                        searchResults.appendChild(a);
+                    });
+                }
+                searchResults.style.display = '';
+                sidebarList.style.display = 'none';
+            })
+            .catch(function() {
+                searchResults.innerHTML = '<div style="padding:12px 15px;color:#f44;font-size:12px">Search error</div>';
+                searchResults.style.display = '';
+                sidebarList.style.display = 'none';
+            });
+    }
+
+    // Keyboard shortcut: Ctrl+F or / to focus search
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === '/' || (e.ctrlKey && e.key === 'f')) {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+})();
+
+// --- Edit & Save ---
+var isEditing = false;
+var editTextarea = null;
+var currentFilePath = <?= $currentFile ? json_encode($currentFile, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
+var currentDisplayType = <?= json_encode($displayType) ?>;
+
+function toggleEdit() {
+    if (!currentFilePath || (currentDisplayType !== 'text' && currentDisplayType !== 'markdown')) return;
+    var editBtn = document.getElementById('editBtn');
+    if (!isEditing) {
+        enterEditMode(editBtn);
+    } else {
+        saveAndExit(editBtn);
+    }
+}
+
+function enterEditMode(editBtn) {
+    isEditing = true;
+    editBtn.innerHTML = '&#128190;'; // floppy disk icon
+    editBtn.title = 'Save changes';
+    editBtn.style.background = '#4caf50';
+    editBtn.style.color = '#fff';
+
+    var contentEl = currentDisplayType === 'markdown'
+        ? document.getElementById('markdown-render')
+        : document.querySelector('.text-content');
+    if (!contentEl) return;
+
+    editTextarea = document.createElement('textarea');
+    editTextarea.value = rawContent;
+    editTextarea.style.cssText = 'width:100%;min-height:80vh;padding:16px;font-family:monospace;font-size:14px;border:2px solid #4caf50;border-radius:8px;resize:vertical;box-sizing:border-box;background:#1e1e1e;color:#d4d4d4;line-height:1.6;tab-size:4;';
+    editTextarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            var start = this.selectionStart;
+            var end = this.selectionEnd;
+            this.value = this.value.substring(0, start) + '\t' + this.value.substring(end);
+            this.selectionStart = this.selectionEnd = start + 1;
+        }
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            saveAndExit(editBtn);
+        }
+    });
+    contentEl.style.display = 'none';
+    contentEl.parentNode.insertBefore(editTextarea, contentEl.nextSibling);
+    editTextarea.focus();
+}
+
+function saveAndExit(editBtn) {
+    if (!editTextarea) return;
+    var newContent = editTextarea.value;
+    editBtn.innerHTML = '&#8987;'; // hourglass
+    editBtn.style.background = '#ff9800';
+
+    fetch('?save=' + encodeURIComponent(currentFilePath), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            rawContent = newContent;
+            var contentEl = currentDisplayType === 'markdown'
+                ? document.getElementById('markdown-render')
+                : document.querySelector('.text-content');
+            if (currentDisplayType === 'markdown') {
+                contentEl.innerHTML = marked.parse(newContent);
+                contentEl.querySelectorAll('pre code').forEach(function(block) {
+                    hljs.highlightElement(block);
+                });
+            } else {
+                contentEl.textContent = newContent;
+            }
+            contentEl.style.display = '';
+            editTextarea.remove();
+            editTextarea = null;
+            isEditing = false;
+            editBtn.innerHTML = '&#9998;';
+            editBtn.title = 'Edit and save back to local file';
+            editBtn.style.background = 'rgb(224,224,224)';
+            editBtn.style.color = 'rgb(51,51,51)';
+            if (document.body.classList.contains('dark')) {
+                editBtn.style.background = '#555';
+                editBtn.style.color = '#ffdd57';
+            }
+            // Flash green to confirm save
+            editBtn.style.background = '#4caf50';
+            editBtn.style.color = '#fff';
+            editBtn.innerHTML = '&#10003;';
+            setTimeout(function() {
+                editBtn.innerHTML = '&#9998;';
+                editBtn.style.background = 'rgb(224,224,224)';
+                editBtn.style.color = 'rgb(51,51,51)';
+                if (document.body.classList.contains('dark')) {
+                    editBtn.style.background = '#555';
+                    editBtn.style.color = '#ffdd57';
+                }
+            }, 1500);
+        } else {
+            alert('Save failed: ' + (data.error || 'Unknown error'));
+            editBtn.innerHTML = '&#128190;';
+            editBtn.style.background = '#4caf50';
+            editBtn.style.color = '#fff';
+        }
+    })
+    .catch(function(err) {
+        alert('Save error: ' + err.message);
+        editBtn.innerHTML = '&#128190;';
+        editBtn.style.background = '#4caf50';
+        editBtn.style.color = '#fff';
+    });
 }
 
 // Make sidebar audio file clicks open modal instead of navigating

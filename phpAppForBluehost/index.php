@@ -1073,6 +1073,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <button class="yt-modal-close" onclick="toggleYtModal()">&times;</button>
     </div>
     <div class="yt-track-list" id="ytTrackList"></div>
+    <div style="margin-bottom:8px"><button id="ytRandomBtn" onclick="ytRandomSeek()" style="background:linear-gradient(45deg,#ff9800,#f57c00);padding:6px 12px;font-size:12px;border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">🎲 Random</button></div>
     <div class="yt-iframe-wrap" id="ytIframeWrap"></div>
 </div>
 
@@ -1213,10 +1214,9 @@ var audioIndex = 0;
 /* YouTube modal */
 var ytModal = document.getElementById('ytModal');
 var ytTracks = [
-    { id: 'rdoq4yi9cV0', title: '4 Classical Pieces | Relaxing Piano [15min]' },
-    { id: 'oPEBWXvo1Xc', title: '4 Pieces by Yiruma | Relaxing Piano [15min]' },
-    { id: 'RFltDM86o90', title: '15 Min Relaxing Piano Timer with Alarm' },
-    { id: 'mdJU5ogrPMY', title: 'Classical Music for Studying (2 hrs)' }
+    { id: 'rdoq4yi9cV0', title: '4 Classical Pieces | Relaxing Piano [15min]', duration: 900 },
+    { id: 'oPEBWXvo1Xc', title: '4 Pieces by Yiruma | Relaxing Piano [15min]', duration: 900 },
+    { id: 'mdJU5ogrPMY', title: 'Classical Music for Studying (2 hrs)', duration: 7200 }
 ];
 var ytCurrentIdx = -1;
 
@@ -1241,16 +1241,31 @@ function buildYtTrackList() {
     });
 }
 
-function loadYtTrack(idx) {
+function loadYtTrack(idx, startSec) {
     ytCurrentIdx = idx;
     var t = ytTracks[idx];
-    document.getElementById('ytTitle').textContent = t.title;
+    var src = 'https://www.youtube.com/embed/' + t.id + '?autoplay=1';
+    if (startSec) {
+        src += '&start=' + startSec;
+        var m = Math.floor(startSec / 60);
+        var s = startSec % 60;
+        document.getElementById('ytTitle').textContent = t.title + ' — jumping to ' + m + ':' + (s < 10 ? '0' : '') + s;
+    } else {
+        document.getElementById('ytTitle').textContent = t.title;
+    }
     document.getElementById('ytIframeWrap').innerHTML =
-        '<iframe src="https://www.youtube.com/embed/' + t.id + '?autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+        '<iframe src="' + src + '" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
     var btns = document.querySelectorAll('.yt-track-btn');
     btns.forEach(function(b, i) {
         b.className = 'yt-track-btn' + (i === idx ? ' active' : '');
     });
+}
+
+function ytRandomSeek() {
+    if (ytCurrentIdx < 0) return;
+    var t = ytTracks[ytCurrentIdx];
+    var randomSec = Math.floor(Math.random() * (t.duration - 30));
+    loadYtTrack(ytCurrentIdx, randomSec);
 }
 
 var audioModal = document.getElementById('audioModal');

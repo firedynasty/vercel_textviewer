@@ -45,6 +45,48 @@ if (isset($_GET['stream'])) {
     exit;
 }
 
+// --- Create new file endpoint ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['newfile'])) {
+    header('Content-Type: application/json');
+    $folder = isset($_GET['folder']) ? $_GET['folder'] : '';
+    $input = json_decode(file_get_contents('php://input'), true);
+    $fileName = isset($input['name']) ? basename($input['name']) : '';
+    $content = isset($input['content']) ? $input['content'] : '';
+    if (!$fileName) {
+        echo json_encode(['ok' => false, 'error' => 'No filename provided']);
+        exit;
+    }
+    // Auto-add .txt if no extension
+    if (strpos($fileName, '.') === false) {
+        $fileName .= '.txt';
+    }
+    $allowedExts = ['txt','csv','json','log','md'];
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowedExts)) {
+        echo json_encode(['ok' => false, 'error' => 'File type not allowed (txt, csv, json, log, md)']);
+        exit;
+    }
+    $targetDir = $folder ? $contentDir . '/' . $folder : $contentDir;
+    $realContent = realpath($contentDir);
+    $realTarget = realpath($targetDir);
+    if ($realTarget === false || strpos($realTarget, $realContent) !== 0) {
+        echo json_encode(['ok' => false, 'error' => 'Invalid folder path']);
+        exit;
+    }
+    $targetPath = $targetDir . '/' . $fileName;
+    if (file_exists($targetPath)) {
+        echo json_encode(['ok' => false, 'error' => 'File already exists']);
+        exit;
+    }
+    $bytes = file_put_contents($targetPath, $content);
+    if ($bytes === false) {
+        echo json_encode(['ok' => false, 'error' => 'Write failed']);
+        exit;
+    }
+    echo json_encode(['ok' => true, 'path' => ($folder ? $folder . '/' : '') . $fileName, 'bytes' => $bytes]);
+    exit;
+}
+
 // --- Save file endpoint (edit & save back) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['save'])) {
     header('Content-Type: application/json');
@@ -291,9 +333,8 @@ foreach ($fileList as $f) {
 // Current audio index (for auto-opening modal)
 $currentAudioIdx = -1;
 if ($displayType === 'audio' && !empty($audioList)) {
-    $encodedCurrentAudio = $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $currentFile)));
     foreach ($audioList as $ai => $aEntry) {
-        if ($aEntry['src'] === $encodedCurrentAudio) { $currentAudioIdx = $ai; break; }
+        if ($aEntry['name'] === basename($currentFile)) { $currentAudioIdx = $ai; break; }
     }
 }
 
@@ -893,8 +934,10 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             endif; ?>
         </span>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <button title="New file (from clipboard)" onclick="createNewFile()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:#10b981;color:#fff">+</button>
             <button title="Decrease font size" onclick="adjustFontSize(-1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">-</button>
             <button title="Increase font size" onclick="adjustFontSize(1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">+</button>
+            <button id="marginBtn" title="Toggle reading margins" onclick="toggleMargins()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#8614;</button>
             <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
             <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
@@ -1238,6 +1281,40 @@ function toggleDarkMode() {
             var btn = document.getElementById('darkModeBtn');
             if (btn) btn.innerHTML = '&#9788;';
             setHljsTheme(true);
+        }
+    } catch(e) {}
+})();
+
+// --- Reading margins toggle ---
+var marginsOn = false;
+function applyMargins() {
+    var area = document.getElementById('contentArea');
+    var targets = area.querySelectorAll('.text-content, .markdown-content, .docx-content');
+    var btn = document.getElementById('marginBtn');
+    if (marginsOn) {
+        targets.forEach(function(el) { el.style.maxWidth = '750px'; el.style.margin = '0 auto'; });
+        btn.style.background = '#7ec8e3';
+        btn.style.color = '#1a1a2e';
+    } else {
+        targets.forEach(function(el) { el.style.maxWidth = ''; el.style.margin = ''; });
+        btn.style.background = 'rgb(224,224,224)';
+        btn.style.color = 'rgb(51,51,51)';
+        if (document.body.classList.contains('dark')) {
+            btn.style.background = '#555';
+            btn.style.color = '#ffdd57';
+        }
+    }
+}
+function toggleMargins() {
+    marginsOn = !marginsOn;
+    applyMargins();
+    try { localStorage.setItem('readingMargins', marginsOn ? '1' : '0'); } catch(e) {}
+}
+(function() {
+    try {
+        if (localStorage.getItem('readingMargins') === '1') {
+            marginsOn = true;
+            applyMargins();
         }
     } catch(e) {}
 })();
@@ -1661,6 +1738,72 @@ function saveAndExit(editBtn) {
         editBtn.style.color = '#fff';
     });
 }
+
+// --- New File ---
+var currentFolderPath = <?= $currentFolder ? json_encode($currentFolder, JSON_HEX_TAG | JSON_HEX_AMP) : "''" ?>;
+function createNewFile() {
+    navigator.clipboard.readText().then(function(clipText) {
+        var fileName = prompt('New file name:', 'new_file.md');
+        if (!fileName) return;
+        var params = 'newfile=1';
+        if (currentFolderPath) params += '&folder=' + encodeURIComponent(currentFolderPath);
+        fetch('?' + params, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: fileName, content: clipText || '' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                // Navigate to the new file
+                var url = '?file=' + encodeURIComponent(data.path);
+                if (currentFolderPath) url = '?folder=' + encodeURIComponent(currentFolderPath) + '&file=' + encodeURIComponent(data.path);
+                url += '&sort=<?= $sortBy ?>';
+                window.location.href = url;
+            } else {
+                alert('Failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(function(err) { alert('Error: ' + err.message); });
+    }).catch(function() {
+        // Clipboard access denied — create empty file
+        var fileName = prompt('New file name (clipboard unavailable, file will be empty):', 'new_file.md');
+        if (!fileName) return;
+        var params = 'newfile=1';
+        if (currentFolderPath) params += '&folder=' + encodeURIComponent(currentFolderPath);
+        fetch('?' + params, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: fileName, content: '' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                var url = '?file=' + encodeURIComponent(data.path);
+                if (currentFolderPath) url = '?folder=' + encodeURIComponent(currentFolderPath) + '&file=' + encodeURIComponent(data.path);
+                url += '&sort=<?= $sortBy ?>';
+                window.location.href = url;
+            } else {
+                alert('Failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(function(err) { alert('Error: ' + err.message); });
+    });
+}
+
+// --- Preserve sidebar scroll position across page loads ---
+(function() {
+    var sidebarList = document.getElementById('sidebarList');
+    var key = 'sidebarScrollTop';
+    var saved = sessionStorage.getItem(key);
+    if (saved !== null) {
+        sidebarList.scrollTop = parseInt(saved);
+    }
+    // Save scroll position before navigating away
+    window.addEventListener('beforeunload', function() {
+        sessionStorage.setItem(key, sidebarList.scrollTop);
+    });
+})();
 
 // Make sidebar audio file clicks open modal instead of navigating
 document.querySelectorAll('.sidebar-item').forEach(function(item) {

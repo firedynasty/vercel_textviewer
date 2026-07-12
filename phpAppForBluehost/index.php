@@ -179,6 +179,15 @@ function scanContent($dir, $sortBy) {
     usort($items, function($a, $b) use ($sortBy) {
         if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
         if ($sortBy === 'modified') return $b['mtime'] - $a['mtime'];
+        if ($sortBy === 'type') {
+            $priority = ['txt'=>0,'md'=>1,'docx'=>2];
+            $ea = isset($a['ext']) ? strtolower($a['ext']) : '';
+            $eb = isset($b['ext']) ? strtolower($b['ext']) : '';
+            $pa = isset($priority[$ea]) ? $priority[$ea] : 99;
+            $pb = isset($priority[$eb]) ? $priority[$eb] : 99;
+            if ($pa !== $pb) return $pa - $pb;
+            return strnatcasecmp($a['name'], $b['name']);
+        }
         return strnatcasecmp($a['name'], $b['name']);
     });
     return $items;
@@ -201,6 +210,15 @@ function scanSubfolder($dir, $folder, $sortBy) {
     usort($items, function($a, $b) use ($sortBy) {
         if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
         if ($sortBy === 'modified') return $b['mtime'] - $a['mtime'];
+        if ($sortBy === 'type') {
+            $priority = ['txt'=>0,'md'=>1,'docx'=>2];
+            $ea = isset($a['ext']) ? strtolower($a['ext']) : '';
+            $eb = isset($b['ext']) ? strtolower($b['ext']) : '';
+            $pa = isset($priority[$ea]) ? $priority[$ea] : 99;
+            $pb = isset($priority[$eb]) ? $priority[$eb] : 99;
+            if ($pa !== $pb) return $pa - $pb;
+            return strnatcasecmp($a['name'], $b['name']);
+        }
         return strnatcasecmp($a['name'], $b['name']);
     });
     return $items;
@@ -735,6 +753,8 @@ body.dark .folder-card .label { border-top-color: #444; }
 body.dark .gallery-item .caption { color: #aaa; }
 body.dark .content-area img { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 body.dark #darkModeBtn { background: #555; color: #ffdd57; }
+body.dark .content-area > button[title="Page down"] { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.1); }
+body.dark .content-area > button[title="Page down"] svg path { stroke: rgba(255,255,255,0.5); }
 body.dark #copyBtn { background: #555; color: #ffdd57; }
 
 /* Mobile */
@@ -825,6 +845,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     <div class="sort-bar">
         <a href="<?= sortUrl('name') ?>" class="<?= $sortBy === 'name' ? 'active' : '' ?>">Name</a>
         <a href="<?= sortUrl('modified') ?>" class="<?= $sortBy === 'modified' ? 'active' : '' ?>">Modified</a>
+        <a href="<?= sortUrl('type') ?>" class="<?= $sortBy === 'type' ? 'active' : '' ?>">by txt</a>
     </div>
 
     <div class="search-bar">
@@ -954,7 +975,9 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     </div>
 
     <div class="content-area" id="contentArea">
-        <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:90%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
 
         <?php if ($currentFolder && !$currentFile && isset($_GET['view']) && $_GET['view'] === 'all'): ?>
             <!-- Stacked view -->
@@ -1247,6 +1270,7 @@ function contentPageDown() {
     var el = document.getElementById('contentArea');
     el.scrollBy({ top: el.clientHeight * 0.9, behavior: 'smooth' });
 }
+
 
 var fontSize = 14;
 try { var saved = localStorage.getItem('fontSize'); if (saved) fontSize = parseInt(saved); } catch(e) {}

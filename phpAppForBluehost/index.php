@@ -121,6 +121,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['save'])) {
     exit;
 }
 
+// --- Rename file endpoint ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['rename'])) {
+    header('Content-Type: application/json');
+    $oldRelPath = $_GET['rename'];
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!isset($input['newName']) || trim($input['newName']) === '') {
+        echo json_encode(['ok' => false, 'error' => 'No new name provided']);
+        exit;
+    }
+    $newName = basename(trim($input['newName']));
+    $oldFullPath = $contentDir . '/' . $oldRelPath;
+    $realContent = realpath($contentDir);
+    $realOldDir = realpath(dirname($oldFullPath));
+    if ($realOldDir === false || strpos($realOldDir, $realContent) !== 0) {
+        echo json_encode(['ok' => false, 'error' => 'Invalid path']);
+        exit;
+    }
+    if (!file_exists($oldFullPath)) {
+        echo json_encode(['ok' => false, 'error' => 'File not found']);
+        exit;
+    }
+    $newFullPath = dirname($oldFullPath) . '/' . $newName;
+    if (file_exists($newFullPath)) {
+        echo json_encode(['ok' => false, 'error' => 'A file with that name already exists']);
+        exit;
+    }
+    if (!rename($oldFullPath, $newFullPath)) {
+        echo json_encode(['ok' => false, 'error' => 'Rename failed']);
+        exit;
+    }
+    // Build new relative path
+    $oldDir = dirname($oldRelPath);
+    $newRelPath = ($oldDir && $oldDir !== '.') ? $oldDir . '/' . $newName : $newName;
+    echo json_encode(['ok' => true, 'newPath' => $newRelPath, 'newName' => $newName]);
+    exit;
+}
+
 // --- Search endpoint (recursive file/folder search) ---
 if (isset($_GET['search']) && $_GET['search'] !== '') {
     header('Content-Type: application/json');
@@ -954,6 +991,9 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 echo '<a href="' . itemUrl([]) . '" style="color:#7ec8e3;text-decoration:none">Home</a>';
             endif; ?>
         </span>
+        <?php if ($currentFile): ?>
+            <button id="renameBtn" title="Rename file" onclick="renameFile()" style="width:auto;height:28px;font-size:12px;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51);flex-shrink:0;margin-right:4px">Rename</button>
+        <?php endif; ?>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             <button title="New file (from clipboard)" onclick="createNewFile()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:#10b981;color:#fff">+</button>
             <button title="Decrease font size" onclick="adjustFontSize(-1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">-</button>
@@ -1647,6 +1687,33 @@ function copyContent() {
         }
     });
 })();
+
+// --- Rename ---
+function renameFile() {
+    if (!currentFilePath) return;
+    var oldName = currentFilePath.split('/').pop();
+    var newName = prompt('Rename file:', oldName);
+    if (!newName || newName === oldName) return;
+    fetch('?rename=' + encodeURIComponent(currentFilePath), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({newName: newName})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            // Navigate to renamed file
+            var params = new URLSearchParams(window.location.search);
+            params.set('file', data.newPath);
+            window.location.search = params.toString();
+        } else {
+            alert('Rename failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(function(err) {
+        alert('Rename error: ' + err.message);
+    });
+}
 
 // --- Edit & Save ---
 var isEditing = false;

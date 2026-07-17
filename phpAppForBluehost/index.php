@@ -210,6 +210,7 @@ function scanContent($dir, $sortBy) {
             $items[] = ['type'=>'folder','name'=>$entry,'path'=>$entry,'mtime'=>filemtime($path)];
         } else {
             $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            if ($ext === 'php') continue;
             $items[] = ['type'=>'file','name'=>$entry,'path'=>$entry,'ext'=>$ext,'mtime'=>filemtime($path)];
         }
     }
@@ -241,6 +242,7 @@ function scanSubfolder($dir, $folder, $sortBy) {
             $items[] = ['type'=>'folder','name'=>$entry,'path'=>$folder.'/'.$entry,'mtime'=>filemtime($fullPath)];
         } elseif (is_file($fullPath)) {
             $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            if ($ext === 'php') continue;
             $items[] = ['type'=>'file','name'=>$entry,'path'=>$folder.'/'.$entry,'ext'=>$ext,'mtime'=>filemtime($fullPath)];
         }
     }
@@ -291,8 +293,9 @@ function sortUrl($sort) {
 }
 
 function itemUrl($params) {
-    global $sortBy;
+    global $sortBy, $p2File;
     $params['sort'] = $sortBy;
+    if (!empty($p2File) && !isset($params['p2'])) $params['p2'] = $p2File;
     return '?' . http_build_query($params);
 }
 
@@ -331,6 +334,22 @@ if ($currentFile) {
         elseif (in_array($ext, $textExts))          { $displayType = 'text';  $displayContent = file_get_contents($filePath); }
     }
 }
+
+// Right pane (dual-pane mode)
+$p2File = isset($_GET['p2']) ? $_GET['p2'] : null;
+$p2DisplayContent = null;
+$p2DisplayType    = null;
+if ($p2File) {
+    $p2FilePath = $contentDir . '/' . $p2File;
+    if (file_exists($p2FilePath)) {
+        $p2Ext    = strtolower(pathinfo($p2File, PATHINFO_EXTENSION));
+        $p2TextExts = ['txt','csv','json','log'];
+        if ($p2Ext === 'md')                    { $p2DisplayType = 'markdown'; $p2DisplayContent = file_get_contents($p2FilePath); }
+        elseif (in_array($p2Ext, $p2TextExts))  { $p2DisplayType = 'text';     $p2DisplayContent = file_get_contents($p2FilePath); }
+    }
+}
+$p2CloseParams = $_GET; unset($p2CloseParams['p2']);
+$p2CloseUrl = $p2CloseParams ? '?' . http_build_query($p2CloseParams) : '?';
 
 // Prev / next
 $prevFile = null;
@@ -552,7 +571,7 @@ body {
 /* Main */
 .main {
     flex: 1;
-    overflow-y: auto;
+    overflow: hidden;
     background: #f0f0f0;
     display: flex;
     flex-direction: column;
@@ -570,6 +589,27 @@ body {
 }
 .main-header .download-link { font-size: 12px; color: #7ec8e3; text-decoration: none; }
 .content-area { flex: 1; padding: 20px; overflow-y: auto; }
+
+/* Dual-pane layout */
+.panes-container { flex: 1; display: flex; overflow: hidden; }
+.pane-divider { width: 3px; background: #ccc; flex-shrink: 0; }
+body.dark .pane-divider { background: #444; }
+.pane-right {
+    flex: 1; overflow-y: auto; padding: 20px;
+    background: #fafafa; position: relative;
+    border-left: 1px solid #ddd;
+}
+body.dark .pane-right { background: #1e1e1e; border-left-color: #444; }
+.pane-right-bar {
+    padding: 5px 10px; background: #e8f0fe; border-bottom: 1px solid #c5d8f6;
+    font-size: 12px; color: #555; display: flex; justify-content: space-between;
+    align-items: center; margin: -20px -20px 14px -20px; flex-shrink: 0;
+}
+body.dark .pane-right-bar { background: #253545; border-bottom-color: #3a4a5a; color: #aaa; }
+.pr-close { color: #999; text-decoration: none; font-size: 18px; line-height: 1; padding: 0 4px; }
+.pr-close:hover { color: #c00; }
+body.dark #splitBtn { background: #555; color: #ffdd57; }
+#splitBtn.split-active { background: #ea580c !important; color: #fff !important; }
 
 /* Content types */
 .content-area img { max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
@@ -1000,9 +1040,13 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button title="Increase font size" onclick="adjustFontSize(1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">+</button>
             <button id="marginBtn" title="Toggle reading margins" onclick="toggleMargins()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#8614;</button>
             <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
+            <button id="splitBtn" title="Toggle dual-pane (left=media, right=text/md)" onclick="toggleSplit()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">P2</button>
             <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
                 <button id="editBtn" class="edit-btn" title="Edit and save back to local file" onclick="toggleEdit()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
+            <?php endif; ?>
+            <?php if ($displayType === 'text'): ?>
+                <button id="txtMdBtn" onclick="toggleLeftTxtMd()" title="Render as Markdown" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">TXT&gt;MD</button>
             <?php endif; ?>
             <?php if (!empty($audioList)): ?>
                 <button class="audio-toggle-btn" id="audioToggleBtn" title="Toggle audio player" onclick="toggleAudioModal()">&#9835;</button>
@@ -1014,6 +1058,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         </div>
     </div>
 
+    <div class="panes-container" id="panesContainer">
     <div class="content-area" id="contentArea">
         <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
@@ -1257,6 +1302,37 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <?php endif; ?>
 
     </div>
+    <div class="pane-divider" id="paneDivider" style="display:none"></div>
+    <div class="pane-right" id="paneRight" style="display:none">
+        <?php if ($p2DisplayType): ?>
+        <div class="pane-right-bar">
+            <span><?= htmlspecialchars(basename($p2File)) ?></span>
+            <?php if ($p2DisplayType === 'text'): ?>
+                <button id="p2TxtMdBtn" onclick="toggleRightTxtMd()" title="Render as Markdown" style="height:22px;font-size:10px;font-weight:700;padding:0 6px;border:none;border-radius:4px;cursor:pointer;background:rgba(0,0,0,0.12);color:inherit;margin-right:6px">TXT&gt;MD</button>
+            <?php endif; ?>
+            <a href="<?= htmlspecialchars($p2CloseUrl) ?>" class="pr-close" title="Close right pane">&times;</a>
+        </div>
+        <?php endif; ?>
+        <button title="Page down" onclick="rightPanePageDown()" style="position:sticky;top:6px;left:6px;z-index:10;width:40px;height:40px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgba(0,0,0,0.3);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-40px;float:left;"><svg width="40" height="40" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <?php if ($p2DisplayType === 'text'): ?>
+            <div class="text-content"><?= htmlspecialchars($p2DisplayContent) ?></div>
+        <?php elseif ($p2DisplayType === 'markdown'): ?>
+            <div class="markdown-content" id="p2-md-render"></div>
+            <script>
+            (function() {
+                var raw = <?= json_encode($p2DisplayContent, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+                marked.setOptions({ breaks: true, gfm: true });
+                document.getElementById('p2-md-render').innerHTML = marked.parse(raw);
+                document.querySelectorAll('#p2-md-render pre code').forEach(function(b) { hljs.highlightElement(b); });
+            })();
+            </script>
+        <?php else: ?>
+            <div style="display:flex;align-items:center;justify-content:center;height:70%;color:#aaa;font-size:13px;text-align:center;pointer-events:none">
+                <div><div style="font-size:36px;margin-bottom:10px">&#128196;</div><p>Click a .txt or .md file<br>to open it here</p></div>
+            </div>
+        <?php endif; ?>
+    </div>
+    </div>
 </div>
 
 <!-- Image Modal -->
@@ -1324,6 +1400,14 @@ function applyFontSize() {
     area.style.fontSize = fontSize + 'px';
     var targets = area.querySelectorAll('.text-content, .markdown-content, .docx-content');
     targets.forEach(function(el) { el.style.fontSize = fontSize + 'px'; });
+    // Also apply to right pane when split is active
+    var paneRight = document.getElementById('paneRight');
+    if (paneRight) {
+        paneRight.style.fontSize = fontSize + 'px';
+        paneRight.querySelectorAll('.text-content, .markdown-content').forEach(function(el) {
+            el.style.fontSize = fontSize + 'px';
+        });
+    }
 }
 if (fontSize !== 14) applyFontSize();
 
@@ -1352,15 +1436,21 @@ function toggleDarkMode() {
 // --- Reading margins toggle ---
 var marginsOn = false;
 function applyMargins() {
-    var area = document.getElementById('contentArea');
-    var targets = area.querySelectorAll('.text-content, .markdown-content, .docx-content');
+    var areas = [document.getElementById('contentArea'), document.getElementById('paneRight')];
     var btn = document.getElementById('marginBtn');
+    areas.forEach(function(area) {
+        if (!area) return;
+        var targets = area.querySelectorAll('.text-content, .markdown-content, .docx-content');
+        if (marginsOn) {
+            targets.forEach(function(el) { el.style.maxWidth = '750px'; el.style.margin = '0 auto'; });
+        } else {
+            targets.forEach(function(el) { el.style.maxWidth = ''; el.style.margin = ''; });
+        }
+    });
     if (marginsOn) {
-        targets.forEach(function(el) { el.style.maxWidth = '750px'; el.style.margin = '0 auto'; });
         btn.style.background = '#7ec8e3';
         btn.style.color = '#1a1a2e';
     } else {
-        targets.forEach(function(el) { el.style.maxWidth = ''; el.style.margin = ''; });
         btn.style.background = 'rgb(224,224,224)';
         btn.style.color = 'rgb(51,51,51)';
         if (document.body.classList.contains('dark')) {
@@ -1412,10 +1502,42 @@ function showModalImage() {
 }
 
 document.addEventListener('keydown', function(e) {
+    // Never hijack keys while editing or typing in any input/textarea
+    if (isEditing || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
     if (modal.classList.contains('open')) {
         if (e.key === 'Escape') closeModal();
         else if (e.key === 'ArrowLeft') modalNav(-1);
         else if (e.key === 'ArrowRight') modalNav(1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        // Navigate prev/next file via sidebar nav buttons
+        var navBtns = document.querySelectorAll('.sidebar-nav .sidebar-nav-btn');
+        if (!navBtns.length) return;
+        var btn = e.key === 'ArrowLeft' ? navBtns[0] : navBtns[navBtns.length - 1];
+        if (btn && btn.tagName === 'A' && btn.getAttribute('href')) {
+            e.preventDefault();
+            if (splitMode) {
+                // When P2 is open, route text/md files to the right pane
+                var destHref = btn.getAttribute('href');
+                var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
+                var destParams = {};
+                destQs.split('&').forEach(function(pair) {
+                    var idx = pair.indexOf('=');
+                    if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+                });
+                var destFile = destParams['file'];
+                var textExts = ['txt','csv','json','log','md'];
+                if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
+                    // Text file → load into right pane, keep current left pane file
+                    var p = new URLSearchParams(window.location.search);
+                    p.set('p2', destFile);
+                    window.location.href = '?' + p.toString();
+                    return;
+                }
+            }
+            // Media file (or P2 closed) → normal left-pane navigation
+            window.location.href = btn.href;
+        }
     }
 });
 
@@ -1917,6 +2039,144 @@ document.querySelectorAll('.sidebar-item').forEach(function(item) {
         });
     }
 });
+
+// --- Dual-pane split mode ---
+var splitMode = false;
+try { splitMode = localStorage.getItem('splitMode') === '1'; } catch(e) {}
+
+function applySplitMode() {
+    var divider = document.getElementById('paneDivider');
+    var paneRight = document.getElementById('paneRight');
+    var btn = document.getElementById('splitBtn');
+    if (splitMode) {
+        divider.style.display = '';
+        paneRight.style.display = '';
+        btn.classList.add('split-active');
+        btn.textContent = 'P2:ON';
+    } else {
+        divider.style.display = 'none';
+        paneRight.style.display = 'none';
+        btn.classList.remove('split-active');
+        btn.textContent = 'P2';
+    }
+}
+function toggleSplit() {
+    splitMode = !splitMode;
+    applySplitMode();
+    try { localStorage.setItem('splitMode', splitMode ? '1' : '0'); } catch(e) {}
+    if (!splitMode) {
+        // Strip p2 from every link on the page so future navigation doesn't carry it
+        document.querySelectorAll('a[href]').forEach(function(el) {
+            var href = el.getAttribute('href');
+            if (href.indexOf('p2=') === -1) return;
+            try {
+                var u = new URL(href, window.location.href);
+                u.searchParams.delete('p2');
+                el.setAttribute('href', u.pathname + (u.search ? u.search : ''));
+            } catch(e) {}
+        });
+        // Also remove p2 from the current URL bar (no reload)
+        var p = new URLSearchParams(window.location.search);
+        if (p.has('p2')) {
+            p.delete('p2');
+            var newUrl = window.location.pathname + (p.toString() ? '?' + p.toString() : '');
+            window.history.replaceState({}, '', newUrl);
+        }
+    }
+}
+function rightPanePageDown() {
+    var el = document.getElementById('paneRight');
+    el.scrollBy({ top: el.clientHeight * 0.9, behavior: 'smooth' });
+}
+
+// --- TXT>MD toggle (left pane) ---
+var leftTxtMdMode = false;
+var leftMdEl = null;
+function toggleLeftTxtMd() {
+    var textEl = document.querySelector('#contentArea .text-content');
+    var btn = document.getElementById('txtMdBtn');
+    if (!textEl || !rawContent) return;
+    leftTxtMdMode = !leftTxtMdMode;
+    if (leftTxtMdMode) {
+        if (!leftMdEl) {
+            leftMdEl = document.createElement('div');
+            leftMdEl.className = 'markdown-content';
+            textEl.parentNode.insertBefore(leftMdEl, textEl.nextSibling);
+        }
+        leftMdEl.innerHTML = marked.parse(rawContent);
+        leftMdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
+        leftMdEl.style.fontSize = document.getElementById('contentArea').style.fontSize || '';
+        leftMdEl.style.display = '';
+        textEl.style.display = 'none';
+        btn.textContent = 'MD\u003ETXT';
+        btn.style.background = '#4caf50'; btn.style.color = '#fff';
+    } else {
+        if (leftMdEl) leftMdEl.style.display = 'none';
+        textEl.style.display = '';
+        btn.textContent = 'TXT\u003EMD';
+        btn.style.background = 'rgb(224,224,224)'; btn.style.color = 'rgb(51,51,51)';
+    }
+}
+
+// --- TXT>MD toggle (right pane) ---
+var rightTxtMdMode = false;
+var rightMdEl = null;
+var p2RawContent = <?= ($p2DisplayType === 'text') ? json_encode($p2DisplayContent, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
+function toggleRightTxtMd() {
+    var textEl = document.querySelector('#paneRight .text-content');
+    var btn = document.getElementById('p2TxtMdBtn');
+    if (!textEl || !p2RawContent) return;
+    rightTxtMdMode = !rightTxtMdMode;
+    if (rightTxtMdMode) {
+        if (!rightMdEl) {
+            rightMdEl = document.createElement('div');
+            rightMdEl.className = 'markdown-content';
+            textEl.parentNode.insertBefore(rightMdEl, textEl.nextSibling);
+        }
+        rightMdEl.innerHTML = marked.parse(p2RawContent);
+        rightMdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
+        rightMdEl.style.fontSize = document.getElementById('paneRight').style.fontSize || '';
+        rightMdEl.style.display = '';
+        textEl.style.display = 'none';
+        btn.textContent = 'MD\u003ETXT';
+        btn.style.background = '#4caf50'; btn.style.color = '#fff';
+    } else {
+        if (rightMdEl) rightMdEl.style.display = 'none';
+        textEl.style.display = '';
+        btn.textContent = 'TXT\u003EMD';
+        btn.style.background = 'rgba(0,0,0,0.12)'; btn.style.color = '';
+    }
+}
+
+// Text-file sidebar clicks → load into right pane when split is ON
+(function() {
+    var textExts = ['txt','csv','json','log','md'];
+    document.querySelectorAll('.sidebar-item').forEach(function(item) {
+        var href = item.getAttribute('href');
+        if (!href || href.indexOf('?') < 0) return;
+        var qs = href.substring(href.indexOf('?') + 1);
+        var hp = {};
+        qs.split('&').forEach(function(pair) {
+            var idx = pair.indexOf('=');
+            if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+        });
+        var fp = hp['file'];
+        if (!fp) return; // folder link
+        var ext = fp.split('.').pop().toLowerCase();
+        if (textExts.indexOf(ext) === -1) return; // not a text file
+        item.addEventListener('click', function(e) {
+            if (!splitMode) return; // let normal nav happen
+            e.preventDefault();
+            var p = new URLSearchParams(window.location.search);
+            p.set('p2', fp);
+            // Remove 'file' if it was the same text file in the left pane
+            // (keep left pane on its current media file)
+            window.location.href = '?' + p.toString();
+        }, true);
+    });
+})();
+
+applySplitMode();
 </script>
 </body>
 </html>

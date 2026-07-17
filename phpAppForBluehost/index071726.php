@@ -1,0 +1,1922 @@
+<?php
+$contentDir = '.';
+
+// --- Range-request media proxy (enables seeking in PHP dev server) ---
+if (isset($_GET['stream'])) {
+    $mediaExts = ['mp4','webm','ogg','mov','avi','mkv','m4v','mp3','m4a','wav','flac','aac'];
+    $streamPath = $contentDir . '/' . $_GET['stream'];
+    $ext = strtolower(pathinfo($streamPath, PATHINFO_EXTENSION));
+    if (!in_array($ext, $mediaExts) || !file_exists($streamPath)) {
+        http_response_code(404);
+        exit;
+    }
+    $mimeMap = [
+        'mp4'=>'video/mp4','webm'=>'video/webm','ogg'=>'video/ogg',
+        'mov'=>'video/mp4','m4v'=>'video/mp4','avi'=>'video/x-msvideo','mkv'=>'video/x-matroska',
+        'mp3'=>'audio/mpeg','m4a'=>'audio/mp4','wav'=>'audio/wav','flac'=>'audio/flac','aac'=>'audio/aac'
+    ];
+    $mime = isset($mimeMap[$ext]) ? $mimeMap[$ext] : 'video/mp4';
+    $size = filesize($streamPath);
+    $start = 0;
+    $end = $size - 1;
+
+    header("Content-Type: $mime");
+    header("Accept-Ranges: bytes");
+
+    if (isset($_SERVER['HTTP_RANGE'])) {
+        preg_match('/bytes=(\d+)-(\d*)/', $_SERVER['HTTP_RANGE'], $m);
+        $start = intval($m[1]);
+        if (!empty($m[2])) $end = intval($m[2]);
+        header('HTTP/1.1 206 Partial Content');
+        header("Content-Range: bytes $start-$end/$size");
+    }
+
+    header("Content-Length: " . ($end - $start + 1));
+    $fp = fopen($streamPath, 'rb');
+    fseek($fp, $start);
+    $remaining = $end - $start + 1;
+    while ($remaining > 0 && !feof($fp)) {
+        $chunk = min(8192, $remaining);
+        echo fread($fp, $chunk);
+        $remaining -= $chunk;
+        flush();
+    }
+    fclose($fp);
+    exit;
+}
+
+// --- Create new file endpoint ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['newfile'])) {
+    header('Content-Type: application/json');
+    $folder = isset($_GET['folder']) ? $_GET['folder'] : '';
+    $input = json_decode(file_get_contents('php://input'), true);
+    $fileName = isset($input['name']) ? basename($input['name']) : '';
+    $content = isset($input['content']) ? $input['content'] : '';
+    if (!$fileName) {
+        echo json_encode(['ok' => false, 'error' => 'No filename provided']);
+        exit;
+    }
+    // Auto-add .txt if no extension
+    if (strpos($fileName, '.') === false) {
+        $fileName .= '.txt';
+    }
+    $allowedExts = ['txt','csv','json','log','md'];
+    $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+    if (!in_array($ext, $allowedExts)) {
+        echo json_encode(['ok' => false, 'error' => 'File type not allowed (txt, csv, json, log, md)']);
+        exit;
+    }
+    $targetDir = $folder ? $contentDir . '/' . $folder : $contentDir;
+    $realContent = realpath($contentDir);
+    $realTarget = realpath($targetDir);
+    if ($realTarget === false || strpos($realTarget, $realContent) !== 0) {
+        echo json_encode(['ok' => false, 'error' => 'Invalid folder path']);
+        exit;
+    }
+    $targetPath = $targetDir . '/' . $fileName;
+    if (file_exists($targetPath)) {
+        echo json_encode(['ok' => false, 'error' => 'File already exists']);
+        exit;
+    }
+    $bytes = file_put_contents($targetPath, $content);
+    if ($bytes === false) {
+        echo json_encode(['ok' => false, 'error' => 'Write failed']);
+        exit;
+    }
+    echo json_encode(['ok' => true, 'path' => ($folder ? $folder . '/' : '') . $fileName, 'bytes' => $bytes]);
+    exit;
+}
+
+// --- Save file endpoint (edit & save back) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['save'])) {
+    header('Content-Type: application/json');
+    $savePath = $contentDir . '/' . $_GET['save'];
+    $allowedExts = ['txt','csv','json','log','md'];
+    $saveExt = strtolower(pathinfo($savePath, PATHINFO_EXTENSION));
+    if (!in_array($saveExt, $allowedExts)) {
+        echo json_encode(['ok' => false, 'error' => 'File type not editable']);
+        exit;
+    }
+    $realContent = realpath($contentDir);
+    $realSave = realpath(dirname($savePath));
+    if ($realSave === false || strpos($realSave, $realContent) !== 0) {
+        echo json_encode(['ok' => false, 'error' => 'Invalid path']);
+        exit;
+    }
+    if (!file_exists($savePath)) {
+        echo json_encode(['ok' => false, 'error' => 'File not found']);
+        exit;
+    }
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!isset($input['content'])) {
+        echo json_encode(['ok' => false, 'error' => 'No content provided']);
+        exit;
+    }
+    $bytes = file_put_contents($savePath, $input['content']);
+    if ($bytes === false) {
+        echo json_encode(['ok' => false, 'error' => 'Write failed']);
+        exit;
+    }
+    echo json_encode(['ok' => true, 'bytes' => $bytes]);
+    exit;
+}
+
+// --- Rename file endpoint ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['rename'])) {
+    header('Content-Type: application/json');
+    $oldRelPath = $_GET['rename'];
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!isset($input['newName']) || trim($input['newName']) === '') {
+        echo json_encode(['ok' => false, 'error' => 'No new name provided']);
+        exit;
+    }
+    $newName = basename(trim($input['newName']));
+    $oldFullPath = $contentDir . '/' . $oldRelPath;
+    $realContent = realpath($contentDir);
+    $realOldDir = realpath(dirname($oldFullPath));
+    if ($realOldDir === false || strpos($realOldDir, $realContent) !== 0) {
+        echo json_encode(['ok' => false, 'error' => 'Invalid path']);
+        exit;
+    }
+    if (!file_exists($oldFullPath)) {
+        echo json_encode(['ok' => false, 'error' => 'File not found']);
+        exit;
+    }
+    $newFullPath = dirname($oldFullPath) . '/' . $newName;
+    if (file_exists($newFullPath)) {
+        echo json_encode(['ok' => false, 'error' => 'A file with that name already exists']);
+        exit;
+    }
+    if (!rename($oldFullPath, $newFullPath)) {
+        echo json_encode(['ok' => false, 'error' => 'Rename failed']);
+        exit;
+    }
+    // Build new relative path
+    $oldDir = dirname($oldRelPath);
+    $newRelPath = ($oldDir && $oldDir !== '.') ? $oldDir . '/' . $newName : $newName;
+    echo json_encode(['ok' => true, 'newPath' => $newRelPath, 'newName' => $newName]);
+    exit;
+}
+
+// --- Search endpoint (recursive file/folder search) ---
+if (isset($_GET['search']) && $_GET['search'] !== '') {
+    header('Content-Type: application/json');
+    $query = strtolower(trim($_GET['search']));
+    $maxResults = 50;
+    $results = [];
+
+    function searchRecursive($dir, $prefix, $query, &$results, $maxResults) {
+        if (count($results) >= $maxResults) return;
+        if (!is_dir($dir)) return;
+        $entries = scandir($dir);
+        if ($entries === false) return;
+        foreach ($entries as $entry) {
+            if ($entry === '.' || $entry === '..') continue;
+            if (count($results) >= $maxResults) return;
+            $fullPath = $dir . '/' . $entry;
+            $relPath = $prefix ? $prefix . '/' . $entry : $entry;
+            if (stripos($entry, $query) !== false) {
+                if (is_dir($fullPath)) {
+                    $results[] = ['type'=>'folder','name'=>$entry,'path'=>$relPath,'parent'=>$prefix];
+                } else {
+                    $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+                    $results[] = ['type'=>'file','name'=>$entry,'path'=>$relPath,'ext'=>$ext,'parent'=>$prefix];
+                }
+            }
+            if (is_dir($fullPath)) {
+                searchRecursive($fullPath, $relPath, $query, $results, $maxResults);
+            }
+        }
+    }
+
+    searchRecursive($contentDir, '', $query, $results, $maxResults);
+    echo json_encode($results);
+    exit;
+}
+
+$currentFile   = isset($_GET['file'])   ? $_GET['file']   : null;
+$currentFolder = isset($_GET['folder']) ? $_GET['folder'] : null;
+$sortBy        = isset($_GET['sort'])   ? $_GET['sort']   : 'name';
+
+// --- Helpers ---
+
+function scanContent($dir, $sortBy) {
+    $items = [];
+    if (!is_dir($dir)) return $items;
+    foreach (scandir($dir) as $entry) {
+        if ($entry === '.' || $entry === '..') continue;
+        $path = $dir . '/' . $entry;
+        if (is_dir($path)) {
+            $items[] = ['type'=>'folder','name'=>$entry,'path'=>$entry,'mtime'=>filemtime($path)];
+        } else {
+            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            $items[] = ['type'=>'file','name'=>$entry,'path'=>$entry,'ext'=>$ext,'mtime'=>filemtime($path)];
+        }
+    }
+    usort($items, function($a, $b) use ($sortBy) {
+        if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
+        if ($sortBy === 'modified') return $b['mtime'] - $a['mtime'];
+        if ($sortBy === 'type') {
+            $priority = ['txt'=>0,'md'=>1,'docx'=>2];
+            $ea = isset($a['ext']) ? strtolower($a['ext']) : '';
+            $eb = isset($b['ext']) ? strtolower($b['ext']) : '';
+            $pa = isset($priority[$ea]) ? $priority[$ea] : 99;
+            $pb = isset($priority[$eb]) ? $priority[$eb] : 99;
+            if ($pa !== $pb) return $pa - $pb;
+            return strnatcasecmp($a['name'], $b['name']);
+        }
+        return strnatcasecmp($a['name'], $b['name']);
+    });
+    return $items;
+}
+
+function scanSubfolder($dir, $folder, $sortBy) {
+    $path = $dir . '/' . $folder;
+    $items = [];
+    if (!is_dir($path)) return $items;
+    foreach (scandir($path) as $entry) {
+        if ($entry === '.' || $entry === '..') continue;
+        $fullPath = $path . '/' . $entry;
+        if (is_dir($fullPath)) {
+            $items[] = ['type'=>'folder','name'=>$entry,'path'=>$folder.'/'.$entry,'mtime'=>filemtime($fullPath)];
+        } elseif (is_file($fullPath)) {
+            $ext = strtolower(pathinfo($entry, PATHINFO_EXTENSION));
+            $items[] = ['type'=>'file','name'=>$entry,'path'=>$folder.'/'.$entry,'ext'=>$ext,'mtime'=>filemtime($fullPath)];
+        }
+    }
+    usort($items, function($a, $b) use ($sortBy) {
+        if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
+        if ($sortBy === 'modified') return $b['mtime'] - $a['mtime'];
+        if ($sortBy === 'type') {
+            $priority = ['txt'=>0,'md'=>1,'docx'=>2];
+            $ea = isset($a['ext']) ? strtolower($a['ext']) : '';
+            $eb = isset($b['ext']) ? strtolower($b['ext']) : '';
+            $pa = isset($priority[$ea]) ? $priority[$ea] : 99;
+            $pb = isset($priority[$eb]) ? $priority[$eb] : 99;
+            if ($pa !== $pb) return $pa - $pb;
+            return strnatcasecmp($a['name'], $b['name']);
+        }
+        return strnatcasecmp($a['name'], $b['name']);
+    });
+    return $items;
+}
+
+function getParentFolder($folder) {
+    $parent = dirname($folder);
+    return ($parent === '.' || $parent === '') ? null : $parent;
+}
+
+// Get first image found in a folder (for thumbnail)
+function getFolderThumb($dir, $folder) {
+    $path = $dir . '/' . $folder;
+    if (!is_dir($path)) return null;
+    $imageExts = ['png','jpg','jpeg','gif','webp','bmp'];
+    $entries = scandir($path);
+    sort($entries);
+    foreach ($entries as $f) {
+        if ($f === '.' || $f === '..') continue;
+        $ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
+        if (in_array($ext, $imageExts)) {
+            return $path . '/' . $f;
+        }
+    }
+    return null;
+}
+
+// Build URLs preserving sort
+function sortUrl($sort) {
+    $params = $_GET;
+    $params['sort'] = $sort;
+    return '?' . http_build_query($params);
+}
+
+function itemUrl($params) {
+    global $sortBy;
+    $params['sort'] = $sortBy;
+    return '?' . http_build_query($params);
+}
+
+// --- Data ---
+$items = scanContent($contentDir, $sortBy);
+
+$folderItems = [];
+$folderFiles = [];
+$folderSubfolders = [];
+if ($currentFolder) {
+    $folderItems = scanSubfolder($contentDir, $currentFolder, $sortBy);
+    $folderFiles = array_values(array_filter($folderItems, function($i) { return $i['type'] === 'file'; }));
+    $folderSubfolders = array_values(array_filter($folderItems, function($i) { return $i['type'] === 'folder'; }));
+}
+$parentFolder = $currentFolder ? getParentFolder($currentFolder) : null;
+
+// Determine display type
+$displayContent = null;
+$displayType    = null;
+if ($currentFile) {
+    $filePath = $contentDir . '/' . $currentFile;
+    if (file_exists($filePath)) {
+        $ext = strtolower(pathinfo($currentFile, PATHINFO_EXTENSION));
+        $imageExts = ['png','jpg','jpeg','gif','webp','bmp','svg'];
+        $textExts  = ['txt','csv','json','log'];
+        $videoExts = ['mp4','webm','ogg','mov','avi','mkv','m4v'];
+        $audioExts = ['mp3','m4a'];
+        if (in_array($ext, $imageExts))             { $displayType = 'image'; $displayContent = $filePath; }
+        elseif (in_array($ext, $audioExts))         { $displayType = 'audio'; $displayContent = $filePath; }
+        elseif (in_array($ext, $videoExts))         { $displayType = 'video'; $displayContent = $filePath; }
+        elseif ($ext === 'html' || $ext === 'htm')  { $displayType = 'html';  $displayContent = $filePath; }
+        elseif ($ext === 'pdf')                     { $displayType = 'pdf';   $displayContent = $filePath; }
+        elseif ($ext === 'docx')                    { $displayType = 'docx';  $displayContent = $filePath; }
+        elseif ($ext === 'rtf')                     { $displayType = 'rtf';   $displayContent = $filePath; }
+        elseif ($ext === 'md')                        { $displayType = 'markdown'; $displayContent = file_get_contents($filePath); }
+        elseif (in_array($ext, $textExts))          { $displayType = 'text';  $displayContent = file_get_contents($filePath); }
+    }
+}
+
+// Prev / next
+$prevFile = null;
+$nextFile = null;
+$fileList = $currentFolder
+    ? $folderFiles
+    : array_values(array_filter($items, function($i) { return $i['type'] === 'file'; }));
+
+if ($currentFile && count($fileList) > 1) {
+    foreach ($fileList as $idx => $f) {
+        if ($f['path'] === $currentFile) {
+            if ($idx > 0)                    $prevFile = $fileList[$idx - 1];
+            if ($idx < count($fileList) - 1) $nextFile = $fileList[$idx + 1];
+            break;
+        }
+    }
+}
+
+// Image list for modal (URL-encoded src)
+$imageList    = [];
+$imageExtsAll = ['png','jpg','jpeg','gif','webp','bmp','svg'];
+foreach ($fileList as $f) {
+    $fext = $f['ext'] ?? '';
+    if (in_array($fext, $imageExtsAll)) {
+        $encodedPath = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
+        $imageList[] = [
+            'name' => $f['name'],
+            'src'  => $contentDir . '/' . $encodedPath,
+            'url'  => $currentFolder
+                ? itemUrl(['folder'=>$currentFolder,'file'=>$f['path']])
+                : itemUrl(['file'=>$f['path']])
+        ];
+    }
+}
+
+// Audio list for audio modal
+$audioList = [];
+$audioExtsAll = ['mp3','m4a'];
+$audioMimeMap = ['mp3'=>'audio/mpeg','m4a'=>'audio/mp4'];
+foreach ($fileList as $f) {
+    $fext = $f['ext'] ?? '';
+    if (in_array($fext, $audioExtsAll)) {
+        $encodedPath = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
+        $audioList[] = [
+            'name' => $f['name'],
+            'src'  => '?stream=' . ($currentFolder ? $currentFolder . '/' : '') . $f['path'],
+            'mime' => isset($audioMimeMap[$fext]) ? $audioMimeMap[$fext] : 'audio/mpeg',
+            'url'  => $currentFolder
+                ? itemUrl(['folder'=>$currentFolder,'file'=>$f['path']])
+                : itemUrl(['file'=>$f['path']])
+        ];
+    }
+}
+
+// Current audio index (for auto-opening modal)
+$currentAudioIdx = -1;
+if ($displayType === 'audio' && !empty($audioList)) {
+    foreach ($audioList as $ai => $aEntry) {
+        if ($aEntry['name'] === basename($currentFile)) { $currentAudioIdx = $ai; break; }
+    }
+}
+
+// Folder thumbnails for landing page
+$folderCards = [];
+foreach ($items as $item) {
+    if ($item['type'] === 'folder') {
+        $thumb = getFolderThumb($contentDir, $item['path']);
+        $encodedThumb = $thumb
+            ? $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $item['path'] . '/' . basename($thumb))))
+            : null;
+        $folderCards[] = ['name'=>$item['name'],'path'=>$item['path'],'thumb'=>$encodedThumb];
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Content Viewer</title>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link id="hljs-light" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github.min.css">
+<link id="hljs-dark" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/styles/github-dark.min.css" disabled>
+<script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.11.1/build/highlight.min.js"></script>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 220px;
+    background: #1a1a2e;
+    color: #eee;
+    height: 100vh;
+    overflow-y: auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+.sidebar-header {
+    padding: 12px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.sidebar-header a {
+    color: #7ec8e3;
+    text-decoration: none;
+    font-size: 12px;
+}
+
+/* Sort bar */
+.sort-bar {
+    display: flex;
+    border-bottom: 1px solid #333;
+}
+.sort-bar a {
+    flex: 1;
+    text-align: center;
+    padding: 6px 0;
+    font-size: 11px;
+    text-decoration: none;
+    color: #888;
+}
+.sort-bar a:hover { background: #16213e; color: #ccc; }
+.sort-bar a.active { color: #7ec8e3; background: #16213e; }
+
+/* Search bar */
+.search-bar {
+    padding: 6px 8px;
+    border-bottom: 1px solid #333;
+}
+.search-bar input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #444;
+    border-radius: 6px;
+    background: #16213e;
+    color: #eee;
+    font-size: 12px;
+    outline: none;
+    box-sizing: border-box;
+}
+.search-bar input::placeholder { color: #666; }
+.search-bar input:focus { border-color: #7ec8e3; }
+.search-result-parent { font-size: 10px; color: #666; display: block; margin-top: 2px; }
+
+/* Sidebar prev/next nav */
+.sidebar-nav {
+    display: flex;
+    border-bottom: 1px solid #333;
+}
+.sidebar-nav-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #7ec8e3;
+    font-size: 16px;
+    padding: 8px 0;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: center;
+}
+.sidebar-nav-btn:hover { background: #16213e; }
+.sidebar-nav-btn:disabled { color: #444; cursor: default; }
+.sidebar-nav-btn:disabled:hover { background: none; }
+.sidebar-nav-label {
+    flex: 2;
+    text-align: center;
+    font-size: 11px;
+    color: #888;
+    align-self: center;
+}
+
+/* Sidebar list */
+.sidebar-list { flex: 1; overflow-y: auto; padding: 5px 0; }
+.sidebar-item {
+    display: block;
+    padding: 8px 15px;
+    color: #ccc;
+    text-decoration: none;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    word-break: break-word;
+}
+.sidebar-item:hover { background: #16213e; color: #fff; }
+.sidebar-item.active { background: #16213e; border-left-color: #7ec8e3; color: #7ec8e3; }
+.sidebar-item.folder { font-weight: bold; color: #e8c547; }
+.sidebar-item.folder::before { content: "\1F4C1 "; }
+.sidebar-item.back { color: #7ec8e3; font-style: italic; }
+.sidebar-item.back::before { content: "\2190 "; }
+.file-ext { font-size: 10px; color: #888; margin-left: 4px; }
+.file-date { font-size: 10px; color: #666; display: block; margin-top: 2px; }
+
+/* Mobile toggle */
+.sidebar-toggle {
+    display: none;
+    position: fixed;
+    top: 10px; left: 10px;
+    z-index: 1000;
+    background: #1a1a2e;
+    color: #fff;
+    border: none;
+    padding: 8px 12px;
+    font-size: 18px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* Main */
+.main {
+    flex: 1;
+    overflow-y: auto;
+    background: #f0f0f0;
+    display: flex;
+    flex-direction: column;
+}
+.main-header {
+    padding: 10px 15px;
+    background: #fff;
+    border-bottom: 1px solid #ddd;
+    font-size: 13px;
+    color: #666;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+.main-header .download-link { font-size: 12px; color: #7ec8e3; text-decoration: none; }
+.content-area { flex: 1; padding: 20px; overflow-y: auto; }
+
+/* Content types */
+.content-area img { max-width: 100%; height: auto; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.text-content {
+    background: #fff; padding: 20px; border-radius: 4px;
+    white-space: pre-wrap; font-family: 'Courier New', monospace;
+    font-size: 14px; line-height: 1.6; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.markdown-content {
+    background: #fff; padding: 20px 30px; border-radius: 4px;
+    font-size: 15px; line-height: 1.7; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    max-width: 900px; color: #222;
+}
+.markdown-content h1, .markdown-content h2, .markdown-content h3,
+.markdown-content h4, .markdown-content h5, .markdown-content h6 {
+    margin-top: 1.4em; margin-bottom: 0.6em; line-height: 1.3;
+}
+.markdown-content h1 { font-size: 1.8em; border-bottom: 1px solid #ddd; padding-bottom: 0.3em; }
+.markdown-content h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 0.2em; }
+.markdown-content h3 { font-size: 1.25em; }
+.markdown-content p { margin: 0.8em 0; }
+.markdown-content ul, .markdown-content ol { margin: 0.8em 0; padding-left: 2em; }
+.markdown-content li { margin: 0.3em 0; }
+.markdown-content blockquote {
+    border-left: 4px solid #7ec8e3; margin: 1em 0; padding: 0.5em 1em;
+    background: #f8f9fa; color: #555;
+}
+.markdown-content code {
+    background: #f0f0f0; padding: 2px 6px; border-radius: 3px;
+    font-family: 'Courier New', monospace; font-size: 0.9em;
+}
+.markdown-content pre {
+    margin: 1em 0; border-radius: 6px; overflow-x: auto;
+}
+.markdown-content pre code {
+    background: none; padding: 0; display: block;
+}
+.markdown-content table {
+    border-collapse: collapse; margin: 1em 0; width: 100%;
+}
+.markdown-content th, .markdown-content td {
+    border: 1px solid #ddd; padding: 8px 12px; text-align: left;
+}
+.markdown-content th { background: #f5f5f5; font-weight: 600; }
+.markdown-content img { max-width: 100%; height: auto; border-radius: 4px; }
+.markdown-content a { color: #7ec8e3; }
+.markdown-content hr { border: none; border-top: 1px solid #ddd; margin: 1.5em 0; }
+.docx-content {
+    background: #fff; padding: 30px; border-radius: 4px;
+    font-size: 15px; line-height: 1.7; box-shadow: 0 2px 8px rgba(0,0,0,0.1); max-width: 800px;
+}
+.docx-content img { max-width: 100%; }
+.content-area iframe { width: 100%; height: 80vh; border: none; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.content-area video { max-width: 100%; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+
+/* Folder thumbnail grid (landing page) */
+.folder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+    padding: 4px;
+}
+.folder-card {
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    text-decoration: none;
+    color: #333;
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex;
+    flex-direction: column;
+}
+.folder-card:hover { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.15); }
+.folder-card .thumb {
+    width: 100%;
+    aspect-ratio: 4/3;
+    object-fit: cover;
+    background: #e8e8e8;
+    display: block;
+}
+.folder-card .no-thumb {
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: #1a1a2e;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+}
+.folder-card .label {
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 500;
+    word-break: break-word;
+    border-top: 1px solid #eee;
+}
+
+/* Gallery grid (inside folder) */
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+.gallery-item { text-align: center; }
+.gallery-item img { width: 100%; cursor: pointer; border-radius: 4px; transition: transform 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.gallery-item img:hover { transform: scale(1.02); }
+.gallery-item .caption { font-size: 12px; color: #666; margin-top: 5px; }
+
+/* Stacked images */
+.stacked-images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.stacked-images img { max-width: 100%; }
+
+/* Image modal */
+.image-modal {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 2000;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.image-modal.open { display: flex; }
+.modal-img { max-width: 90vw; max-height: 80vh; object-fit: contain; border-radius: 4px; user-select: none; }
+.modal-close {
+    position: absolute; top: 15px; right: 20px;
+    background: none; border: none; color: #fff; font-size: 28px; cursor: pointer; z-index: 2001;
+}
+.modal-arrow {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: rgba(255,255,255,0.15); border: none; color: #fff;
+    font-size: 32px; padding: 15px 18px; cursor: pointer; border-radius: 4px; z-index: 2001;
+}
+.modal-arrow:hover { background: rgba(255,255,255,0.3); }
+.modal-arrow.left { left: 15px; }
+.modal-arrow.right { right: 15px; }
+.modal-caption { color: #ccc; font-size: 13px; margin-top: 12px; }
+.modal-counter { color: #888; font-size: 11px; margin-top: 4px; }
+
+/* Audio modal */
+.audio-modal {
+    display: none;
+    position: fixed; bottom: 0; left: 220px; right: 0;
+    background: #1a1a2e;
+    z-index: 1500;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 20px 25px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
+    border-top: 2px solid #7ec8e3;
+}
+.audio-modal.open { display: flex; }
+.audio-modal-header {
+    display: flex;
+    width: 100%;
+    max-width: 600px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.audio-modal-title {
+    color: #eee;
+    font-size: 14px;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    margin-right: 10px;
+}
+.audio-modal-close {
+    background: none; border: none; color: #888; font-size: 22px;
+    cursor: pointer; padding: 0 4px;
+}
+.audio-modal-close:hover { color: #fff; }
+.audio-modal-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    max-width: 600px;
+}
+.audio-modal-controls audio {
+    flex: 1;
+    height: 40px;
+}
+.audio-nav-btn {
+    background: rgba(255,255,255,0.1); border: none; color: #7ec8e3;
+    font-size: 20px; width: 36px; height: 36px; border-radius: 50%;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.audio-nav-btn:hover { background: rgba(255,255,255,0.2); }
+.audio-nav-btn:disabled { color: #444; cursor: default; }
+.audio-nav-btn:disabled:hover { background: rgba(255,255,255,0.1); }
+.audio-toggle-btn {
+    width: 32px; height: 32px; font-size: 16px; font-weight: 700;
+    border: none; border-radius: 8px; cursor: pointer;
+    background: rgb(224,224,224); color: rgb(51,51,51);
+    display: flex; align-items: center; justify-content: center;
+}
+.audio-toggle-btn.playing { background: #7ec8e3; color: #1a1a2e; }
+
+/* Dark mode */
+body.dark .main { background: #1e1e1e; }
+body.dark .main-header { background: #2a2a2a; border-bottom-color: #444; color: #ccc; }
+body.dark .content-area { color: #ddd; }
+body.dark .text-content { background: #2a2a2a; color: #ddd; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.dark .markdown-content { background: #2a2a2a; color: #ddd; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.dark .markdown-content h1 { border-bottom-color: #444; }
+body.dark .markdown-content h2 { border-bottom-color: #444; }
+body.dark .markdown-content code { background: #383838; }
+body.dark .markdown-content blockquote { background: #333; color: #aaa; border-left-color: #7ec8e3; }
+body.dark .markdown-content th { background: #333; }
+body.dark .markdown-content th, body.dark .markdown-content td { border-color: #555; }
+body.dark .markdown-content a { color: #7ec8e3; }
+body.dark .markdown-content hr { border-top-color: #555; }
+body.dark .docx-content { background: #2a2a2a; color: #ddd; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.dark .folder-card { background: #2a2a2a; color: #ddd; }
+body.dark .folder-card .label { border-top-color: #444; }
+body.dark .gallery-item .caption { color: #aaa; }
+body.dark .content-area img { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
+body.dark #darkModeBtn { background: #555; color: #ffdd57; }
+body.dark .content-area > button[title="Page down"] { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.1); }
+body.dark .content-area > button[title="Page down"] svg path { stroke: rgba(255,255,255,0.5); }
+body.dark #copyBtn { background: #555; color: #ffdd57; }
+
+/* Mobile */
+@media (max-width: 768px) {
+    .sidebar { position: fixed; left: -250px; z-index: 999; width: 250px; transition: left 0.3s; }
+    .sidebar.open { left: 0; }
+    .sidebar-toggle { display: block; }
+    .main { width: 100%; }
+    .folder-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+    .gallery { grid-template-columns: 1fr 1fr; }
+    .content-area { padding: 10px; padding-top: 50px; }
+    .modal-arrow { padding: 10px 14px; font-size: 24px; }
+    .modal-arrow.left { left: 5px; }
+    .modal-arrow.right { right: 5px; }
+    .audio-modal { left: 0; }
+    .yt-modal { left: 0; }
+}
+
+/* YouTube modal */
+.yt-modal {
+    display: none;
+    position: fixed; top: 0; left: 220px; right: 0;
+    background: #1a1a2e;
+    z-index: 1400;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 16px 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    border-bottom: 2px solid #ff0000;
+}
+.yt-modal.open { display: flex; }
+.yt-modal-header {
+    display: flex;
+    width: 100%;
+    max-width: 700px;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.yt-modal-title {
+    color: #eee; font-size: 13px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1; margin-right: 10px;
+}
+.yt-modal-close {
+    background: none; border: none; color: #888; font-size: 22px;
+    cursor: pointer; padding: 0 4px;
+}
+.yt-modal-close:hover { color: #fff; }
+.yt-track-list {
+    display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap;
+    justify-content: center; max-width: 700px; width: 100%;
+}
+.yt-track-btn {
+    padding: 4px 10px; border-radius: 6px; border: 1px solid #555;
+    background: #333; color: #ccc; cursor: pointer; font-size: 11px;
+    white-space: nowrap;
+}
+.yt-track-btn.active { background: #c00; color: #fff; border-color: #f00; }
+.yt-iframe-wrap {
+    width: 100%; max-width: 700px;
+}
+.yt-iframe-wrap iframe {
+    width: 100%; height: 200px; border: none; border-radius: 6px;
+}
+</style>
+</head>
+<body>
+
+<button class="sidebar-toggle" onclick="toggleSidebar()">&#9776;</button>
+
+<nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <?php if ($currentFolder): ?>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars(basename($currentFolder)) ?></span>
+            <?php if ($parentFolder !== null): ?>
+                <a href="<?= itemUrl(['folder'=>$parentFolder]) ?>">Back</a>
+            <?php else: ?>
+                <a href="<?= itemUrl([]) ?>">Back</a>
+            <?php endif; ?>
+        <?php else: ?>
+            <span>Content</span>
+            <span style="font-size:11px;color:#888"><?= count($items) ?> items</span>
+        <?php endif; ?>
+    </div>
+
+
+    <div class="sort-bar">
+        <a href="<?= sortUrl('name') ?>" class="<?= $sortBy === 'name' ? 'active' : '' ?>">Name</a>
+        <a href="<?= sortUrl('modified') ?>" class="<?= $sortBy === 'modified' ? 'active' : '' ?>">Modified</a>
+        <a href="<?= sortUrl('type') ?>" class="<?= $sortBy === 'type' ? 'active' : '' ?>">by txt</a>
+    </div>
+
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="Search files &amp; folders..." autocomplete="off">
+    </div>
+
+    <div id="searchResults" class="sidebar-list" style="display:none"></div>
+
+    <?php if ($currentFile): ?>
+    <div class="sidebar-nav">
+        <?php if ($prevFile): ?>
+            <a class="sidebar-nav-btn" href="<?= $currentFolder ? itemUrl(['folder'=>$currentFolder,'file'=>$prevFile['path']]) : itemUrl(['file'=>$prevFile['path']]) ?>">&laquo;</a>
+        <?php else: ?>
+            <button class="sidebar-nav-btn" disabled>&laquo;</button>
+        <?php endif; ?>
+        <span class="sidebar-nav-label">
+            <?php
+            $curIdx = 0;
+            foreach ($fileList as $i => $f) { if ($f['path'] === $currentFile) { $curIdx = $i + 1; break; } }
+            echo $curIdx . ' / ' . count($fileList);
+            ?>
+        </span>
+        <?php if ($nextFile): ?>
+            <a class="sidebar-nav-btn" href="<?= $currentFolder ? itemUrl(['folder'=>$currentFolder,'file'=>$nextFile['path']]) : itemUrl(['file'=>$nextFile['path']]) ?>">&raquo;</a>
+        <?php else: ?>
+            <button class="sidebar-nav-btn" disabled>&raquo;</button>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
+    <div class="sidebar-list" id="sidebarList">
+        <?php if ($currentFolder): ?>
+            <?php if ($parentFolder !== null): ?>
+                <a class="sidebar-item back" href="<?= itemUrl(['folder'=>$parentFolder]) ?>"><?= htmlspecialchars(basename($parentFolder)) ?></a>
+            <?php else: ?>
+                <a class="sidebar-item back" href="<?= itemUrl([]) ?>">All folders</a>
+            <?php endif; ?>
+            <?php if (!empty($folderFiles)): ?>
+            <a class="sidebar-item <?= (!$currentFile && isset($_GET['view']) ? 'active' : '') ?>"
+               href="<?= itemUrl(['folder'=>$currentFolder,'view'=>'all']) ?>">
+                View all images
+            </a>
+            <?php endif; ?>
+            <?php foreach ($folderSubfolders as $sf): ?>
+                <a class="sidebar-item folder" href="<?= itemUrl(['folder'=>$sf['path']]) ?>">
+                    <?= htmlspecialchars($sf['name']) ?>
+                    <?php if ($sortBy === 'modified'): ?>
+                        <span class="file-date"><?= date('M j, Y g:ia', $sf['mtime']) ?></span>
+                    <?php endif; ?>
+                </a>
+            <?php endforeach; ?>
+            <?php foreach ($folderFiles as $f): ?>
+                <a class="sidebar-item <?= ($currentFile === $f['path'] ? 'active' : '') ?>"
+                   href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
+                    <?= htmlspecialchars($f['name']) ?>
+                    <span class="file-ext"><?= $f['ext'] ?></span>
+                    <?php if ($sortBy === 'modified'): ?>
+                        <span class="file-date"><?= date('M j, Y g:ia', $f['mtime']) ?></span>
+                    <?php endif; ?>
+                </a>
+            <?php endforeach; ?>
+        <?php else: ?>
+            <?php foreach ($items as $item): ?>
+                <?php if ($item['type'] === 'folder'): ?>
+                    <a class="sidebar-item folder" href="<?= itemUrl(['folder'=>$item['path']]) ?>">
+                        <?= htmlspecialchars($item['name']) ?>
+                        <?php if ($sortBy === 'modified'): ?>
+                            <span class="file-date"><?= date('M j, Y g:ia', $item['mtime']) ?></span>
+                        <?php endif; ?>
+                    </a>
+                <?php else: ?>
+                    <a class="sidebar-item <?= ($currentFile === $item['path'] ? 'active' : '') ?>"
+                       href="<?= itemUrl(['file'=>$item['path']]) ?>">
+                        <?= htmlspecialchars($item['name']) ?>
+                        <span class="file-ext"><?= $item['ext'] ?? '' ?></span>
+                        <?php if ($sortBy === 'modified'): ?>
+                            <span class="file-date"><?= date('M j, Y g:ia', $item['mtime']) ?></span>
+                        <?php endif; ?>
+                    </a>
+                <?php endif; ?>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+</nav>
+
+<div class="main">
+    <div class="main-header">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:10px">
+            <?php if ($currentFolder && !$currentFile):
+                // Breadcrumb navigation for folder path
+                $parts = explode('/', $currentFolder);
+                $crumbPath = '';
+                echo '<a href="' . itemUrl([]) . '" style="color:#7ec8e3;text-decoration:none">Home</a>';
+                foreach ($parts as $pi => $part):
+                    $crumbPath .= ($pi > 0 ? '/' : '') . $part;
+                    echo ' / ';
+                    if ($pi === count($parts) - 1):
+                        echo htmlspecialchars($part);
+                    else:
+                        echo '<a href="' . itemUrl(['folder'=>$crumbPath]) . '" style="color:#7ec8e3;text-decoration:none">' . htmlspecialchars($part) . '</a>';
+                    endif;
+                endforeach;
+            elseif ($currentFile):
+                echo htmlspecialchars($currentFile);
+            else:
+                echo '<a href="' . itemUrl([]) . '" style="color:#7ec8e3;text-decoration:none">Home</a>';
+            endif; ?>
+        </span>
+        <?php if ($currentFile): ?>
+            <button id="renameBtn" title="Rename file" onclick="renameFile()" style="width:auto;height:28px;font-size:12px;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51);flex-shrink:0;margin-right:4px">Rename</button>
+        <?php endif; ?>
+        <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <button title="New file (from clipboard)" onclick="createNewFile()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:#10b981;color:#fff">+</button>
+            <button title="Decrease font size" onclick="adjustFontSize(-1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">-</button>
+            <button title="Increase font size" onclick="adjustFontSize(1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">+</button>
+            <button id="marginBtn" title="Toggle reading margins" onclick="toggleMargins()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#8614;</button>
+            <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
+            <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
+                <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
+                <button id="editBtn" class="edit-btn" title="Edit and save back to local file" onclick="toggleEdit()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
+            <?php endif; ?>
+            <?php if (!empty($audioList)): ?>
+                <button class="audio-toggle-btn" id="audioToggleBtn" title="Toggle audio player" onclick="toggleAudioModal()">&#9835;</button>
+            <?php endif; ?>
+            <button title="YouTube music" onclick="toggleYtModal()" style="width:32px;height:32px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);display:flex;align-items:center;justify-content:center;padding:0"><svg width="20" height="14" viewBox="0 0 68 48"><path d="M66.5 7.7s-.7-4.7-2.7-6.8C61-1.7 58-1.7 56.6-1.9 47.3-2.6 34-2.6 34-2.6s-13.3 0-22.6.7C10-1.7 7-1.7 4.2.9 2.2 3 1.5 7.7 1.5 7.7S.8 13.2.8 18.8v5.2c0 5.5.7 11.1.7 11.1s.7 4.7 2.7 6.8c2.8 2.6 6.4 2.5 8 2.8 5.8.5 24.8.7 24.8.7s13.3 0 22.6-.7c1.4-.2 4.4-.2 7.2-2.8 2-2.1 2.7-6.8 2.7-6.8s.7-5.5.7-11.1v-5.2c0-5.6-.7-11.1-.7-11.1z" fill="red"/><path d="M27 33V13l18.2 10L27 33z" fill="white"/></svg></button>
+            <?php if ($currentFile): ?>
+                <a class="download-link" href="<?= $contentDir . '/' . htmlspecialchars($currentFile) ?>" download>Download</a>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="content-area" id="contentArea">
+        <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:90%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+
+        <?php if ($currentFolder && !$currentFile && isset($_GET['view']) && $_GET['view'] === 'all'): ?>
+            <!-- Stacked view -->
+            <div class="stacked-images">
+                <?php
+                $imageExts = ['png','jpg','jpeg','gif','webp','bmp','svg'];
+                $sIdx = 0;
+                foreach ($folderFiles as $f):
+                    if (in_array($f['ext'], $imageExts)):
+                        $enc = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
+                ?>
+                    <img src="<?= $contentDir . '/' . htmlspecialchars($enc) ?>"
+                         alt="<?= htmlspecialchars($f['name']) ?>"
+                         style="cursor:pointer" onclick="openModalAt(<?= $sIdx ?>)" title="Click to enlarge">
+                <?php $sIdx++; endif; endforeach; ?>
+            </div>
+
+        <?php elseif ($currentFolder && !$currentFile): ?>
+            <!-- Subfolder cards -->
+            <?php if (!empty($folderSubfolders)): ?>
+            <div class="folder-grid" style="margin-bottom:20px">
+                <?php foreach ($folderSubfolders as $sf):
+                    $sfThumb = getFolderThumb($contentDir, $sf['path']);
+                    $sfEncodedThumb = $sfThumb
+                        ? $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $sf['path'] . '/' . basename($sfThumb))))
+                        : null;
+                ?>
+                    <a class="folder-card" href="<?= itemUrl(['folder'=>$sf['path']]) ?>">
+                        <?php if ($sfEncodedThumb): ?>
+                            <img class="thumb" src="<?= htmlspecialchars($sfEncodedThumb) ?>" alt="">
+                        <?php else: ?>
+                            <div class="no-thumb">&#128193;</div>
+                        <?php endif; ?>
+                        <div class="label"><?= htmlspecialchars($sf['name']) ?></div>
+                    </a>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+
+            <!-- Gallery grid inside folder -->
+            <div class="gallery">
+                <?php
+                $imageExts = ['png','jpg','jpeg','gif','webp','bmp','svg'];
+                $imgIdx = 0;
+                foreach ($folderFiles as $f):
+                    if (in_array($f['ext'], $imageExts)):
+                        $enc = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
+                ?>
+                    <div class="gallery-item">
+                        <img src="<?= $contentDir . '/' . htmlspecialchars($enc) ?>"
+                             alt="<?= htmlspecialchars($f['name']) ?>"
+                             onclick="openModalAt(<?= $imgIdx ?>)" title="Click to enlarge">
+                        <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
+                    </div>
+                <?php $imgIdx++;
+                    elseif (in_array($f['ext'], ['mp4','webm','ogg','mov','avi','mkv','m4v'])):
+                        $encVid = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
+                ?>
+                    <div class="gallery-item">
+                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
+                            <video style="width:100%;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1)" muted preload="metadata">
+                                <source src="<?= $contentDir . '/' . htmlspecialchars($encVid) ?>" type="video/mp4">
+                            </video>
+                        </a>
+                        <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
+                    </div>
+                <?php
+                    elseif (in_array($f['ext'], ['mp3','m4a'])):
+                ?>
+                    <div class="gallery-item">
+                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>"
+                           style="display:block;padding:20px;background:#1a1a2e;border-radius:4px;text-decoration:none;color:#eee;box-shadow:0 2px 8px rgba(0,0,0,0.08);text-align:center">
+                            <div style="font-size:28px;margin-bottom:8px">&#9835;</div>
+                            <?= htmlspecialchars($f['name']) ?>
+                        </a>
+                        <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
+                    </div>
+                <?php
+                    elseif (in_array($f['ext'], ['txt','md','html','htm','docx','rtf','pdf'])):
+                ?>
+                    <div class="gallery-item">
+                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>"
+                           style="display:block;padding:20px;background:#fff;border-radius:4px;text-decoration:none;color:#333;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+                            <?= htmlspecialchars($f['name']) ?>
+                        </a>
+                    </div>
+                <?php endif; endforeach; ?>
+            </div>
+
+        <?php elseif ($displayType === 'image'):
+            $encodedCurrentPath = $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $currentFile)));
+            $currentImgIdx = 0;
+            foreach ($imageList as $ii => $imgEntry) {
+                if ($imgEntry['src'] === $encodedCurrentPath) { $currentImgIdx = $ii; break; }
+            }
+        ?>
+            <img src="<?= htmlspecialchars($encodedCurrentPath) ?>"
+                 alt="<?= htmlspecialchars($currentFile) ?>"
+                 style="cursor:pointer" onclick="openModalAt(<?= $currentImgIdx ?>)" title="Click to enlarge">
+
+        <?php elseif ($displayType === 'video'):
+            $encodedVideoPath = $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $currentFile)));
+            $videoMime = [
+                'mp4'=>'video/mp4','webm'=>'video/webm','ogg'=>'video/ogg',
+                'mov'=>'video/mp4','m4v'=>'video/mp4','avi'=>'video/x-msvideo','mkv'=>'video/x-matroska'
+            ];
+            $ext = strtolower(pathinfo($currentFile, PATHINFO_EXTENSION));
+            $mime = isset($videoMime[$ext]) ? $videoMime[$ext] : 'video/mp4';
+        ?>
+            <video id="mainVideo" controls autoplay loop style="max-height:80vh">
+                <source src="?stream=<?= htmlspecialchars($currentFile) ?>" type="<?= $mime ?>">
+                Your browser does not support this video format.
+                <a href="<?= htmlspecialchars($encodedVideoPath) ?>" download>Download video</a>
+            </video>
+            <div style="display:flex;gap:8px;margin-top:8px;justify-content:center;align-items:center;">
+                <button id="loopBtn" onclick="toggleLoop()" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#555;color:#ccc;cursor:pointer;font-size:13px;">Loop ON</button>
+                <button id="speedBtn" onclick="toggleSpeed()" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#333;color:#ccc;cursor:pointer;font-size:13px;">0.5x</button>
+                <span style="border-left:1px solid #555;height:20px;margin:0 4px;"></span>
+                <input id="jumpTimeInput" type="text" placeholder="1:15" style="width:60px;padding:4px 6px;border:1px solid #555;border-radius:6px;background:#222;color:#fff;font-size:12px;text-align:center;">
+                <button id="addTimeBtn" style="padding:6px 14px;border-radius:6px;border:1px solid #555;background:#333;color:#ccc;cursor:pointer;font-size:13px;">Add</button>
+            </div>
+            <div id="savedTimesRow" style="display:flex;gap:6px;margin-top:6px;justify-content:center;flex-wrap:wrap;"></div>
+            <script>
+            (function() {
+                var video = document.getElementById('mainVideo');
+                video.playbackRate = 0.5;
+                window.toggleLoop = function() {
+                    video.loop = !video.loop;
+                    var btn = document.getElementById('loopBtn');
+                    btn.textContent = video.loop ? 'Loop ON' : 'Loop';
+                    btn.style.background = video.loop ? '#555' : '#333';
+                };
+                window.toggleSpeed = function() {
+                    if (video.playbackRate === 1) {
+                        video.playbackRate = 0.5;
+                        document.getElementById('speedBtn').textContent = '0.5x';
+                    } else {
+                        video.playbackRate = 1;
+                        document.getElementById('speedBtn').textContent = '1x';
+                    }
+                };
+
+                function parseTime(str) {
+                    var parts = str.split(':').map(Number);
+                    if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+                    if (parts.length === 2) return parts[0]*60 + parts[1];
+                    return parts[0] || 0;
+                }
+
+                function addTime() {
+                    var input = document.getElementById('jumpTimeInput');
+                    var val = input.value.trim();
+                    if (!val) return;
+                    var seconds = parseTime(val);
+                    var row = document.getElementById('savedTimesRow');
+                    var btn = document.createElement('button');
+                    btn.textContent = val;
+                    btn.style.cssText = 'padding:4px 10px;border-radius:6px;border:1px solid #555;background:#444;color:#fff;cursor:pointer;font-size:12px;';
+                    btn.addEventListener('click', function() { video.currentTime = seconds; video.play(); });
+                    row.appendChild(btn);
+                    input.value = '';
+                }
+
+                document.getElementById('addTimeBtn').addEventListener('click', addTime);
+                document.getElementById('jumpTimeInput').addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') { e.preventDefault(); addTime(); }
+                });
+            })();
+            </script>
+
+        <?php elseif ($displayType === 'markdown'): ?>
+            <div class="markdown-content" id="markdown-render"></div>
+            <script>
+            (function() {
+                var raw = <?= json_encode($displayContent, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+                marked.setOptions({ breaks: true, gfm: true });
+                document.getElementById('markdown-render').innerHTML = marked.parse(raw);
+                document.querySelectorAll('#markdown-render pre code').forEach(function(block) {
+                    hljs.highlightElement(block);
+                });
+            })();
+            </script>
+
+        <?php elseif ($displayType === 'text'): ?>
+            <div class="text-content"><?= htmlspecialchars($displayContent) ?></div>
+
+        <?php elseif ($displayType === 'html'): ?>
+            <iframe src="<?= htmlspecialchars($displayContent) ?>"></iframe>
+
+        <?php elseif ($displayType === 'pdf'): ?>
+            <iframe src="<?= htmlspecialchars($displayContent) ?>" style="height:90vh"></iframe>
+
+        <?php elseif ($displayType === 'docx'): ?>
+            <div class="docx-content" id="docx-render">Loading document...</div>
+            <script>
+            (function() {
+                fetch('<?= htmlspecialchars($displayContent) ?>')
+                    .then(function(r) { return r.arrayBuffer(); })
+                    .then(function(buf) { return mammoth.convertToHtml({ arrayBuffer: buf }); })
+                    .then(function(result) { document.getElementById('docx-render').innerHTML = result.value; })
+                    .catch(function(err) {
+                        document.getElementById('docx-render').innerHTML =
+                            '<p style="color:red">Could not render DOCX: ' + err.message + '</p>' +
+                            '<p><a href="<?= $contentDir . '/' . htmlspecialchars($currentFile) ?>" download>Download instead</a></p>';
+                    });
+            })();
+            </script>
+
+        <?php elseif ($displayType === 'rtf'): ?>
+            <div class="text-content"><?= htmlspecialchars(file_get_contents($displayContent)) ?></div>
+            <p style="margin-top:10px">
+                <a href="<?= $contentDir . '/' . htmlspecialchars($currentFile) ?>" download
+                   style="font-size:13px;color:#7ec8e3">Download original RTF</a>
+            </p>
+
+        <?php else: ?>
+            <!-- Landing page: folder thumbnail grid -->
+            <?php if (!empty($folderCards)): ?>
+                <div class="folder-grid">
+                    <?php foreach ($folderCards as $card): ?>
+                        <a class="folder-card" href="<?= itemUrl(['folder'=>$card['path']]) ?>">
+                            <?php if ($card['thumb']): ?>
+                                <img class="thumb" src="<?= htmlspecialchars($card['thumb']) ?>" alt="">
+                            <?php else: ?>
+                                <div class="no-thumb">&#128193;</div>
+                            <?php endif; ?>
+                            <div class="label"><?= htmlspecialchars($card['name']) ?></div>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            <?php else: ?>
+                <div style="color:#999;text-align:center;padding:60px 20px">
+                    <p style="font-size:18px;margin-bottom:8px">No folders yet</p>
+                    <p style="font-size:13px">Add subfolders to <code><?= htmlspecialchars($contentDir) ?>/</code> and they'll appear here.</p>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
+
+    </div>
+</div>
+
+<!-- Image Modal -->
+<div class="image-modal" id="imageModal">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <button class="modal-arrow left" onclick="modalNav(-1)">&#8249;</button>
+    <img class="modal-img" id="modalImg" src="" alt="">
+    <button class="modal-arrow right" onclick="modalNav(1)">&#8250;</button>
+    <div class="modal-caption" id="modalCaption"></div>
+    <div class="modal-counter" id="modalCounter"></div>
+</div>
+
+<!-- Audio Modal -->
+<div class="yt-modal" id="ytModal">
+    <div class="yt-modal-header">
+        <div class="yt-modal-title" id="ytTitle">YouTube Music</div>
+        <button class="yt-modal-close" onclick="toggleYtModal()">&times;</button>
+    </div>
+    <div class="yt-track-list" id="ytTrackList"></div>
+    <div style="margin-bottom:8px"><button id="ytRandomBtn" onclick="ytRandomSeek()" style="background:linear-gradient(45deg,#ff9800,#f57c00);padding:6px 12px;font-size:12px;border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">🎲 Random</button></div>
+    <div class="yt-iframe-wrap" id="ytIframeWrap"></div>
+</div>
+
+<div class="audio-modal" id="audioModal">
+    <div class="audio-modal-header">
+        <div class="audio-modal-title" id="audioTitle">No audio</div>
+        <button class="audio-modal-close" onclick="toggleAudioModal()">&times;</button>
+    </div>
+    <div class="audio-modal-controls">
+        <button class="audio-nav-btn" id="audioPrevBtn" onclick="audioNav(-1)">&#8249;</button>
+        <button class="audio-nav-btn" onclick="audioSeek(-10)" style="font-size:13px;font-weight:700">-10</button>
+        <audio controls id="audioPlayer"></audio>
+        <button class="audio-nav-btn" onclick="audioSeek(10)" style="font-size:13px;font-weight:700">+10</button>
+        <button class="audio-nav-btn" id="audioNextBtn" onclick="audioNav(1)">&#8250;</button>
+    </div>
+</div>
+
+<script>
+var imageList = <?= json_encode($imageList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
+var modalIndex = 0;
+var modal = document.getElementById('imageModal');
+var modalImg = document.getElementById('modalImg');
+var modalCaption = document.getElementById('modalCaption');
+var modalCounter = document.getElementById('modalCounter');
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+}
+
+function contentPageDown() {
+    var el = document.getElementById('contentArea');
+    el.scrollBy({ top: el.clientHeight * 0.9, behavior: 'smooth' });
+}
+
+
+var fontSize = 14;
+try { var saved = localStorage.getItem('fontSize'); if (saved) fontSize = parseInt(saved); } catch(e) {}
+function adjustFontSize(dir) {
+    fontSize = Math.min(32, Math.max(8, fontSize + dir * 2));
+    applyFontSize();
+    try { localStorage.setItem('fontSize', fontSize); } catch(e) {}
+}
+function applyFontSize() {
+    var area = document.getElementById('contentArea');
+    area.style.fontSize = fontSize + 'px';
+    var targets = area.querySelectorAll('.text-content, .markdown-content, .docx-content');
+    targets.forEach(function(el) { el.style.fontSize = fontSize + 'px'; });
+}
+if (fontSize !== 14) applyFontSize();
+
+function setHljsTheme(isDark) {
+    document.getElementById('hljs-light').disabled = isDark;
+    document.getElementById('hljs-dark').disabled = !isDark;
+}
+function toggleDarkMode() {
+    var isDark = document.body.classList.toggle('dark');
+    var btn = document.getElementById('darkModeBtn');
+    btn.innerHTML = isDark ? '&#9788;' : '&#9789;';
+    setHljsTheme(isDark);
+    try { localStorage.setItem('darkMode', isDark ? '1' : '0'); } catch(e) {}
+}
+(function() {
+    try {
+        if (localStorage.getItem('darkMode') === '1') {
+            document.body.classList.add('dark');
+            var btn = document.getElementById('darkModeBtn');
+            if (btn) btn.innerHTML = '&#9788;';
+            setHljsTheme(true);
+        }
+    } catch(e) {}
+})();
+
+// --- Reading margins toggle ---
+var marginsOn = false;
+function applyMargins() {
+    var area = document.getElementById('contentArea');
+    var targets = area.querySelectorAll('.text-content, .markdown-content, .docx-content');
+    var btn = document.getElementById('marginBtn');
+    if (marginsOn) {
+        targets.forEach(function(el) { el.style.maxWidth = '750px'; el.style.margin = '0 auto'; });
+        btn.style.background = '#7ec8e3';
+        btn.style.color = '#1a1a2e';
+    } else {
+        targets.forEach(function(el) { el.style.maxWidth = ''; el.style.margin = ''; });
+        btn.style.background = 'rgb(224,224,224)';
+        btn.style.color = 'rgb(51,51,51)';
+        if (document.body.classList.contains('dark')) {
+            btn.style.background = '#555';
+            btn.style.color = '#ffdd57';
+        }
+    }
+}
+function toggleMargins() {
+    marginsOn = !marginsOn;
+    applyMargins();
+    try { localStorage.setItem('readingMargins', marginsOn ? '1' : '0'); } catch(e) {}
+}
+(function() {
+    try {
+        if (localStorage.getItem('readingMargins') === '1') {
+            marginsOn = true;
+            applyMargins();
+        }
+    } catch(e) {}
+})();
+
+function openModalAt(idx) {
+    if (!imageList.length) return;
+    modalIndex = (typeof idx === 'number') ? idx : 0;
+    showModalImage();
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+function modalNav(dir) {
+    modalIndex += dir;
+    if (modalIndex < 0) modalIndex = imageList.length - 1;
+    if (modalIndex >= imageList.length) modalIndex = 0;
+    showModalImage();
+}
+
+function showModalImage() {
+    if (!imageList.length) return;
+    var img = imageList[modalIndex];
+    modalImg.src = img.src;
+    modalCaption.textContent = img.name;
+    modalCounter.textContent = (modalIndex + 1) + ' / ' + imageList.length;
+}
+
+document.addEventListener('keydown', function(e) {
+    if (modal.classList.contains('open')) {
+        if (e.key === 'Escape') closeModal();
+        else if (e.key === 'ArrowLeft') modalNav(-1);
+        else if (e.key === 'ArrowRight') modalNav(1);
+    }
+});
+
+(function() {
+    var startX = 0, startY = 0;
+    modal.addEventListener('touchstart', function(e) {
+        startX = e.changedTouches[0].screenX;
+        startY = e.changedTouches[0].screenY;
+    }, { passive: true });
+    modal.addEventListener('touchend', function(e) {
+        var dx = e.changedTouches[0].screenX - startX;
+        var dy = e.changedTouches[0].screenY - startY;
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+            modalNav(dx < 0 ? 1 : -1);
+        }
+    }, { passive: true });
+})();
+
+modal.addEventListener('click', function(e) {
+    if (e.target === modal) closeModal();
+});
+
+document.querySelectorAll('.sidebar-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+        if (window.innerWidth <= 768) {
+            document.getElementById('sidebar').classList.remove('open');
+        }
+    });
+});
+
+// --- Audio Modal ---
+var audioListData = <?= json_encode($audioList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
+var audioIndex = 0;
+/* YouTube modal */
+var ytModal = document.getElementById('ytModal');
+var ytTracks = [
+    { id: 'rdoq4yi9cV0', title: '4 Classical Pieces | Relaxing Piano [15min]', duration: 900 },
+    { id: 'oPEBWXvo1Xc', title: '4 Pieces by Yiruma | Relaxing Piano [15min]', duration: 900 },
+    { id: 'mdJU5ogrPMY', title: 'Classical Music for Studying (2 hrs)', duration: 7200 }
+];
+var ytCurrentIdx = -1;
+
+function toggleYtModal() {
+    if (ytModal.classList.contains('open')) {
+        ytModal.classList.remove('open');
+    } else {
+        ytModal.classList.add('open');
+        if (ytCurrentIdx < 0) { buildYtTrackList(); loadYtTrack(0); }
+    }
+}
+
+function buildYtTrackList() {
+    var list = document.getElementById('ytTrackList');
+    list.innerHTML = '';
+    ytTracks.forEach(function(t, i) {
+        var btn = document.createElement('button');
+        btn.className = 'yt-track-btn';
+        btn.textContent = t.title;
+        btn.addEventListener('click', function() { loadYtTrack(i); });
+        list.appendChild(btn);
+    });
+}
+
+function loadYtTrack(idx, startSec) {
+    ytCurrentIdx = idx;
+    var t = ytTracks[idx];
+    var src = 'https://www.youtube.com/embed/' + t.id + '?autoplay=1';
+    if (startSec) {
+        src += '&start=' + startSec;
+        var m = Math.floor(startSec / 60);
+        var s = startSec % 60;
+        document.getElementById('ytTitle').textContent = t.title + ' — jumping to ' + m + ':' + (s < 10 ? '0' : '') + s;
+    } else {
+        document.getElementById('ytTitle').textContent = t.title;
+    }
+    document.getElementById('ytIframeWrap').innerHTML =
+        '<iframe src="' + src + '" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+    var btns = document.querySelectorAll('.yt-track-btn');
+    btns.forEach(function(b, i) {
+        b.className = 'yt-track-btn' + (i === idx ? ' active' : '');
+    });
+}
+
+function ytRandomSeek() {
+    if (ytCurrentIdx < 0) return;
+    var t = ytTracks[ytCurrentIdx];
+    var randomSec = Math.floor(Math.random() * (t.duration - 30));
+    loadYtTrack(ytCurrentIdx, randomSec);
+}
+
+var audioModal = document.getElementById('audioModal');
+var audioPlayer = document.getElementById('audioPlayer');
+var audioTitle = document.getElementById('audioTitle');
+var audioToggleBtn = document.getElementById('audioToggleBtn');
+
+function toggleAudioModal() {
+    if (audioModal.classList.contains('open')) {
+        audioModal.classList.remove('open');
+        audioPlayer.pause();
+        if (audioToggleBtn) audioToggleBtn.classList.remove('playing');
+    } else {
+        if (!audioListData.length) return;
+        audioModal.classList.add('open');
+        showAudioTrack();
+        if (audioToggleBtn) audioToggleBtn.classList.add('playing');
+    }
+}
+
+function audioSeek(seconds) {
+    if (!audioPlayer.duration || isNaN(audioPlayer.duration)) return;
+    var newTime = audioPlayer.currentTime + seconds;
+    audioPlayer.currentTime = Math.max(0, Math.min(audioPlayer.duration, newTime));
+}
+
+function audioNav(dir) {
+    audioIndex += dir;
+    if (audioIndex < 0) audioIndex = audioListData.length - 1;
+    if (audioIndex >= audioListData.length) audioIndex = 0;
+    showAudioTrack();
+    audioPlayer.play();
+}
+
+function showAudioTrack() {
+    if (!audioListData.length) return;
+    var track = audioListData[audioIndex];
+    audioPlayer.src = track.src;
+    audioPlayer.type = track.mime;
+    audioTitle.textContent = track.name;
+    document.getElementById('audioPrevBtn').disabled = audioListData.length <= 1;
+    document.getElementById('audioNextBtn').disabled = audioListData.length <= 1;
+}
+
+// Auto-open audio modal if an audio file was clicked
+<?php if ($currentAudioIdx >= 0): ?>
+(function() {
+    audioIndex = <?= $currentAudioIdx ?>;
+    audioModal.classList.add('open');
+    showAudioTrack();
+    audioPlayer.play();
+    if (audioToggleBtn) audioToggleBtn.classList.add('playing');
+})();
+<?php endif; ?>
+
+// --- Copy content ---
+var rawContent = <?= ($displayType === 'text' || $displayType === 'markdown') ? json_encode($displayContent, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
+function copyContent() {
+    if (!rawContent) return;
+    var btn = document.getElementById('copyBtn');
+    var fallback = function(text) {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+    };
+    var onSuccess = function() {
+        btn.innerHTML = '&#10003;';
+        btn.style.background = '#4caf50';
+        btn.style.color = '#fff';
+        setTimeout(function() {
+            btn.innerHTML = '&#128203;';
+            btn.style.background = 'rgb(224,224,224)';
+            btn.style.color = 'rgb(51,51,51)';
+            if (document.body.classList.contains('dark')) {
+                btn.style.background = '#555';
+                btn.style.color = '#ffdd57';
+            }
+        }, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(rawContent).then(onSuccess).catch(function() {
+            if (fallback(rawContent)) onSuccess();
+        });
+    } else {
+        if (fallback(rawContent)) onSuccess();
+    }
+}
+
+// --- Search ---
+(function() {
+    var searchInput = document.getElementById('searchInput');
+    var searchResults = document.getElementById('searchResults');
+    var sidebarList = document.getElementById('sidebarList');
+    var debounceTimer = null;
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        var query = this.value.trim();
+        if (!query) {
+            searchResults.style.display = 'none';
+            sidebarList.style.display = '';
+            searchResults.innerHTML = '';
+            return;
+        }
+        debounceTimer = setTimeout(function() { doSearch(query); }, 300);
+    });
+
+    searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            this.value = '';
+            searchResults.style.display = 'none';
+            sidebarList.style.display = '';
+            searchResults.innerHTML = '';
+            this.blur();
+        }
+    });
+
+    function doSearch(query) {
+        fetch('?search=' + encodeURIComponent(query))
+            .then(function(r) { return r.json(); })
+            .then(function(items) {
+                searchResults.innerHTML = '';
+                if (items.length === 0) {
+                    searchResults.innerHTML = '<div style="padding:12px 15px;color:#666;font-size:12px">No results found</div>';
+                } else {
+                    items.forEach(function(item) {
+                        var a = document.createElement('a');
+                        a.className = 'sidebar-item' + (item.type === 'folder' ? ' folder' : '');
+                        a.target = '_blank';
+                        if (item.type === 'folder') {
+                            a.href = '?folder=' + encodeURIComponent(item.path) + '&sort=<?= $sortBy ?>';
+                        } else {
+                            var parentFolder = item.parent || '';
+                            if (parentFolder) {
+                                a.href = '?folder=' + encodeURIComponent(parentFolder) + '&file=' + encodeURIComponent(item.path) + '&sort=<?= $sortBy ?>';
+                            } else {
+                                a.href = '?file=' + encodeURIComponent(item.path) + '&sort=<?= $sortBy ?>';
+                            }
+                        }
+                        var nameSpan = document.createElement('span');
+                        nameSpan.textContent = item.name;
+                        a.appendChild(nameSpan);
+                        if (item.ext) {
+                            var extSpan = document.createElement('span');
+                            extSpan.className = 'file-ext';
+                            extSpan.textContent = item.ext;
+                            a.appendChild(extSpan);
+                        }
+                        if (item.parent) {
+                            var parentSpan = document.createElement('span');
+                            parentSpan.className = 'search-result-parent';
+                            parentSpan.textContent = item.parent;
+                            a.appendChild(parentSpan);
+                        }
+                        searchResults.appendChild(a);
+                    });
+                }
+                searchResults.style.display = '';
+                sidebarList.style.display = 'none';
+            })
+            .catch(function() {
+                searchResults.innerHTML = '<div style="padding:12px 15px;color:#f44;font-size:12px">Search error</div>';
+                searchResults.style.display = '';
+                sidebarList.style.display = 'none';
+            });
+    }
+
+    // Keyboard shortcut: Ctrl+F or / to focus search
+    document.addEventListener('keydown', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.key === '/' || (e.ctrlKey && e.key === 'f')) {
+            e.preventDefault();
+            searchInput.focus();
+        }
+    });
+})();
+
+// --- Rename ---
+function renameFile() {
+    if (!currentFilePath) return;
+    var oldName = currentFilePath.split('/').pop();
+    var newName = prompt('Rename file:', oldName);
+    if (!newName || newName === oldName) return;
+    fetch('?rename=' + encodeURIComponent(currentFilePath), {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({newName: newName})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            // Navigate to renamed file
+            var params = new URLSearchParams(window.location.search);
+            params.set('file', data.newPath);
+            window.location.search = params.toString();
+        } else {
+            alert('Rename failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(function(err) {
+        alert('Rename error: ' + err.message);
+    });
+}
+
+// --- Edit & Save ---
+var isEditing = false;
+var editTextarea = null;
+var currentFilePath = <?= $currentFile ? json_encode($currentFile, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
+var currentDisplayType = <?= json_encode($displayType) ?>;
+
+function toggleEdit() {
+    if (!currentFilePath || (currentDisplayType !== 'text' && currentDisplayType !== 'markdown')) return;
+    var editBtn = document.getElementById('editBtn');
+    if (!isEditing) {
+        enterEditMode(editBtn);
+    } else {
+        saveAndExit(editBtn);
+    }
+}
+
+function enterEditMode(editBtn) {
+    isEditing = true;
+    editBtn.innerHTML = '&#128190;'; // floppy disk icon
+    editBtn.title = 'Save changes';
+    editBtn.style.background = '#4caf50';
+    editBtn.style.color = '#fff';
+
+    var contentEl = currentDisplayType === 'markdown'
+        ? document.getElementById('markdown-render')
+        : document.querySelector('.text-content');
+    if (!contentEl) return;
+
+    editTextarea = document.createElement('textarea');
+    editTextarea.value = rawContent;
+    editTextarea.style.cssText = 'width:100%;min-height:80vh;padding:16px;font-family:monospace;font-size:14px;border:2px solid #4caf50;border-radius:8px;resize:vertical;box-sizing:border-box;background:#1e1e1e;color:#d4d4d4;line-height:1.6;tab-size:4;';
+    editTextarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            var start = this.selectionStart;
+            var end = this.selectionEnd;
+            this.value = this.value.substring(0, start) + '\t' + this.value.substring(end);
+            this.selectionStart = this.selectionEnd = start + 1;
+        }
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            saveAndExit(editBtn);
+        }
+    });
+    contentEl.style.display = 'none';
+    contentEl.parentNode.insertBefore(editTextarea, contentEl.nextSibling);
+    editTextarea.focus();
+}
+
+function saveAndExit(editBtn) {
+    if (!editTextarea) return;
+    var newContent = editTextarea.value;
+    editBtn.innerHTML = '&#8987;'; // hourglass
+    editBtn.style.background = '#ff9800';
+
+    fetch('?save=' + encodeURIComponent(currentFilePath), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            rawContent = newContent;
+            var contentEl = currentDisplayType === 'markdown'
+                ? document.getElementById('markdown-render')
+                : document.querySelector('.text-content');
+            if (currentDisplayType === 'markdown') {
+                contentEl.innerHTML = marked.parse(newContent);
+                contentEl.querySelectorAll('pre code').forEach(function(block) {
+                    hljs.highlightElement(block);
+                });
+            } else {
+                contentEl.textContent = newContent;
+            }
+            contentEl.style.display = '';
+            editTextarea.remove();
+            editTextarea = null;
+            isEditing = false;
+            editBtn.innerHTML = '&#9998;';
+            editBtn.title = 'Edit and save back to local file';
+            editBtn.style.background = 'rgb(224,224,224)';
+            editBtn.style.color = 'rgb(51,51,51)';
+            if (document.body.classList.contains('dark')) {
+                editBtn.style.background = '#555';
+                editBtn.style.color = '#ffdd57';
+            }
+            // Flash green to confirm save
+            editBtn.style.background = '#4caf50';
+            editBtn.style.color = '#fff';
+            editBtn.innerHTML = '&#10003;';
+            setTimeout(function() {
+                editBtn.innerHTML = '&#9998;';
+                editBtn.style.background = 'rgb(224,224,224)';
+                editBtn.style.color = 'rgb(51,51,51)';
+                if (document.body.classList.contains('dark')) {
+                    editBtn.style.background = '#555';
+                    editBtn.style.color = '#ffdd57';
+                }
+            }, 1500);
+        } else {
+            alert('Save failed: ' + (data.error || 'Unknown error'));
+            editBtn.innerHTML = '&#128190;';
+            editBtn.style.background = '#4caf50';
+            editBtn.style.color = '#fff';
+        }
+    })
+    .catch(function(err) {
+        alert('Save error: ' + err.message);
+        editBtn.innerHTML = '&#128190;';
+        editBtn.style.background = '#4caf50';
+        editBtn.style.color = '#fff';
+    });
+}
+
+// --- New File ---
+var currentFolderPath = <?= $currentFolder ? json_encode($currentFolder, JSON_HEX_TAG | JSON_HEX_AMP) : "''" ?>;
+function createNewFile() {
+    navigator.clipboard.readText().then(function(clipText) {
+        var fileName = prompt('New file name:', 'new_file.md');
+        if (!fileName) return;
+        var params = 'newfile=1';
+        if (currentFolderPath) params += '&folder=' + encodeURIComponent(currentFolderPath);
+        fetch('?' + params, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: fileName, content: clipText || '' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                // Navigate to the new file
+                var url = '?file=' + encodeURIComponent(data.path);
+                if (currentFolderPath) url = '?folder=' + encodeURIComponent(currentFolderPath) + '&file=' + encodeURIComponent(data.path);
+                url += '&sort=<?= $sortBy ?>';
+                window.location.href = url;
+            } else {
+                alert('Failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(function(err) { alert('Error: ' + err.message); });
+    }).catch(function() {
+        // Clipboard access denied — create empty file
+        var fileName = prompt('New file name (clipboard unavailable, file will be empty):', 'new_file.md');
+        if (!fileName) return;
+        var params = 'newfile=1';
+        if (currentFolderPath) params += '&folder=' + encodeURIComponent(currentFolderPath);
+        fetch('?' + params, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: fileName, content: '' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.ok) {
+                var url = '?file=' + encodeURIComponent(data.path);
+                if (currentFolderPath) url = '?folder=' + encodeURIComponent(currentFolderPath) + '&file=' + encodeURIComponent(data.path);
+                url += '&sort=<?= $sortBy ?>';
+                window.location.href = url;
+            } else {
+                alert('Failed: ' + (data.error || 'Unknown error'));
+            }
+        })
+        .catch(function(err) { alert('Error: ' + err.message); });
+    });
+}
+
+// --- Preserve sidebar scroll position across page loads ---
+(function() {
+    var sidebarList = document.getElementById('sidebarList');
+    var key = 'sidebarScrollTop';
+    var saved = sessionStorage.getItem(key);
+    if (saved !== null) {
+        sidebarList.scrollTop = parseInt(saved);
+    }
+    // Save scroll position before navigating away
+    window.addEventListener('beforeunload', function() {
+        sessionStorage.setItem(key, sidebarList.scrollTop);
+    });
+})();
+
+// Make sidebar audio file clicks open modal instead of navigating
+document.querySelectorAll('.sidebar-item').forEach(function(item) {
+    var href = item.getAttribute('href');
+    if (!href) return;
+    var isAudio = false;
+    for (var i = 0; i < audioListData.length; i++) {
+        if (href === audioListData[i].url) { isAudio = true; item.dataset.audioIdx = i; break; }
+    }
+    if (isAudio) {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            audioIndex = parseInt(this.dataset.audioIdx);
+            if (!audioModal.classList.contains('open')) {
+                audioModal.classList.add('open');
+                if (audioToggleBtn) audioToggleBtn.classList.add('playing');
+            }
+            showAudioTrack();
+            audioPlayer.play();
+        });
+    }
+});
+</script>
+</body>
+</html>

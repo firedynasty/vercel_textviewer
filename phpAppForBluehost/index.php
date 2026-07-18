@@ -966,6 +966,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 .yt-embed-modal {
     display: none;
     position: fixed; bottom: 0; left: 220px; right: 0;
+    height: 70vh;
     background: #0f0f0f;
     z-index: 1490;
     flex-direction: column;
@@ -977,8 +978,9 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 .yt-embed-modal.open { display: flex; }
 @media (max-width: 768px) { .yt-embed-modal { left: 0; } }
 .yt-embed-bar {
-    display: flex; width: 100%; max-width: 740px;
+    display: flex; width: 100%; max-width: 960px;
     gap: 6px; align-items: center; margin-bottom: 8px;
+    flex-shrink: 0;
 }
 .yt-embed-input {
     flex: 1; padding: 6px 10px; border-radius: 6px;
@@ -998,10 +1000,11 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 }
 .yt-embed-close:hover { color: #fff; }
 .yt-embed-player-wrap {
-    width: 100%; max-width: 740px;
+    width: 100%; max-width: 960px;
+    flex: 1; min-height: 0;
 }
 #ytEmbedPlayerEl, .yt-embed-player-wrap iframe {
-    width: 100%; height: 230px; border: none; border-radius: 6px;
+    width: 100%; height: 100%; border: none; border-radius: 6px;
     display: block;
 }
 </style>
@@ -2132,7 +2135,7 @@ function loadYtEmbed() {
         // Replace the placeholder div (gets consumed by YT.Player)
         document.getElementById('ytEmbedPlayerWrap').innerHTML = '<div id="ytEmbedPlayerEl"></div>';
         ytEmbedPlayerInst = new YT.Player('ytEmbedPlayerEl', {
-            height: '230', width: '100%',
+            height: '100%', width: '100%',
             videoId: id,
             playerVars: { autoplay: 1, rel: 0, modestbranding: 1 }
         });

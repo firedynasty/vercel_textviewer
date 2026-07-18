@@ -2114,6 +2114,13 @@ function onYouTubeIframeAPIReady() {
 
 function toggleYtEmbedModal() {
     var open = ytEmbedModal.classList.toggle('open');
+    var pads = [
+        document.getElementById('contentArea'),
+        document.getElementById('paneRight')
+    ];
+    pads.forEach(function(el) {
+        if (el) el.style.paddingBottom = open ? '70vh' : '';
+    });
     if (open) {
         setTimeout(function() { document.getElementById('ytEmbedInput').focus(); }, 60);
     }

@@ -1658,6 +1658,101 @@ document.addEventListener('keydown', function(e) {
             }
         }
     }
+
+    // [ / ] — navigate prev/next line in text content (useful for CSV row-by-row reading)
+    if ((e.key === '[' || e.key === ']') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        var lnSel = window.getSelection();
+        if (!lnSel || !lnSel.rangeCount) return;
+        var lnRange = lnSel.getRangeAt(0);
+        // Walk up to find the nearest .text-content or .markdown-content container
+        var lnNode = lnRange.startContainer.nodeType === 3
+            ? lnRange.startContainer.parentElement
+            : lnRange.startContainer;
+        var lnTextEl = null;
+        while (lnNode) {
+            if (lnNode.classList && (lnNode.classList.contains('text-content') || lnNode.classList.contains('markdown-content'))) {
+                lnTextEl = lnNode;
+                break;
+            }
+            lnNode = lnNode.parentElement;
+        }
+        if (!lnTextEl) return;
+
+        // Calculate char offset of selection start within lnTextEl
+        function lnGetOffset(root, targetNode, targetOff) {
+            var pos = 0;
+            function walk(n) {
+                if (n === targetNode) { pos += targetOff; return true; }
+                if (n.nodeType === 3) { pos += n.textContent.length; return false; }
+                for (var i = 0; i < n.childNodes.length; i++) { if (walk(n.childNodes[i])) return true; }
+                return false;
+            }
+            walk(root);
+            return pos;
+        }
+
+        var lnFullText = lnTextEl.textContent;
+        var lnLines = lnFullText.split('\n');
+        var lnStartOff = lnGetOffset(lnTextEl, lnRange.startContainer, lnRange.startOffset);
+
+        // Find current line index
+        var lnCharCount = 0, lnCurLine = 0;
+        for (var li = 0; li < lnLines.length; li++) {
+            var lnLen = lnLines[li].length + 1; // +1 for \n
+            if (lnStartOff < lnCharCount + lnLen) { lnCurLine = li; break; }
+            lnCharCount += lnLen;
+            lnCurLine = li;
+        }
+
+        var lnTarget = e.key === '[' ? lnCurLine - 1 : lnCurLine + 1;
+        if (lnTarget < 0 || lnTarget >= lnLines.length) return;
+
+        e.preventDefault();
+
+        // Compute char start/end for target line
+        var lnTargetStart = 0;
+        for (var li2 = 0; li2 < lnTarget; li2++) lnTargetStart += lnLines[li2].length + 1;
+        var lnTargetEnd = lnTargetStart + lnLines[lnTarget].length;
+
+        // Build a DOM range spanning the target line
+        function lnMakeRange(root, startChar, endChar) {
+            var pos = 0, sNode = null, sOff = 0, eNode = null, eOff = 0;
+            function walk(n) {
+                if (sNode && eNode) return;
+                if (n.nodeType === 3) {
+                    var len = n.textContent.length;
+                    if (!sNode && pos + len > startChar) { sNode = n; sOff = startChar - pos; }
+                    if (!eNode && pos + len >= endChar)  { eNode = n; eOff = endChar - pos; }
+                    pos += len;
+                } else {
+                    for (var i = 0; i < n.childNodes.length; i++) {
+                        walk(n.childNodes[i]);
+                        if (sNode && eNode) return;
+                    }
+                }
+            }
+            walk(root);
+            if (!sNode) return null;
+            if (!eNode) { eNode = sNode; eOff = sNode.textContent.length; }
+            var r = document.createRange();
+            r.setStart(sNode, sOff);
+            r.setEnd(eNode, eOff);
+            return r;
+        }
+
+        var lnNewRange = lnMakeRange(lnTextEl, lnTargetStart, lnTargetEnd);
+        if (!lnNewRange) return;
+        lnSel.removeAllRanges();
+        lnSel.addRange(lnNewRange);
+
+        // Scroll selected line into view
+        var lnRect = lnNewRange.getBoundingClientRect();
+        if (lnRect.top < 80 || lnRect.bottom > window.innerHeight - 20) {
+            var scrollEl = lnTextEl.closest('.content-area, .pane-right') || document.documentElement;
+            var elRect = scrollEl.getBoundingClientRect();
+            scrollEl.scrollTop += lnRect.top - elRect.top - (scrollEl.clientHeight / 2);
+        }
+    }
 });
 
 (function() {
@@ -1817,6 +1912,7 @@ var shortcutsContent = `
 - **TXT>MD** — Render plain .txt as Markdown
 - **✎** — Edit & save file
 - **📋** — Copy raw content
+- **[  /  ]** — Select previous / next line (highlight a line first; great for CSV row-by-row)
 
 ## Text-to-Speech (highlight any text first)
 - **a** — Read selection in Cantonese (zh-HK)

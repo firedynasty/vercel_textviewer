@@ -708,6 +708,24 @@ body.dark #splitBtn { background: #555; color: #ffdd57; }
     word-break: break-word;
     border-top: 1px solid #eee;
 }
+.folder-card.kb-focus {
+    outline: 3px solid #667eea;
+    outline-offset: 2px;
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(102,126,234,0.5);
+}
+body.dark .folder-card.kb-focus {
+    outline-color: #7ec8e3;
+    box-shadow: 0 6px 20px rgba(126,200,227,0.4);
+}
+.gallery-item.kb-focus {
+    outline: 3px solid #667eea;
+    outline-offset: 3px;
+    border-radius: 4px;
+}
+body.dark .gallery-item.kb-focus {
+    outline-color: #7ec8e3;
+}
 
 /* Gallery grid (inside folder) */
 .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
@@ -1392,9 +1410,23 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             </p>
 
         <?php else: ?>
-            <!-- Landing page: folder thumbnail grid -->
-            <?php if (!empty($folderCards)): ?>
-                <div class="folder-grid">
+            <!-- Landing page: folder thumbnail grid + root-level files -->
+            <?php
+            $rootImageExts = ['png','jpg','jpeg','gif','webp','bmp','svg'];
+            $rootVideoExts = ['mp4','webm','ogg','mov','avi','mkv','m4v'];
+            $rootAudioExts = ['mp3','m4a'];
+            $rootTextExts  = ['txt','md','html','htm','docx','rtf','pdf'];
+            $rootFiles     = array_values(array_filter($items, function($i) { return $i['type'] === 'file'; }));
+            $hasAnything   = !empty($folderCards) || !empty($rootFiles);
+            ?>
+            <?php if (!$hasAnything): ?>
+                <div style="color:#999;text-align:center;padding:60px 20px">
+                    <p style="font-size:18px;margin-bottom:8px">No content yet</p>
+                    <p style="font-size:13px">Add subfolders or files to <code><?= htmlspecialchars($contentDir) ?>/</code> and they'll appear here.</p>
+                </div>
+            <?php else: ?>
+                <?php if (!empty($folderCards)): ?>
+                <div class="folder-grid" <?= !empty($rootFiles) ? 'style="margin-bottom:20px"' : '' ?>>
                     <?php foreach ($folderCards as $card): ?>
                         <a class="folder-card" href="<?= itemUrl(['folder'=>$card['path']]) ?>">
                             <?php if ($card['thumb']): ?>
@@ -1406,11 +1438,54 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                         </a>
                     <?php endforeach; ?>
                 </div>
-            <?php else: ?>
-                <div style="color:#999;text-align:center;padding:60px 20px">
-                    <p style="font-size:18px;margin-bottom:8px">No folders yet</p>
-                    <p style="font-size:13px">Add subfolders to <code><?= htmlspecialchars($contentDir) ?>/</code> and they'll appear here.</p>
+                <?php endif; ?>
+
+                <?php if (!empty($rootFiles)): ?>
+                <div class="gallery">
+                    <?php
+                    $rootImgIdx = 0;
+                    foreach ($rootFiles as $rf):
+                        $rfExt = $rf['ext'] ?? '';
+                        $rfEnc = implode('/', array_map('rawurlencode', explode('/', $rf['path'])));
+                        if (in_array($rfExt, $rootImageExts)):
+                    ?>
+                        <div class="gallery-item">
+                            <img src="<?= $contentDir . '/' . htmlspecialchars($rfEnc) ?>"
+                                 alt="<?= htmlspecialchars($rf['name']) ?>"
+                                 onclick="openModalAt(<?= $rootImgIdx ?>)" title="Click to enlarge"
+                                 style="cursor:pointer">
+                            <div class="caption"><?= htmlspecialchars($rf['name']) ?></div>
+                        </div>
+                    <?php $rootImgIdx++;
+                        elseif (in_array($rfExt, $rootVideoExts)):
+                    ?>
+                        <div class="gallery-item">
+                            <a href="<?= itemUrl(['file'=>$rf['path']]) ?>">
+                                <video style="width:100%;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1)" muted preload="metadata">
+                                    <source src="<?= $contentDir . '/' . htmlspecialchars($rfEnc) ?>" type="video/mp4">
+                                </video>
+                            </a>
+                            <div class="caption"><?= htmlspecialchars($rf['name']) ?></div>
+                        </div>
+                    <?php elseif (in_array($rfExt, $rootAudioExts)): ?>
+                        <div class="gallery-item">
+                            <a href="<?= itemUrl(['file'=>$rf['path']]) ?>"
+                               style="display:block;padding:20px;background:#1a1a2e;border-radius:4px;text-decoration:none;color:#eee;box-shadow:0 2px 8px rgba(0,0,0,0.08);text-align:center">
+                                <div style="font-size:28px;margin-bottom:8px">&#9835;</div>
+                                <?= htmlspecialchars($rf['name']) ?>
+                            </a>
+                            <div class="caption"><?= htmlspecialchars($rf['name']) ?></div>
+                        </div>
+                    <?php elseif (in_array($rfExt, $rootTextExts)): ?>
+                        <div class="gallery-item">
+                            <a href="<?= itemUrl(['file'=>$rf['path']]) ?>"
+                               style="display:block;padding:20px;background:#fff;border-radius:4px;text-decoration:none;color:#333;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+                                <?= htmlspecialchars($rf['name']) ?>
+                            </a>
+                        </div>
+                    <?php endif; endforeach; ?>
                 </div>
+                <?php endif; ?>
             <?php endif; ?>
         <?php endif; ?>
 
@@ -1655,6 +1730,69 @@ function showModalImage() {
     });
 }
 
+// Grid/gallery keyboard navigation (0/9 = prev/next, Enter = open)
+(function() {
+    var kbIdx = -1;
+
+    // Collect all navigable items: folder cards + gallery items
+    function getNavItems() {
+        var items = [];
+        // Folder cards (<a> tags)
+        document.querySelectorAll('.folder-grid .folder-card').forEach(function(el) {
+            items.push({ el: el, type: 'link', href: el.getAttribute('href') });
+        });
+        // Gallery items
+        document.querySelectorAll('.gallery .gallery-item').forEach(function(el) {
+            var link = el.querySelector('a');
+            if (link) {
+                items.push({ el: el, type: 'link', href: link.getAttribute('href') });
+            } else {
+                // Image with onclick="openModalAt(n)"
+                var img = el.querySelector('img');
+                if (img) {
+                    var oc = img.getAttribute('onclick') || '';
+                    var m = oc.match(/openModalAt\((\d+)\)/);
+                    items.push({ el: el, type: 'modal', idx: m ? parseInt(m[1]) : 0 });
+                }
+            }
+        });
+        return items;
+    }
+
+    function setKbFocus(items, idx) {
+        items.forEach(function(it) { it.el.classList.remove('kb-focus'); });
+        if (idx < 0 || idx >= items.length) { kbIdx = -1; return; }
+        kbIdx = idx;
+        items[idx].el.classList.add('kb-focus');
+        items[idx].el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    window.folderGridNav = function(dir) {
+        var items = getNavItems();
+        if (!items.length) return false;
+        var next = kbIdx < 0 ? (dir > 0 ? 0 : items.length - 1)
+                              : Math.max(0, Math.min(items.length - 1, kbIdx + dir));
+        setKbFocus(items, next);
+        return true;
+    };
+
+    window.folderGridOpen = function() {
+        var items = getNavItems();
+        if (kbIdx < 0 || kbIdx >= items.length) return false;
+        var it = items[kbIdx];
+        if (it.type === 'link') window.location.href = it.href;
+        else if (it.type === 'modal' && typeof openModalAt === 'function') openModalAt(it.idx);
+        return true;
+    };
+
+    // Reset highlight on click
+    document.addEventListener('click', function(e) {
+        if (e.target.closest && (e.target.closest('.folder-card') || e.target.closest('.gallery-item'))) {
+            kbIdx = -1;
+        }
+    });
+})();
+
 document.addEventListener('keydown', function(e) {
     // Never hijack keys while editing or typing in any input/textarea
     if (isEditing || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -1663,6 +1801,27 @@ document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeShortcuts();
         return;
     }
+
+    // [ — navigate back (go up one folder level)
+    if (e.key === '[' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        var backLink = document.querySelector('.sidebar-header a[href]');
+        if (backLink && backLink.textContent.trim() === 'Back') {
+            e.preventDefault();
+            window.location.href = backLink.getAttribute('href');
+            return;
+        }
+    }
+
+    // Grid/gallery navigation: 9 = prev (left), 0 = next (right), Enter = open focused item
+    if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        var hasGrid = document.querySelector('.folder-grid, .gallery') !== null;
+        if (hasGrid) {
+            if (e.key === '0') { if (window.folderGridNav(1)) { e.preventDefault(); return; } }
+            if (e.key === '9') { if (window.folderGridNav(-1)) { e.preventDefault(); return; } }
+            if (e.key === 'Enter' && window.folderGridOpen()) { e.preventDefault(); return; }
+        }
+    }
+
     if (modal.classList.contains('open')) {
         if (e.key === 'Escape') closeModal();
         else if (e.key === 'ArrowLeft') modalNav(-1);
@@ -2001,6 +2160,12 @@ var shortcutsContent = `
 - **← / →** — Previous / next file in sidebar
 - **↑ / ↓** — Page up / page down in text content (P2 right pane when active)
 - **Esc** — Close any open modal
+
+## Folder / File Grid
+- **0** — Move highlight right (next item)
+- **9** — Move highlight left (previous item)
+- **Enter** — Open highlighted folder or file
+- **[** — Go back (up one folder level)
 
 ## Image Modal
 - **← / →** — Prev / next image

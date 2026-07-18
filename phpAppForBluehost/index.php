@@ -961,6 +961,49 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 .yt-iframe-wrap iframe {
     width: 100%; height: 200px; border: none; border-radius: 6px;
 }
+
+/* YouTube Embed (paste-any-URL) footer modal */
+.yt-embed-modal {
+    display: none;
+    position: fixed; bottom: 0; left: 220px; right: 0;
+    background: #0f0f0f;
+    z-index: 1490;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 16px 14px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    border-top: 2px solid #ff0000;
+}
+.yt-embed-modal.open { display: flex; }
+@media (max-width: 768px) { .yt-embed-modal { left: 0; } }
+.yt-embed-bar {
+    display: flex; width: 100%; max-width: 740px;
+    gap: 6px; align-items: center; margin-bottom: 8px;
+}
+.yt-embed-input {
+    flex: 1; padding: 6px 10px; border-radius: 6px;
+    border: 1px solid #444; background: #222; color: #eee;
+    font-size: 12px; outline: none;
+}
+.yt-embed-input:focus { border-color: #ff0000; }
+.yt-embed-load-btn {
+    padding: 6px 12px; border-radius: 6px; border: none;
+    background: #ff0000; color: #fff; font-size: 12px;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.yt-embed-load-btn:hover { background: #cc0000; }
+.yt-embed-close {
+    background: none; border: none; color: #888;
+    font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.yt-embed-close:hover { color: #fff; }
+.yt-embed-player-wrap {
+    width: 100%; max-width: 740px;
+}
+#ytEmbedPlayerEl, .yt-embed-player-wrap iframe {
+    width: 100%; height: 230px; border: none; border-radius: 6px;
+    display: block;
+}
 </style>
 </head>
 <body>
@@ -1117,6 +1160,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 <button class="audio-toggle-btn" id="audioToggleBtn" title="Toggle audio player" onclick="toggleAudioModal()">&#9835;</button>
             <?php endif; ?>
             <button title="YouTube music" onclick="toggleYtModal()" style="width:32px;height:32px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);display:flex;align-items:center;justify-content:center;padding:0"><svg width="20" height="14" viewBox="0 0 68 48"><path d="M66.5 7.7s-.7-4.7-2.7-6.8C61-1.7 58-1.7 56.6-1.9 47.3-2.6 34-2.6 34-2.6s-13.3 0-22.6.7C10-1.7 7-1.7 4.2.9 2.2 3 1.5 7.7 1.5 7.7S.8 13.2.8 18.8v5.2c0 5.5.7 11.1.7 11.1s.7 4.7 2.7 6.8c2.8 2.6 6.4 2.5 8 2.8 5.8.5 24.8.7 24.8.7s13.3 0 22.6-.7c1.4-.2 4.4-.2 7.2-2.8 2-2.1 2.7-6.8 2.7-6.8s.7-5.5.7-11.1v-5.2c0-5.6-.7-11.1-.7-11.1z" fill="red"/><path d="M27 33V13l18.2 10L27 33z" fill="white"/></svg></button>
+            <button id="ytEmbedToggleBtn" title="YouTube embed — paste any URL" onclick="toggleYtEmbedModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#ff0000;color:#fff">YT</button>
             <?php if ($currentFile): ?>
                 <a class="download-link" href="<?= $contentDir . '/' . htmlspecialchars($currentFile) ?>" download>Download</a>
             <?php endif; ?>
@@ -1455,6 +1499,18 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     </div>
 </div>
 
+<!-- YouTube Embed (paste-any-URL) footer modal -->
+<div class="yt-embed-modal" id="ytEmbedModal">
+    <div class="yt-embed-bar">
+        <input class="yt-embed-input" id="ytEmbedInput" type="text" placeholder="Paste YouTube URL then press Enter or Load…">
+        <button class="yt-embed-load-btn" onclick="loadYtEmbed()">&#9654; Load</button>
+        <button class="yt-embed-close" onclick="toggleYtEmbedModal()">&times;</button>
+    </div>
+    <div class="yt-embed-player-wrap" id="ytEmbedPlayerWrap">
+        <div id="ytEmbedPlayerEl"></div>
+    </div>
+</div>
+
 <script>
 var imageList = <?= json_encode($imageList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
 var modalIndex = 0;
@@ -1655,6 +1711,16 @@ document.addEventListener('keydown', function(e) {
                 e.preventDefault();
                 var ttsLangMap = { a: 'zh-HK', m: 'zh-CN', p: 'es-ES', k: 'ko-KR', f: 'fr-FR', r: 'en-US' };
                 speakSelection(ttsText, ttsLangMap[e.key]);
+            }
+        }
+
+        // y — seek YouTube embed to highlighted time (M:SS, H:MM:SS, or bare seconds)
+        if (e.key === 'y' && ytEmbedModal.classList.contains('open')) {
+            var ytSel = window.getSelection();
+            var ytText = ytSel ? ytSel.toString().trim() : '';
+            if (ytText && /^(\d+:\d{2}(:\d{2})?|\d+)$/.test(ytText)) {
+                e.preventDefault();
+                ytEmbedSeekTo(parseAudioTime(ytText));
             }
         }
     }
@@ -1914,6 +1980,10 @@ var shortcutsContent = `
 - **📋** — Copy raw content
 - **[  /  ]** — Select previous / next line (highlight a line first; great for CSV row-by-row)
 
+## YouTube Embed  *(open with **YT** button)*
+- Paste any YouTube URL → Enter or **▶ Load**
+- **y** — Seek to highlighted time in text (e.g. highlight \`1:23\` and press y)
+
 ## Text-to-Speech (highlight any text first)
 - **a** — Read selection in Cantonese (zh-HK)
 - **m** — Read selection in Mandarin (zh-CN)
@@ -2028,6 +2098,63 @@ function parseAudioTime(str) {
     if (parts.length === 2) return parts[0]*60 + parts[1];
     return parts[0] || 0;
 }
+
+// --- YouTube Embed Modal ---
+var ytEmbedModal = document.getElementById('ytEmbedModal');
+var ytEmbedPlayerInst = null;   // YT.Player instance
+var ytEmbedAPIReady = false;
+
+// Called by the IFrame API script when it finishes loading
+function onYouTubeIframeAPIReady() {
+    ytEmbedAPIReady = true;
+}
+
+function toggleYtEmbedModal() {
+    var open = ytEmbedModal.classList.toggle('open');
+    if (open) {
+        setTimeout(function() { document.getElementById('ytEmbedInput').focus(); }, 60);
+    }
+}
+
+function ytExtractId(url) {
+    var m = url.match(/(?:youtu\.be\/|[?&]v=|\/embed\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+}
+
+function loadYtEmbed() {
+    var url = document.getElementById('ytEmbedInput').value.trim();
+    if (!url) return;
+    var id = ytExtractId(url);
+    if (!id) { alert('Could not find a YouTube video ID in that URL'); return; }
+    if (ytEmbedPlayerInst && typeof ytEmbedPlayerInst.loadVideoById === 'function') {
+        ytEmbedPlayerInst.loadVideoById(id);
+    } else if (typeof YT !== 'undefined' && YT.Player) {
+        // Replace the placeholder div (gets consumed by YT.Player)
+        document.getElementById('ytEmbedPlayerWrap').innerHTML = '<div id="ytEmbedPlayerEl"></div>';
+        ytEmbedPlayerInst = new YT.Player('ytEmbedPlayerEl', {
+            height: '230', width: '100%',
+            videoId: id,
+            playerVars: { autoplay: 1, rel: 0, modestbranding: 1 }
+        });
+    } else {
+        // API not ready yet — fall back to plain iframe
+        document.getElementById('ytEmbedPlayerWrap').innerHTML =
+            '<iframe src="https://www.youtube.com/embed/' + id + '?autoplay=1&rel=0"' +
+            ' allow="autoplay;encrypted-media" allowfullscreen></iframe>';
+    }
+}
+
+function ytEmbedSeekTo(seconds) {
+    if (ytEmbedPlayerInst && typeof ytEmbedPlayerInst.seekTo === 'function') {
+        ytEmbedPlayerInst.seekTo(seconds, true);
+        ytEmbedPlayerInst.playVideo();
+    }
+}
+
+// Enter key in URL input triggers load
+document.getElementById('ytEmbedInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); loadYtEmbed(); }
+});
 
 var audioJumpModal = document.getElementById('audioJumpModal');
 var audioJumpInput = document.getElementById('audioJumpInput');
@@ -2565,5 +2692,6 @@ function toggleRightTxtMd() {
 
 applySplitMode();
 </script>
+<script src="https://www.youtube.com/iframe_api"></script>
 </body>
 </html>

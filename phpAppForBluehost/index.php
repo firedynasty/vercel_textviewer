@@ -1648,12 +1648,12 @@ document.addEventListener('keydown', function(e) {
 
     // TTS — works anywhere (not editing, no modifier keys)
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (e.key === 'a' || e.key === 'm' || e.key === 'p' || e.key === 'k' || e.key === 'f') {
+        if (e.key === 'a' || e.key === 'm' || e.key === 'p' || e.key === 'k' || e.key === 'f' || e.key === 'r') {
             var ttsSel = window.getSelection();
             var ttsText = ttsSel ? ttsSel.toString().trim() : '';
             if (ttsText) {
                 e.preventDefault();
-                var ttsLangMap = { a: 'zh-HK', m: 'zh-CN', p: 'es-ES', k: 'ko-KR', f: 'fr-FR' };
+                var ttsLangMap = { a: 'zh-HK', m: 'zh-CN', p: 'es-ES', k: 'ko-KR', f: 'fr-FR', r: 'en-US' };
                 speakSelection(ttsText, ttsLangMap[e.key]);
             }
         }
@@ -1824,6 +1824,7 @@ var shortcutsContent = `
 - **p** — Read selection in Spanish (es-ES)
 - **k** — Read selection in Korean (ko-KR)
 - **f** — Read selection in French (fr-FR)
+- **r** — Read selection in English (en-US)
 
 ## General
 - **☽ / ☀** — Toggle dark / light mode
@@ -1892,6 +1893,15 @@ function ttsBestVoice(lang) {
             voices.find(function(v) { return has(v, 'fr') && (v.name.includes('Enhanced') || v.name.includes('Premium')); }) ||
             (function() { for (var i = 0; i < preferredFR.length; i++) { var f = voices.find(function(v) { return has(v, 'fr') && v.name.includes(preferredFR[i]); }); if (f) return f; } return null; })() ||
             voices.find(function(v) { return has(v, 'fr'); }) ||
+            null
+        );
+    } else if (lang === 'en-US') {
+        return (
+            voices.find(function(v) { return has(v, 'en') && v.name.includes('Google') && notBad(v); }) ||
+            voices.find(function(v) { return has(v, 'en-US') && (v.name.includes('Enhanced') || v.name.includes('Premium')) && notBad(v); }) ||
+            voices.find(function(v) { return has(v, 'en-US') && notBad(v); }) ||
+            voices.find(function(v) { return has(v, 'en') && notBad(v); }) ||
+            voices.find(function(v) { return has(v, 'en'); }) ||
             null
         );
     } else { // zh-HK

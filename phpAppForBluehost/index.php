@@ -546,6 +546,7 @@ body {
 }
 .sidebar-item:hover { background: #16213e; color: #fff; }
 .sidebar-item.active { background: #16213e; border-left-color: #7ec8e3; color: #7ec8e3; }
+.sidebar-item.p2-active { background: #16213e; border-left-color: #ea580c; color: #ea580c; }
 .sidebar-item.folder { font-weight: bold; color: #e8c547; }
 .sidebar-item.folder::before { content: "\1F4C1 "; }
 .sidebar-item.back { color: #7ec8e3; font-style: italic; }
@@ -1643,6 +1644,15 @@ function showModalImage() {
     modalImg.src = img.src;
     modalCaption.textContent = img.name;
     modalCounter.textContent = (modalIndex + 1) + ' / ' + imageList.length;
+    // Sync sidebar active highlight
+    var targetUrl = img.url;
+    document.querySelectorAll('.sidebar-item').forEach(function(el) {
+        el.classList.remove('active');
+        if (el.getAttribute('href') === targetUrl) {
+            el.classList.add('active');
+            el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+    });
 }
 
 document.addEventListener('keydown', function(e) {
@@ -1676,8 +1686,22 @@ document.addEventListener('keydown', function(e) {
                 var destFile = destParams['file'];
                 var textExts = ['txt','csv','json','log','md'];
                 if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
-                    // Text file → load into right pane, keep current left pane file
                     var p = new URLSearchParams(window.location.search);
+                    if (p.get('p2') === destFile) {
+                        // Txt already in right pane — advance left pane to next/prev image
+                        var curFile = p.get('file') || '';
+                        var curImgIdx = -1;
+                        for (var ii = 0; ii < imageList.length; ii++) {
+                            var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
+                            if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
+                        }
+                        var nextImgIdx = curImgIdx + (e.key === 'ArrowRight' ? 1 : -1);
+                        if (nextImgIdx >= 0 && nextImgIdx < imageList.length) {
+                            window.location.href = imageList[nextImgIdx].url;
+                        }
+                        return;
+                    }
+                    // Text file → load into right pane, keep current left pane file
                     p.set('p2', destFile);
                     window.location.href = '?' + p.toString();
                     return;
@@ -1685,6 +1709,21 @@ document.addEventListener('keydown', function(e) {
             }
             // Media file (or P2 closed) → normal left-pane navigation
             window.location.href = btn.href;
+        }
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        // Scroll text content area by one page (like PageUp/PageDown)
+        var scrollTarget = null;
+        var paneRightEl = document.getElementById('paneRight');
+        var contentAreaEl = document.getElementById('contentArea');
+        if (splitMode && paneRightEl && paneRightEl.style.display !== 'none' && paneRightEl.scrollHeight > paneRightEl.clientHeight) {
+            scrollTarget = paneRightEl;
+        } else if (contentAreaEl && contentAreaEl.scrollHeight > contentAreaEl.clientHeight) {
+            scrollTarget = contentAreaEl;
+        }
+        if (scrollTarget) {
+            e.preventDefault();
+            var pageAmt = scrollTarget.clientHeight * 0.85;
+            scrollTarget.scrollBy({ top: e.key === 'ArrowDown' ? pageAmt : -pageAmt, behavior: 'smooth' });
         }
     } else if (audioModal.classList.contains('open')) {
         if (e.key === 's') {
@@ -1960,6 +1999,7 @@ function showAudioTrack() {
 var shortcutsContent = `
 ## Navigation
 - **← / →** — Previous / next file in sidebar
+- **↑ / ↓** — Page up / page down in text content (P2 right pane when active)
 - **Esc** — Close any open modal
 
 ## Image Modal
@@ -2701,6 +2741,22 @@ function toggleRightTxtMd() {
 })();
 
 applySplitMode();
+
+// Highlight the P2 sidebar item (txt in right pane) with a distinct orange accent
+(function() {
+    var p2File = new URLSearchParams(window.location.search).get('p2');
+    if (!p2File) return;
+    document.querySelectorAll('.sidebar-item').forEach(function(item) {
+        var href = item.getAttribute('href');
+        if (!href) return;
+        var hp = {};
+        (href.indexOf('?') >= 0 ? href.substring(href.indexOf('?') + 1) : '').split('&').forEach(function(pair) {
+            var idx = pair.indexOf('=');
+            if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+        });
+        if (hp['file'] === p2File) item.classList.add('p2-active');
+    });
+})();
 </script>
 <script src="https://www.youtube.com/iframe_api"></script>
 </body>

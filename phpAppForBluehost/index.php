@@ -802,6 +802,70 @@ body.dark #splitBtn { background: #555; color: #ffdd57; }
 .audio-nav-btn:hover { background: rgba(255,255,255,0.2); }
 .audio-nav-btn:disabled { color: #444; cursor: default; }
 .audio-nav-btn:disabled:hover { background: rgba(255,255,255,0.1); }
+/* Audio time-jump modal */
+#audioJumpModal {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 3000;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.55);
+}
+#audioJumpModal.open { display: flex; }
+#audioJumpModal .ajm-box {
+    background: #1a1a2e; border: 1px solid #7ec8e3;
+    border-radius: 10px; padding: 20px 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6); min-width: 200px;
+}
+#audioJumpModal .ajm-label {
+    color: #7ec8e3; font-size: 13px; font-weight: 600;
+}
+#audioJumpInput {
+    width: 110px; padding: 8px 10px; border: 1px solid #555;
+    border-radius: 6px; background: #0e0e1f; color: #fff;
+    font-size: 20px; text-align: center; outline: none;
+    letter-spacing: 2px;
+}
+#audioJumpInput:focus { border-color: #7ec8e3; }
+#audioJumpModal .ajm-hint {
+    color: #666; font-size: 11px;
+}
+/* Shortcuts modal */
+#shortcutsModal {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 3000;
+    align-items: flex-start; justify-content: center;
+    background: rgba(0,0,0,0.6);
+    overflow-y: auto; padding: 40px 16px;
+}
+#shortcutsModal.open { display: flex; }
+#shortcutsModal .sc-box {
+    background: #fff; border-radius: 12px; padding: 28px 32px;
+    max-width: 560px; width: 100%; position: relative;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.35);
+    max-height: 80vh; overflow-y: auto;
+}
+body.dark #shortcutsModal .sc-box { background: #1e1e2e; color: #ddd; }
+#shortcutsModal .sc-title {
+    font-size: 16px; font-weight: 700; margin-bottom: 16px;
+    color: #667eea; display: flex; justify-content: space-between; align-items: center;
+}
+#shortcutsModal .sc-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 22px; line-height: 1; color: #999; padding: 0 4px;
+}
+#shortcutsModal .sc-close:hover { color: #c00; }
+#shortcutsModal .sc-body h2,
+#shortcutsModal .sc-body h3 { color: #667eea; margin: 16px 0 6px; font-size: 14px; }
+#shortcutsModal .sc-body h2 { font-size: 15px; }
+#shortcutsModal .sc-body ul { margin: 0 0 10px 18px; padding: 0; }
+#shortcutsModal .sc-body li { margin: 4px 0; font-size: 13px; line-height: 1.6; }
+#shortcutsModal .sc-body code { background: rgba(102,126,234,0.12); border-radius: 4px; padding: 1px 5px; font-size: 12px; }
+#shortcutsModal .sc-body p { font-size: 13px; margin: 6px 0; }
+#shortcutsModal .sc-body hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
+body.dark #shortcutsModal .sc-body hr { border-top-color: #333; }
+body.dark #shortcutsModal .sc-body code { background: rgba(102,126,234,0.2); }
 .audio-toggle-btn {
     width: 32px; height: 32px; font-size: 16px; font-weight: 700;
     border: none; border-radius: 8px; cursor: pointer;
@@ -1041,6 +1105,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button id="marginBtn" title="Toggle reading margins" onclick="toggleMargins()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#8614;</button>
             <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
             <button id="splitBtn" title="Toggle dual-pane (left=media, right=text/md)" onclick="toggleSplit()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">P2</button>
+            <button id="shortcutsBtn" title="Keyboard shortcuts" onclick="openShortcuts()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(102,126,234);color:#fff">Shortcuts</button>
             <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
                 <button id="editBtn" class="edit-btn" title="Edit and save back to local file" onclick="toggleEdit()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
@@ -1335,6 +1400,26 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     </div>
 </div>
 
+<!-- Shortcuts modal -->
+<div id="shortcutsModal">
+    <div class="sc-box">
+        <div class="sc-title">
+            <span>Shortcuts</span>
+            <button class="sc-close" onclick="closeShortcuts()" title="Close">&times;</button>
+        </div>
+        <div class="sc-body" id="shortcutsBody"></div>
+    </div>
+</div>
+
+<!-- Audio time-jump modal -->
+<div id="audioJumpModal">
+    <div class="ajm-box">
+        <div class="ajm-label">Jump to time</div>
+        <input id="audioJumpInput" type="text" placeholder="1:23 or 90" autocomplete="off" inputmode="numeric">
+        <div class="ajm-hint">Enter&nbsp;to jump &nbsp;·&nbsp; Esc&nbsp;to cancel &nbsp;·&nbsp; bare&nbsp;seconds&nbsp;ok</div>
+    </div>
+</div>
+
 <!-- Image Modal -->
 <div class="image-modal" id="imageModal">
     <button class="modal-close" onclick="closeModal()">&times;</button>
@@ -1505,6 +1590,10 @@ document.addEventListener('keydown', function(e) {
     // Never hijack keys while editing or typing in any input/textarea
     if (isEditing || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
+    if (shortcutsModal.classList.contains('open')) {
+        if (e.key === 'Escape') closeShortcuts();
+        return;
+    }
     if (modal.classList.contains('open')) {
         if (e.key === 'Escape') closeModal();
         else if (e.key === 'ArrowLeft') modalNav(-1);
@@ -1537,6 +1626,36 @@ document.addEventListener('keydown', function(e) {
             }
             // Media file (or P2 closed) → normal left-pane navigation
             window.location.href = btn.href;
+        }
+    } else if (audioModal.classList.contains('open')) {
+        if (e.key === 's') {
+            e.preventDefault();
+            if (audioPlayer.paused) audioPlayer.play(); else audioPlayer.pause();
+        } else if (e.key === 'v') {
+            e.preventDefault();
+            openAudioJumpModal();
+        } else if (e.key === 'c') {
+            // Jump to highlighted (selected) text — accepts M:SS, H:MM:SS, or bare seconds
+            e.preventDefault();
+            var sel = window.getSelection();
+            var text = sel ? sel.toString().trim() : '';
+            if (text && /^(\d+:\d{2}(:\d{2})?|\d+)$/.test(text)) {
+                audioPlayer.currentTime = parseAudioTime(text);
+                audioPlayer.play();
+            }
+        }
+    }
+
+    // TTS — works anywhere (not editing, no modifier keys)
+    if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key === 'a' || e.key === 'm' || e.key === 'p' || e.key === 'k' || e.key === 'f') {
+            var ttsSel = window.getSelection();
+            var ttsText = ttsSel ? ttsSel.toString().trim() : '';
+            if (ttsText) {
+                e.preventDefault();
+                var ttsLangMap = { a: 'zh-HK', m: 'zh-CN', p: 'es-ES', k: 'ko-KR', f: 'fr-FR' };
+                speakSelection(ttsText, ttsLangMap[e.key]);
+            }
         }
     }
 });
@@ -1669,6 +1788,168 @@ function showAudioTrack() {
     document.getElementById('audioPrevBtn').disabled = audioListData.length <= 1;
     document.getElementById('audioNextBtn').disabled = audioListData.length <= 1;
 }
+
+// =====================================================================
+// SHORTCUTS REFERENCE — edit the template literal below freely.
+// Rendered as Markdown. Reload the page after saving to see changes.
+// =====================================================================
+var shortcutsContent = `
+## Navigation
+- **← / →** — Previous / next file in sidebar
+- **Esc** — Close any open modal
+
+## Image Modal
+- **← / →** — Prev / next image
+- **Esc** — Close
+
+## Audio Player  *(open with ♩ button)*
+- **s** — Play / pause toggle
+- **v** — Open time-jump modal (type \`1:23\` or \`90\` → Enter/v to jump)
+- **c** — Jump to highlighted/selected time in text (no modal)
+
+## Dual Pane (P2)
+- **P2 button** — Toggle left/right split view
+- Right pane shows text/md files; left pane shows media
+
+## Text / Markdown
+- **+  /  −** — Increase / decrease font size
+- **↦** — Toggle reading margins
+- **TXT>MD** — Render plain .txt as Markdown
+- **✎** — Edit & save file
+- **📋** — Copy raw content
+
+## Text-to-Speech (highlight any text first)
+- **a** — Read selection in Cantonese (zh-HK)
+- **m** — Read selection in Mandarin (zh-CN)
+- **p** — Read selection in Spanish (es-ES)
+- **k** — Read selection in Korean (ko-KR)
+- **f** — Read selection in French (fr-FR)
+
+## General
+- **☽ / ☀** — Toggle dark / light mode
+
+
+`;
+// =====================================================================
+
+var shortcutsModal = document.getElementById('shortcutsModal');
+var shortcutsBody  = document.getElementById('shortcutsBody');
+
+function openShortcuts() {
+    shortcutsBody.innerHTML = (typeof marked !== 'undefined') ? marked.parse(shortcutsContent) : '<pre>' + shortcutsContent + '</pre>';
+    shortcutsModal.classList.add('open');
+}
+function closeShortcuts() {
+    shortcutsModal.classList.remove('open');
+}
+shortcutsModal.addEventListener('click', function(e) {
+    if (e.target === shortcutsModal) closeShortcuts();
+});
+
+// --- Text-to-Speech (m = Mandarin, a = Cantonese) ---
+var ttsVoices = [];
+function ttsLoadVoices() { ttsVoices = speechSynthesis.getVoices(); }
+ttsLoadVoices();
+if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.addEventListener('voiceschanged', ttsLoadVoices);
+}
+
+function ttsBestVoice(lang) {
+    var voices = ttsVoices.length ? ttsVoices : speechSynthesis.getVoices();
+    var bad = ['Eddy', 'Flo', 'Grandma', 'Grandpa'];
+    var notBad = function(v) { return !bad.some(function(b) { return v.name.includes(b); }); };
+    var has = function(v, tag) { return v.lang.toLowerCase().startsWith(tag.toLowerCase()); };
+
+    if (lang === 'zh-CN') {
+        var preferred = ['Li-Mu', 'Tingting', 'Ting-Ting', 'Mei-Jia', 'Yaoyao', 'Kangkang', 'Huihui', 'Sin-ji'];
+        return (
+            voices.find(function(v) { return has(v, 'zh-CN') && v.name.includes('Google') && notBad(v); }) ||
+            voices.find(function(v) { return has(v, 'zh-CN') && (v.name.includes('Enhanced') || v.name.includes('Premium')) && notBad(v); }) ||
+            (function() { for (var i = 0; i < preferred.length; i++) { var f = voices.find(function(v) { return has(v, 'zh-CN') && v.name.includes(preferred[i]); }); if (f) return f; } return null; })() ||
+            voices.find(function(v) { return has(v, 'zh-CN') && notBad(v); }) ||
+            voices.find(function(v) { return has(v, 'zh-CN'); }) ||
+            null
+        );
+    } else if (lang === 'es-ES') {
+        return (
+            voices.find(function(v) { return has(v, 'es') && v.name.includes('Google'); }) ||
+            voices.find(function(v) { return has(v, 'es') && (v.name.includes('Enhanced') || v.name.includes('Premium')); }) ||
+            voices.find(function(v) { return has(v, 'es-ES'); }) ||
+            voices.find(function(v) { return has(v, 'es'); }) ||
+            null
+        );
+    } else if (lang === 'ko-KR') {
+        return (
+            voices.find(function(v) { return has(v, 'ko') && v.name.includes('Google'); }) ||
+            voices.find(function(v) { return has(v, 'ko') && (v.name.includes('Enhanced') || v.name.includes('Premium')); }) ||
+            voices.find(function(v) { return has(v, 'ko'); }) ||
+            null
+        );
+    } else if (lang === 'fr-FR') {
+        var preferredFR = ['Amelie', 'Thomas', 'Virginie', 'Audrey', 'Marie', 'Paul'];
+        return (
+            voices.find(function(v) { return has(v, 'fr') && v.name.includes('Google'); }) ||
+            voices.find(function(v) { return has(v, 'fr') && (v.name.includes('Enhanced') || v.name.includes('Premium')); }) ||
+            (function() { for (var i = 0; i < preferredFR.length; i++) { var f = voices.find(function(v) { return has(v, 'fr') && v.name.includes(preferredFR[i]); }); if (f) return f; } return null; })() ||
+            voices.find(function(v) { return has(v, 'fr'); }) ||
+            null
+        );
+    } else { // zh-HK
+        var preferredHK = ['Sin-ji', 'Sinji', 'Hong Kong'];
+        return (
+            voices.find(function(v) { return has(v, 'zh-HK') && v.name.includes('Google'); }) ||
+            voices.find(function(v) { return has(v, 'zh-HK') && (v.name.includes('Enhanced') || v.name.includes('Premium')); }) ||
+            (function() { for (var i = 0; i < preferredHK.length; i++) { var f = voices.find(function(v) { return has(v, 'zh-HK') && v.name.includes(preferredHK[i]); }); if (f) return f; } return null; })() ||
+            voices.find(function(v) { return has(v, 'zh-HK'); }) ||
+            null
+        );
+    }
+}
+
+function speakSelection(text, lang) {
+    speechSynthesis.cancel();
+    var utt = new SpeechSynthesisUtterance(text);
+    utt.lang = lang;
+    var voice = ttsBestVoice(lang);
+    if (voice) utt.voice = voice;
+    speechSynthesis.speak(utt);
+}
+
+// --- Audio time-jump modal (v key) ---
+function parseAudioTime(str) {
+    var parts = str.trim().split(':').map(Number);
+    if (parts.length === 3) return parts[0]*3600 + parts[1]*60 + parts[2];
+    if (parts.length === 2) return parts[0]*60 + parts[1];
+    return parts[0] || 0;
+}
+
+var audioJumpModal = document.getElementById('audioJumpModal');
+var audioJumpInput = document.getElementById('audioJumpInput');
+
+function openAudioJumpModal() {
+    audioJumpInput.value = '';
+    audioJumpModal.classList.add('open');
+    setTimeout(function() { audioJumpInput.focus(); }, 30);
+}
+function closeAudioJumpModal() {
+    audioJumpModal.classList.remove('open');
+    audioJumpInput.value = '';
+}
+function doAudioJump() {
+    var val = audioJumpInput.value.trim();
+    if (!val) { closeAudioJumpModal(); return; }
+    audioPlayer.currentTime = parseAudioTime(val);
+    audioPlayer.play();
+    closeAudioJumpModal();
+}
+
+audioJumpInput.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' || e.key === 'v') { e.preventDefault(); doAudioJump(); }
+    if (e.key === 'Escape') { e.preventDefault(); closeAudioJumpModal(); }
+});
+audioJumpModal.addEventListener('click', function(e) {
+    if (e.target === audioJumpModal) closeAudioJumpModal();
+});
 
 // Auto-open audio modal if an audio file was clicked
 <?php if ($currentAudioIdx >= 0): ?>

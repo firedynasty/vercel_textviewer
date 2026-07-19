@@ -2094,13 +2094,11 @@ document.addEventListener('keydown', function(e) {
         lnSel.removeAllRanges();
         lnSel.addRange(lnNewRange);
 
-        // Scroll selected line into view
-        var lnRect = lnNewRange.getBoundingClientRect();
-        if (lnRect.top < 80 || lnRect.bottom > window.innerHeight - 20) {
-            var scrollEl = lnTextEl.closest('.content-area, .pane-right') || document.documentElement;
-            var elRect = scrollEl.getBoundingClientRect();
-            scrollEl.scrollTop += lnRect.top - elRect.top - (scrollEl.clientHeight / 2);
-        }
+        // Scroll highlighted line into view
+        var lnSpan = document.createElement('span');
+        lnNewRange.insertNode(lnSpan);
+        lnSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        lnSpan.parentNode.removeChild(lnSpan);
     }
 });
 

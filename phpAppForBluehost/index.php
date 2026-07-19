@@ -1794,6 +1794,13 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 
+    // 1 / 2 — pane control: 1 = single pane, 2 = dual pane (P2)
+    if ((e.key === '1' || e.key === '2') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        var wantSplit = e.key === '2';
+        if (wantSplit !== splitMode) { e.preventDefault(); toggleSplit(); }
+        return;
+    }
+
     // [ — navigate back (go up one folder level)
     if (e.key === '[' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         var backLink = document.querySelector('.sidebar-header a[href]');
@@ -2170,6 +2177,8 @@ var shortcutsContent = `
 
 ## Dual Pane (P2)
 - **P2 button** — Toggle left/right split view
+- **1** — Single pane (close P2)
+- **2** — Dual pane (open P2)
 - Right pane shows text/md files; left pane shows media
 
 ## Text / Markdown

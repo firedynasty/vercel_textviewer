@@ -1664,6 +1664,64 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 <script>
 var imageList = <?= json_encode($imageList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
 var modalIndex = 0;
+
+// --- Navigation history ([ = back, ] = forward) ---
+(function() {
+    var currentUrl = window.location.href;
+    var action     = '';
+    var backStack  = [];
+    var fwdStack   = [];
+    try {
+        action    = sessionStorage.getItem('phpNavAction') || '';
+        backStack = JSON.parse(sessionStorage.getItem('phpNavBack') || '[]');
+        fwdStack  = JSON.parse(sessionStorage.getItem('phpNavFwd')  || '[]');
+    } catch(e) {}
+
+    if (action === 'back' || action === 'forward') {
+        // Arrived via [ or ] — don't push anything new
+        try { sessionStorage.removeItem('phpNavAction'); } catch(e) {}
+    } else {
+        // Normal navigation — push previous page onto back stack, clear forward
+        var prevUrl = '';
+        try { prevUrl = sessionStorage.getItem('phpNavCurrent') || ''; } catch(e) {}
+        if (prevUrl && prevUrl !== currentUrl) {
+            backStack.push(prevUrl);
+            fwdStack = [];
+            try {
+                sessionStorage.setItem('phpNavBack', JSON.stringify(backStack));
+                sessionStorage.setItem('phpNavFwd',  JSON.stringify(fwdStack));
+            } catch(e) {}
+        }
+    }
+    try { sessionStorage.setItem('phpNavCurrent', currentUrl); } catch(e) {}
+
+    window._navBack = function() {
+        if (!backStack.length) return false;
+        var target = backStack.pop();
+        fwdStack.push(currentUrl);
+        try {
+            sessionStorage.setItem('phpNavBack',    JSON.stringify(backStack));
+            sessionStorage.setItem('phpNavFwd',     JSON.stringify(fwdStack));
+            sessionStorage.setItem('phpNavAction',  'back');
+            sessionStorage.setItem('phpNavCurrent', target);
+        } catch(e) {}
+        window.location.href = target;
+        return true;
+    };
+    window._navFwd = function() {
+        if (!fwdStack.length) return false;
+        var target = fwdStack.pop();
+        backStack.push(currentUrl);
+        try {
+            sessionStorage.setItem('phpNavBack',    JSON.stringify(backStack));
+            sessionStorage.setItem('phpNavFwd',     JSON.stringify(fwdStack));
+            sessionStorage.setItem('phpNavAction',  'forward');
+            sessionStorage.setItem('phpNavCurrent', target);
+        } catch(e) {}
+        window.location.href = target;
+        return true;
+    };
+})();
 var modal = document.getElementById('imageModal');
 var modalImg = document.getElementById('modalImg');
 var modalCaption = document.getElementById('modalCaption');
@@ -1870,14 +1928,20 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 
-    // [ — navigate back (go up one folder level)
-    if (e.key === '[' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        var backLink = document.querySelector('.sidebar-header a[href]');
-        if (backLink && backLink.textContent.trim() === 'Back') {
-            e.preventDefault();
-            window.location.href = backLink.getAttribute('href');
-            return;
+    // [ / ] — history back / forward
+    if ((e.key === '[' || e.key === ']') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        if (e.key === '[') {
+            if (window._navBack && window._navBack()) return;
+            // Fallback: go up one folder level if no history
+            var backLink = document.querySelector('.sidebar-header a[href]');
+            if (backLink && backLink.textContent.trim() === 'Back') {
+                window.location.href = backLink.getAttribute('href');
+            }
+        } else {
+            if (window._navFwd) window._navFwd();
         }
+        return;
     }
 
     // Grid/gallery navigation: 9 = prev (left), 0 = next (right), Enter = open focused item

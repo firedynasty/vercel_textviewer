@@ -1928,21 +1928,31 @@ document.addEventListener('keydown', function(e) {
     // , / . — navigate prev/next line in text content (useful for CSV row-by-row reading)
     if ((e.key === ',' || e.key === '.') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         var lnSel = window.getSelection();
-        if (!lnSel || !lnSel.rangeCount) return;
-        var lnRange = lnSel.getRangeAt(0);
-        // Walk up to find the nearest .text-content or .markdown-content container
-        var lnNode = lnRange.startContainer.nodeType === 3
-            ? lnRange.startContainer.parentElement
-            : lnRange.startContainer;
         var lnTextEl = null;
-        while (lnNode) {
-            if (lnNode.classList && (lnNode.classList.contains('text-content') || lnNode.classList.contains('markdown-content'))) {
-                lnTextEl = lnNode;
-                break;
+        var lnStartOff = 0;
+        var lnHasSelection = lnSel && lnSel.rangeCount && lnSel.toString().length > 0;
+
+        if (lnHasSelection) {
+            // Walk up from selection to find text container
+            var lnRange = lnSel.getRangeAt(0);
+            var lnNode = lnRange.startContainer.nodeType === 3
+                ? lnRange.startContainer.parentElement
+                : lnRange.startContainer;
+            while (lnNode) {
+                if (lnNode.classList && (lnNode.classList.contains('text-content') || lnNode.classList.contains('markdown-content'))) {
+                    lnTextEl = lnNode;
+                    break;
+                }
+                lnNode = lnNode.parentElement;
             }
-            lnNode = lnNode.parentElement;
         }
-        if (!lnTextEl) return;
+
+        // No selection (or selection outside text) — find the visible text container and start at line 0
+        if (!lnTextEl) {
+            lnTextEl = document.querySelector('.pane-right .text-content, .pane-right .markdown-content, .content-area .text-content, .content-area .markdown-content');
+            if (!lnTextEl) return;
+            lnHasSelection = false; // force start at line 0
+        }
 
         // Calculate char offset of selection start within lnTextEl
         function lnGetOffset(root, targetNode, targetOff) {
@@ -1959,15 +1969,19 @@ document.addEventListener('keydown', function(e) {
 
         var lnFullText = lnTextEl.textContent;
         var lnLines = lnFullText.split('\n');
-        var lnStartOff = lnGetOffset(lnTextEl, lnRange.startContainer, lnRange.startOffset);
 
-        // Find current line index
-        var lnCharCount = 0, lnCurLine = 0;
-        for (var li = 0; li < lnLines.length; li++) {
-            var lnLen = lnLines[li].length + 1; // +1 for \n
-            if (lnStartOff < lnCharCount + lnLen) { lnCurLine = li; break; }
-            lnCharCount += lnLen;
-            lnCurLine = li;
+        // If no prior selection, treat current line as -1 so '.' starts at 0
+        var lnCurLine = -1;
+        if (lnHasSelection) {
+            var lnRange = lnSel.getRangeAt(0);
+            lnStartOff = lnGetOffset(lnTextEl, lnRange.startContainer, lnRange.startOffset);
+            var lnCharCount = 0;
+            for (var li = 0; li < lnLines.length; li++) {
+                var lnLen = lnLines[li].length + 1;
+                if (lnStartOff < lnCharCount + lnLen) { lnCurLine = li; break; }
+                lnCharCount += lnLen;
+                lnCurLine = li;
+            }
         }
 
         var lnTarget = e.key === ',' ? lnCurLine - 1 : lnCurLine + 1;
@@ -2187,7 +2201,7 @@ var shortcutsContent = `
 - **TXT>MD** — Render plain .txt as Markdown
 - **✎** — Edit & save file
 - **📋** — Copy raw content
-- **,  /  .** — Select previous / next line (highlight a line first; great for CSV row-by-row)
+- **,  /  .** — Select previous / next line; starts at line 1 if nothing highlighted (great for CSV row-by-row)
 
 ## YouTube Embed  *(open with **YT** button)*
 - Paste any YouTube URL → Enter or **▶ Load**

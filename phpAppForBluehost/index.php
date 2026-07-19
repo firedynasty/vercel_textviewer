@@ -893,6 +893,63 @@ body.dark #shortcutsModal .sc-body code { background: rgba(102,126,234,0.2); }
 }
 .audio-toggle-btn.playing { background: #7ec8e3; color: #1a1a2e; }
 
+/* TTS selection tooltip */
+#ttsTooltip {
+    display: none;
+    position: fixed;
+    z-index: 4000;
+    background: #1a1a2e;
+    border: 1px solid #7ec8e3;
+    border-radius: 8px;
+    padding: 4px 6px;
+    gap: 4px;
+    align-items: center;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+    white-space: nowrap;
+}
+#ttsTooltip.open { display: flex; }
+.tts-tip-btn {
+    border: none; border-radius: 6px; cursor: pointer;
+    padding: 4px 8px; font-size: 12px; font-weight: 700;
+    background: #2a2a4a; color: #eee;
+    transition: background 0.12s;
+}
+.tts-tip-btn:hover { background: #7ec8e3; color: #1a1a2e; }
+.tts-tip-gear {
+    border: none; border-radius: 6px; cursor: pointer;
+    padding: 4px 6px; font-size: 12px;
+    background: none; color: #666;
+}
+.tts-tip-gear:hover { color: #7ec8e3; }
+/* TTS settings panel */
+#ttsBtnSettings {
+    display: none;
+    position: fixed;
+    z-index: 4100;
+    background: #1a1a2e;
+    border: 1px solid #7ec8e3;
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 8px 28px rgba(0,0,0,0.6);
+    min-width: 180px;
+}
+#ttsBtnSettings.open { display: block; }
+#ttsBtnSettings .tbs-title {
+    color: #7ec8e3; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+}
+#ttsBtnSettings .tbs-close {
+    background: none; border: none; color: #666; font-size: 16px; cursor: pointer; padding: 0;
+}
+#ttsBtnSettings .tbs-close:hover { color: #fff; }
+#ttsBtnSettings .tbs-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 0; cursor: pointer; user-select: none;
+}
+#ttsBtnSettings .tbs-row input { cursor: pointer; accent-color: #7ec8e3; }
+#ttsBtnSettings .tbs-row label { color: #ddd; font-size: 13px; cursor: pointer; }
+
 /* Dark mode */
 body.dark .main { background: #1e1e1e; }
 body.dark .main-header { background: #2a2a2a; border-bottom-color: #444; color: #ccc; }
@@ -1523,6 +1580,18 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <?php endif; ?>
     </div>
     </div>
+</div>
+
+<!-- TTS selection tooltip -->
+<div id="ttsTooltip"></div>
+
+<!-- TTS button settings panel -->
+<div id="ttsBtnSettings">
+    <div class="tbs-title">
+        <span>TTS Buttons</span>
+        <button class="tbs-close" id="ttsBtnSettingsClose">&times;</button>
+    </div>
+    <div id="ttsBtnSettingsRows"></div>
 </div>
 
 <!-- Shortcuts modal -->
@@ -2313,6 +2382,145 @@ function speakSelection(text, lang) {
     if (voice) utt.voice = voice;
     speechSynthesis.speak(utt);
 }
+
+// --- TTS selection tooltip ---
+(function() {
+    var TTS_LANGS = [
+        { key: 'A', label: 'A 粵', lang: 'zh-HK', title: 'Cantonese' },
+        { key: 'M', label: 'M 普', lang: 'zh-CN', title: 'Mandarin'  },
+        { key: 'E', label: 'E En', lang: 'en-US', title: 'English'   },
+        { key: 'P', label: 'P Es', lang: 'es-ES', title: 'Spanish'   },
+        { key: 'K', label: 'K 한', lang: 'ko-KR', title: 'Korean'    },
+        { key: 'F', label: 'F Fr', lang: 'fr-FR', title: 'French'    },
+    ];
+    var STORAGE_KEY = 'tts-visible-btns';
+
+    function loadVisible() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { return {}; }
+    }
+    function saveVisible(v) { localStorage.setItem(STORAGE_KEY, JSON.stringify(v)); }
+    function isVisible(key) { var v = loadVisible(); return !(key in v) || v[key]; }
+
+    var tooltip   = document.getElementById('ttsTooltip');
+    var settingsEl = document.getElementById('ttsBtnSettings');
+    var rowsEl    = document.getElementById('ttsBtnSettingsRows');
+
+    function buildTooltip() {
+        tooltip.innerHTML = '';
+        var hasAny = false;
+        TTS_LANGS.forEach(function(l) {
+            if (!isVisible(l.key)) return;
+            hasAny = true;
+            var btn = document.createElement('button');
+            btn.className = 'tts-tip-btn';
+            btn.textContent = l.label;
+            btn.title = l.title;
+            btn.addEventListener('mousedown', function(e) {
+                e.preventDefault(); // keep selection alive
+                var sel = window.getSelection();
+                var text = sel ? sel.toString().trim() : '';
+                if (text) speakSelection(text, l.lang);
+                hideTooltip();
+            });
+            tooltip.appendChild(btn);
+        });
+        // Gear button
+        var gear = document.createElement('button');
+        gear.className = 'tts-tip-gear';
+        gear.title = 'Choose visible languages';
+        gear.textContent = '⚙';
+        gear.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            openSettings();
+        });
+        tooltip.appendChild(gear);
+        return hasAny;
+    }
+
+    function showTooltip(x, y) {
+        if (!buildTooltip()) return;
+        tooltip.classList.add('open');
+        // Position above selection, clamped to viewport
+        var tw = tooltip.offsetWidth || 200;
+        var th = tooltip.offsetHeight || 36;
+        var left = Math.min(x, window.innerWidth - tw - 8);
+        var top  = Math.max(y - th - 8, 8);
+        tooltip.style.left = left + 'px';
+        tooltip.style.top  = top  + 'px';
+    }
+
+    function hideTooltip() {
+        tooltip.classList.remove('open');
+    }
+
+    // Show on mouse-up if text is selected inside a text container
+    document.addEventListener('mouseup', function(e) {
+        if (e.target.closest && e.target.closest('#ttsTooltip, #ttsBtnSettings')) return;
+        setTimeout(function() {
+            var sel = window.getSelection();
+            var text = sel ? sel.toString().trim() : '';
+            if (!text) { hideTooltip(); return; }
+            // Only show inside text/markdown content
+            var node = sel.anchorNode;
+            var inText = false;
+            while (node) {
+                if (node.classList && (node.classList.contains('text-content') || node.classList.contains('markdown-content'))) {
+                    inText = true; break;
+                }
+                node = node.parentNode;
+            }
+            if (!inText) { hideTooltip(); return; }
+            showTooltip(e.clientX, e.clientY);
+        }, 10);
+    });
+
+    // Hide on click outside
+    document.addEventListener('mousedown', function(e) {
+        if (e.target.closest && (e.target.closest('#ttsTooltip') || e.target.closest('#ttsBtnSettings'))) return;
+        hideTooltip();
+        closeSettings();
+    });
+
+    // --- Settings panel ---
+    function buildSettingsRows() {
+        rowsEl.innerHTML = '';
+        TTS_LANGS.forEach(function(l) {
+            var row = document.createElement('div');
+            row.className = 'tbs-row';
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.id = 'tbs-' + l.key;
+            cb.checked = isVisible(l.key);
+            cb.addEventListener('change', function() {
+                var v = loadVisible();
+                v[l.key] = cb.checked;
+                saveVisible(v);
+            });
+            var lbl = document.createElement('label');
+            lbl.htmlFor = 'tbs-' + l.key;
+            lbl.textContent = l.label + ' — ' + l.title;
+            row.appendChild(cb);
+            row.appendChild(lbl);
+            rowsEl.appendChild(row);
+        });
+    }
+
+    function openSettings() {
+        buildSettingsRows();
+        // Position near tooltip
+        var tr = tooltip.getBoundingClientRect();
+        settingsEl.style.left = tr.left + 'px';
+        settingsEl.style.top  = (tr.bottom + 6) + 'px';
+        settingsEl.classList.add('open');
+    }
+
+    function closeSettings() {
+        settingsEl.classList.remove('open');
+    }
+
+    document.getElementById('ttsBtnSettingsClose').addEventListener('click', closeSettings);
+})();
 
 // --- Audio time-jump modal (v key) ---
 function parseAudioTime(str) {

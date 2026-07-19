@@ -1274,7 +1274,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                         <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
                     </div>
                 <?php
-                    elseif (in_array($f['ext'], ['txt','md','html','htm','docx','rtf','pdf'])):
+                    elseif (in_array($f['ext'], ['txt','csv','json','log','md','html','htm','docx','rtf','pdf'])):
                 ?>
                     <div class="gallery-item">
                         <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>"
@@ -1417,7 +1417,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             $rootImageExts = ['png','jpg','jpeg','gif','webp','bmp','svg'];
             $rootVideoExts = ['mp4','webm','ogg','mov','avi','mkv','m4v'];
             $rootAudioExts = ['mp3','m4a'];
-            $rootTextExts  = ['txt','md','html','htm','docx','rtf','pdf'];
+            $rootTextExts  = ['txt','csv','json','log','md','html','htm','docx','rtf','pdf'];
             $rootFiles     = array_values(array_filter($items, function($i) { return $i['type'] === 'file'; }));
             $hasAnything   = !empty($folderCards) || !empty($rootFiles);
             ?>

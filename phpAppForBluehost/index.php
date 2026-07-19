@@ -1205,9 +1205,10 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                     if (in_array($f['ext'], $imageExts)):
                         $enc = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
                 ?>
-                    <img src="<?= $contentDir . '/' . htmlspecialchars($enc) ?>"
-                         alt="<?= htmlspecialchars($f['name']) ?>"
-                         style="cursor:pointer" onclick="openModalAt(<?= $sIdx ?>)" title="Click to enlarge">
+                    <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
+                        <img src="<?= $contentDir . '/' . htmlspecialchars($enc) ?>"
+                             alt="<?= htmlspecialchars($f['name']) ?>">
+                    </a>
                 <?php $sIdx++; endif; endforeach; ?>
             </div>
 
@@ -1243,9 +1244,10 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                         $enc = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
                 ?>
                     <div class="gallery-item">
-                        <img src="<?= $contentDir . '/' . htmlspecialchars($enc) ?>"
-                             alt="<?= htmlspecialchars($f['name']) ?>"
-                             onclick="openModalAt(<?= $imgIdx ?>)" title="Click to enlarge">
+                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
+                            <img src="<?= $contentDir . '/' . htmlspecialchars($enc) ?>"
+                                 alt="<?= htmlspecialchars($f['name']) ?>">
+                        </a>
                         <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
                     </div>
                 <?php $imgIdx++;
@@ -1292,7 +1294,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         ?>
             <img src="<?= htmlspecialchars($encodedCurrentPath) ?>"
                  alt="<?= htmlspecialchars($currentFile) ?>"
-                 style="cursor:pointer" onclick="openModalAt(<?= $currentImgIdx ?>)" title="Click to enlarge">
+                 style="max-width:100%">
 
         <?php elseif ($displayType === 'video'):
             $encodedVideoPath = $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $currentFile)));
@@ -1450,10 +1452,10 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                         if (in_array($rfExt, $rootImageExts)):
                     ?>
                         <div class="gallery-item">
-                            <img src="<?= $contentDir . '/' . htmlspecialchars($rfEnc) ?>"
-                                 alt="<?= htmlspecialchars($rf['name']) ?>"
-                                 onclick="openModalAt(<?= $rootImgIdx ?>)" title="Click to enlarge"
-                                 style="cursor:pointer">
+                            <a href="<?= itemUrl(['file'=>$rf['path']]) ?>">
+                                <img src="<?= $contentDir . '/' . htmlspecialchars($rfEnc) ?>"
+                                     alt="<?= htmlspecialchars($rf['name']) ?>">
+                            </a>
                             <div class="caption"><?= htmlspecialchars($rf['name']) ?></div>
                         </div>
                     <?php $rootImgIdx++;
@@ -1746,14 +1748,6 @@ function showModalImage() {
             var link = el.querySelector('a');
             if (link) {
                 items.push({ el: el, type: 'link', href: link.getAttribute('href') });
-            } else {
-                // Image with onclick="openModalAt(n)"
-                var img = el.querySelector('img');
-                if (img) {
-                    var oc = img.getAttribute('onclick') || '';
-                    var m = oc.match(/openModalAt\((\d+)\)/);
-                    items.push({ el: el, type: 'modal', idx: m ? parseInt(m[1]) : 0 });
-                }
             }
         });
         return items;
@@ -1779,9 +1773,7 @@ function showModalImage() {
     window.folderGridOpen = function() {
         var items = getNavItems();
         if (kbIdx < 0 || kbIdx >= items.length) return false;
-        var it = items[kbIdx];
-        if (it.type === 'link') window.location.href = it.href;
-        else if (it.type === 'modal' && typeof openModalAt === 'function') openModalAt(it.idx);
+        window.location.href = items[kbIdx].href;
         return true;
     };
 

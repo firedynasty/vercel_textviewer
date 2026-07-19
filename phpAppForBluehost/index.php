@@ -1926,8 +1926,8 @@ document.addEventListener('keydown', function(e) {
         }
     }
 
-    // [ / ] — navigate prev/next line in text content (useful for CSV row-by-row reading)
-    if ((e.key === '[' || e.key === ']') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    // , / . — navigate prev/next line in text content (useful for CSV row-by-row reading)
+    if ((e.key === ',' || e.key === '.') && !e.metaKey && !e.ctrlKey && !e.altKey) {
         var lnSel = window.getSelection();
         if (!lnSel || !lnSel.rangeCount) return;
         var lnRange = lnSel.getRangeAt(0);
@@ -1971,7 +1971,7 @@ document.addEventListener('keydown', function(e) {
             lnCurLine = li;
         }
 
-        var lnTarget = e.key === '[' ? lnCurLine - 1 : lnCurLine + 1;
+        var lnTarget = e.key === ',' ? lnCurLine - 1 : lnCurLine + 1;
         if (lnTarget < 0 || lnTarget >= lnLines.length) return;
 
         e.preventDefault();
@@ -2186,7 +2186,7 @@ var shortcutsContent = `
 - **TXT>MD** — Render plain .txt as Markdown
 - **✎** — Edit & save file
 - **📋** — Copy raw content
-- **[  /  ]** — Select previous / next line (highlight a line first; great for CSV row-by-row)
+- **,  /  .** — Select previous / next line (highlight a line first; great for CSV row-by-row)
 
 ## YouTube Embed  *(open with **YT** button)*
 - Paste any YouTube URL → Enter or **▶ Load**

@@ -1232,8 +1232,8 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
                 <button id="editBtn" class="edit-btn" title="Edit and save back to local file" onclick="toggleEdit()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
             <?php endif; ?>
-            <?php if ($displayType === 'text'): ?>
-                <button id="txtMdBtn" onclick="toggleLeftTxtMd()" title="Render as Markdown" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">TXT&gt;MD</button>
+            <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
+                <button id="txtMdBtn" onclick="toggleLeftTxtMd()" title="Toggle markdown/text view" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $displayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
             <?php endif; ?>
             <?php if (!empty($audioList)): ?>
                 <button class="audio-toggle-btn" id="audioToggleBtn" title="Toggle audio player" onclick="toggleAudioModal()">&#9835;</button>
@@ -1554,8 +1554,8 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <?php if ($p2DisplayType): ?>
         <div class="pane-right-bar">
             <span><?= htmlspecialchars(basename($p2File)) ?></span>
-            <?php if ($p2DisplayType === 'text'): ?>
-                <button id="p2TxtMdBtn" onclick="toggleRightTxtMd()" title="Render as Markdown" style="height:22px;font-size:10px;font-weight:700;padding:0 6px;border:none;border-radius:4px;cursor:pointer;background:rgba(0,0,0,0.12);color:inherit;margin-right:6px">TXT&gt;MD</button>
+            <?php if ($p2DisplayType === 'text' || $p2DisplayType === 'markdown'): ?>
+                <button id="p2TxtMdBtn" onclick="toggleRightTxtMd()" title="Toggle markdown/text view" style="height:22px;font-size:10px;font-weight:700;padding:0 6px;border:none;border-radius:4px;cursor:pointer;background:rgba(0,0,0,0.12);color:inherit;margin-right:6px"><?= $p2DisplayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
             <?php endif; ?>
             <a href="<?= htmlspecialchars($p2CloseUrl) ?>" class="pr-close" title="Close right pane">&times;</a>
         </div>
@@ -3103,64 +3103,144 @@ function rightPanePageDown() {
     el.scrollBy({ top: el.clientHeight * 0.9, behavior: 'smooth' });
 }
 
+// --- TXT>MD toggle helpers (cookie persists across ports on localhost) ---
+function _getTxtMdCookie(pane) {
+    var m = document.cookie.match('(?:^|; )txtMd_' + pane + '=([^;]*)');
+    return m ? m[1] : null;
+}
+function _setTxtMdCookie(pane, val) {
+    document.cookie = 'txtMd_' + pane + '=' + val + '; path=/; max-age=31536000';
+}
+
 // --- TXT>MD toggle (left pane) ---
-var leftTxtMdMode = false;
-var leftMdEl = null;
-function toggleLeftTxtMd() {
-    var textEl = document.querySelector('#contentArea .text-content');
+// leftShowMd: true = showing markdown render, false = showing raw text
+var leftShowMd = currentDisplayType === 'markdown'; // .md files default to MD view
+var leftMdEl = null;  // dynamically created markdown div (for .txt files)
+var leftTxtEl = null; // dynamically created text div (for .md files)
+
+function applyLeftTxtMd(showMd) {
     var btn = document.getElementById('txtMdBtn');
-    if (!textEl || !rawContent) return;
-    leftTxtMdMode = !leftTxtMdMode;
-    if (leftTxtMdMode) {
-        if (!leftMdEl) {
-            leftMdEl = document.createElement('div');
-            leftMdEl.className = 'markdown-content';
-            textEl.parentNode.insertBefore(leftMdEl, textEl.nextSibling);
+    if (!btn || !rawContent) return;
+    leftShowMd = showMd;
+    if (currentDisplayType === 'text') {
+        var textEl = document.querySelector('#contentArea .text-content');
+        if (!textEl) return;
+        if (showMd) {
+            if (!leftMdEl) {
+                leftMdEl = document.createElement('div');
+                leftMdEl.className = 'markdown-content';
+                textEl.parentNode.insertBefore(leftMdEl, textEl.nextSibling);
+            }
+            leftMdEl.innerHTML = marked.parse(rawContent);
+            leftMdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
+            leftMdEl.style.fontSize = document.getElementById('contentArea').style.fontSize || '';
+            leftMdEl.style.display = '';
+            textEl.style.display = 'none';
+        } else {
+            if (leftMdEl) leftMdEl.style.display = 'none';
+            textEl.style.display = '';
         }
-        leftMdEl.innerHTML = marked.parse(rawContent);
-        leftMdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
-        leftMdEl.style.fontSize = document.getElementById('contentArea').style.fontSize || '';
-        leftMdEl.style.display = '';
-        textEl.style.display = 'none';
+    } else if (currentDisplayType === 'markdown') {
+        var mdEl = document.getElementById('markdown-render');
+        if (!mdEl) return;
+        if (!showMd) {
+            if (!leftTxtEl) {
+                leftTxtEl = document.createElement('div');
+                leftTxtEl.className = 'text-content';
+                leftTxtEl.textContent = rawContent;
+                mdEl.parentNode.insertBefore(leftTxtEl, mdEl);
+            }
+            leftTxtEl.style.fontSize = document.getElementById('contentArea').style.fontSize || '';
+            leftTxtEl.style.display = '';
+            mdEl.style.display = 'none';
+        } else {
+            if (leftTxtEl) leftTxtEl.style.display = 'none';
+            mdEl.style.display = '';
+        }
+    }
+    // Green = MD mode, grey = text mode
+    if (showMd) {
         btn.textContent = 'MD\u003ETXT';
         btn.style.background = '#4caf50'; btn.style.color = '#fff';
     } else {
-        if (leftMdEl) leftMdEl.style.display = 'none';
-        textEl.style.display = '';
         btn.textContent = 'TXT\u003EMD';
         btn.style.background = 'rgb(224,224,224)'; btn.style.color = 'rgb(51,51,51)';
     }
+    _setTxtMdCookie('left', showMd ? 'md' : 'text');
 }
+function toggleLeftTxtMd() { applyLeftTxtMd(!leftShowMd); }
+
+// Auto-apply saved preference on load (cookie shared across ports)
+(function() {
+    var pref = _getTxtMdCookie('left');
+    var defaultMd = currentDisplayType === 'markdown';
+    applyLeftTxtMd(pref ? pref === 'md' : defaultMd);
+})();
 
 // --- TXT>MD toggle (right pane) ---
-var rightTxtMdMode = false;
+var p2DisplayType = <?= json_encode($p2DisplayType) ?>;
+var p2RawContent = <?= ($p2DisplayType === 'text' || $p2DisplayType === 'markdown') ? json_encode($p2DisplayContent, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
+var rightShowMd = p2DisplayType === 'markdown';
 var rightMdEl = null;
-var p2RawContent = <?= ($p2DisplayType === 'text') ? json_encode($p2DisplayContent, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
-function toggleRightTxtMd() {
-    var textEl = document.querySelector('#paneRight .text-content');
+var rightTxtEl = null;
+
+function applyRightTxtMd(showMd) {
     var btn = document.getElementById('p2TxtMdBtn');
-    if (!textEl || !p2RawContent) return;
-    rightTxtMdMode = !rightTxtMdMode;
-    if (rightTxtMdMode) {
-        if (!rightMdEl) {
-            rightMdEl = document.createElement('div');
-            rightMdEl.className = 'markdown-content';
-            textEl.parentNode.insertBefore(rightMdEl, textEl.nextSibling);
+    if (!btn || !p2RawContent) return;
+    rightShowMd = showMd;
+    if (p2DisplayType === 'text') {
+        var textEl = document.querySelector('#paneRight .text-content');
+        if (!textEl) return;
+        if (showMd) {
+            if (!rightMdEl) {
+                rightMdEl = document.createElement('div');
+                rightMdEl.className = 'markdown-content';
+                textEl.parentNode.insertBefore(rightMdEl, textEl.nextSibling);
+            }
+            rightMdEl.innerHTML = marked.parse(p2RawContent);
+            rightMdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
+            rightMdEl.style.fontSize = document.getElementById('paneRight').style.fontSize || '';
+            rightMdEl.style.display = '';
+            textEl.style.display = 'none';
+        } else {
+            if (rightMdEl) rightMdEl.style.display = 'none';
+            textEl.style.display = '';
         }
-        rightMdEl.innerHTML = marked.parse(p2RawContent);
-        rightMdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
-        rightMdEl.style.fontSize = document.getElementById('paneRight').style.fontSize || '';
-        rightMdEl.style.display = '';
-        textEl.style.display = 'none';
+    } else if (p2DisplayType === 'markdown') {
+        var mdEl = document.getElementById('p2-md-render');
+        if (!mdEl) return;
+        if (!showMd) {
+            if (!rightTxtEl) {
+                rightTxtEl = document.createElement('div');
+                rightTxtEl.className = 'text-content';
+                rightTxtEl.textContent = p2RawContent;
+                mdEl.parentNode.insertBefore(rightTxtEl, mdEl);
+            }
+            rightTxtEl.style.fontSize = document.getElementById('paneRight').style.fontSize || '';
+            rightTxtEl.style.display = '';
+            mdEl.style.display = 'none';
+        } else {
+            if (rightTxtEl) rightTxtEl.style.display = 'none';
+            mdEl.style.display = '';
+        }
+    }
+    if (showMd) {
         btn.textContent = 'MD\u003ETXT';
         btn.style.background = '#4caf50'; btn.style.color = '#fff';
     } else {
-        if (rightMdEl) rightMdEl.style.display = 'none';
-        textEl.style.display = '';
         btn.textContent = 'TXT\u003EMD';
         btn.style.background = 'rgba(0,0,0,0.12)'; btn.style.color = '';
     }
+    _setTxtMdCookie('right', showMd ? 'md' : 'text');
 }
+function toggleRightTxtMd() { applyRightTxtMd(!rightShowMd); }
+
+// Auto-apply saved preference on load
+(function() {
+    var pref = _getTxtMdCookie('right');
+    var defaultMd = p2DisplayType === 'markdown';
+    if (document.getElementById('p2TxtMdBtn')) applyRightTxtMd(pref ? pref === 'md' : defaultMd);
+})();
 
 // Text-file sidebar clicks → load into right pane when split is ON
 (function() {

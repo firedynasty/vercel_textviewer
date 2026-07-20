@@ -1677,14 +1677,28 @@ var modalIndex = 0;
         fwdStack  = JSON.parse(sessionStorage.getItem('phpNavFwd')  || '[]');
     } catch(e) {}
 
+    // Extract the 'folder' param from a URL string
+    function getFolder(url) {
+        try {
+            var qs = url.indexOf('?') >= 0 ? url.substring(url.indexOf('?') + 1) : '';
+            var val = '';
+            qs.split('&').forEach(function(pair) {
+                var idx = pair.indexOf('=');
+                if (idx > 0 && decodeURIComponent(pair.substring(0, idx)) === 'folder')
+                    val = decodeURIComponent(pair.substring(idx + 1));
+            });
+            return val;
+        } catch(e) { return ''; }
+    }
+
     if (action === 'back' || action === 'forward') {
         // Arrived via [ or ] — don't push anything new
         try { sessionStorage.removeItem('phpNavAction'); } catch(e) {}
     } else {
-        // Normal navigation — push previous page onto back stack, clear forward
+        // Only push when the folder changes — file-to-file navigation is ignored
         var prevUrl = '';
         try { prevUrl = sessionStorage.getItem('phpNavCurrent') || ''; } catch(e) {}
-        if (prevUrl && prevUrl !== currentUrl) {
+        if (prevUrl && prevUrl !== currentUrl && getFolder(prevUrl) !== getFolder(currentUrl)) {
             backStack.push(prevUrl);
             fwdStack = [];
             try {

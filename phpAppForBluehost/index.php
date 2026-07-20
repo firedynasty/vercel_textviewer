@@ -886,6 +886,43 @@ body.dark #shortcutsModal .sc-box { background: #1e1e2e; color: #ddd; }
 #shortcutsModal .sc-body hr { border: none; border-top: 1px solid #eee; margin: 12px 0; }
 body.dark #shortcutsModal .sc-body hr { border-top-color: #333; }
 body.dark #shortcutsModal .sc-body code { background: rgba(102,126,234,0.2); }
+/* Serve panel */
+#servePanel {
+    position: fixed; top: 0; right: -340px; width: 320px; height: 100%;
+    background: #fff; z-index: 2000;
+    box-shadow: -4px 0 24px rgba(0,0,0,0.18);
+    transition: right 0.25s ease; overflow-y: auto; padding: 28px 24px;
+    box-sizing: border-box;
+}
+#servePanel.open { right: 0; }
+body.dark #servePanel { background: #1e1e2e; color: #ddd; }
+#servePanel .sv-title {
+    font-size: 15px; font-weight: 700; margin-bottom: 18px;
+    color: rgb(52,168,83); display: flex; justify-content: space-between; align-items: center;
+}
+#servePanel .sv-close {
+    background: none; border: none; cursor: pointer;
+    font-size: 22px; line-height: 1; color: #999; padding: 0 4px;
+}
+#servePanel .sv-close:hover { color: #c00; }
+#servePanel .sv-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+#servePanel .sv-row label { font-size: 12px; font-weight: 700; color: #667eea; min-width: 50px; }
+#servePanel .sv-row input {
+    flex: 1; font-size: 13px; padding: 5px 8px; border: 1px solid #ccc;
+    border-radius: 6px; background: #f7f7f7; color: #222; font-family: monospace;
+}
+body.dark #servePanel .sv-row input { background: #2a2a3e; border-color: #555; color: #ddd; }
+#servePanel .sv-cmd {
+    margin-top: 16px; background: #f0f4ff; border-radius: 8px;
+    padding: 12px 14px; font-family: monospace; font-size: 12px;
+    word-break: break-all; color: #222; border: 1px solid #d0d8f0; line-height: 1.6;
+}
+body.dark #servePanel .sv-cmd { background: #252535; border-color: #444; color: #adf; }
+#servePanel .sv-copy {
+    margin-top: 14px; width: 100%; height: 34px; font-size: 13px; font-weight: 700;
+    border: none; border-radius: 8px; cursor: pointer;
+    background: rgb(52,168,83); color: #fff;
+}
 .audio-toggle-btn {
     width: 32px; height: 32px; font-size: 16px; font-weight: 700;
     border: none; border-radius: 8px; cursor: pointer;
@@ -1229,6 +1266,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
             <button id="splitBtn" title="Toggle dual-pane (left=media, right=text/md)" onclick="toggleSplit()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">P2</button>
             <button id="shortcutsBtn" title="Keyboard shortcuts" onclick="openShortcuts()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(102,126,234);color:#fff">Shortcuts</button>
+            <button id="servePanelBtn" title="PHP serve command" onclick="openServePanel()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(52,168,83);color:#fff">Serve</button>
             <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
                 <button id="editBtn" class="edit-btn" title="Edit and save back to local file" onclick="toggleEdit()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
@@ -1363,7 +1401,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             $ext = strtolower(pathinfo($currentFile, PATHINFO_EXTENSION));
             $mime = isset($videoMime[$ext]) ? $videoMime[$ext] : 'video/mp4';
         ?>
-            <video id="mainVideo" controls autoplay loop style="max-height:80vh">
+            <video id="mainVideo" controls autoplay loop muted style="max-height:80vh">
                 <source src="?stream=<?= htmlspecialchars($currentFile) ?>" type="<?= $mime ?>">
                 Your browser does not support this video format.
                 <a href="<?= htmlspecialchars($encodedVideoPath) ?>" download>Download video</a>
@@ -1604,6 +1642,29 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         </div>
         <div class="sc-body" id="shortcutsBody"></div>
     </div>
+</div>
+
+<!-- Serve panel -->
+<div id="servePanel">
+    <div class="sv-title">
+        <span>&#9654; PHP Serve</span>
+        <button class="sv-close" onclick="closeServePanel()" title="Close">&times;</button>
+    </div>
+    <div class="sv-row">
+        <label>Host</label>
+        <input id="svHost" value="0.0.0.0" oninput="updateServeCmd()">
+    </div>
+    <div class="sv-row">
+        <label>Port</label>
+        <input id="svPort" value="8080" oninput="updateServeCmd()">
+    </div>
+    <div class="sv-row">
+        <label>Path</label>
+        <input id="svPath" value="<?php echo htmlspecialchars(realpath($contentDir), ENT_QUOTES); ?>" oninput="updateServeCmd()">
+    </div>
+    <div class="sv-cmd" id="svCmd"></div>
+    <button class="sv-copy" id="svCopyBtn" onclick="copyServeCmd()">Copy command</button>
+    <!-- TODO: rclone section — remote input, copy/sync toggle, live cmd preview, copy button -->
 </div>
 
 <!-- Audio time-jump modal -->
@@ -1962,6 +2023,15 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 
+    // e — enter edit mode
+    if (e.key === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (currentFilePath && (currentDisplayType === 'text' || currentDisplayType === 'markdown')) {
+            e.preventDefault();
+            toggleEdit();
+        }
+        return;
+    }
+
     // u — toggle between open file and folder file menu
     if (e.key === 'u' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         e.preventDefault();
@@ -1991,6 +2061,8 @@ document.addEventListener('keydown', function(e) {
         if (hasGrid) {
             if (e.key === '0') { if (window.folderGridNav(1)) { e.preventDefault(); return; } }
             if (e.key === '9') { if (window.folderGridNav(-1)) { e.preventDefault(); return; } }
+            if (e.key === '8') { if (window.folderGridNav(5)) { e.preventDefault(); return; } }
+            if (e.key === '7') { if (window.folderGridNav(-5)) { e.preventDefault(); return; } }
             if (e.key === 'Enter' && window.folderGridOpen()) { e.preventDefault(); return; }
         }
     }
@@ -2350,6 +2422,8 @@ var shortcutsContent = `
 ## Folder / File Grid
 - **0** — Move highlight right (next item)
 - **9** — Move highlight left (previous item)
+- **8** — Jump forward 5 items
+- **7** — Jump back 5 items
 - **Enter** — Open highlighted folder or file
 - **[** — Go back (up one folder level)
 
@@ -2372,7 +2446,8 @@ var shortcutsContent = `
 - **+  /  −** — Increase / decrease font size
 - **↦** — Toggle reading margins
 - **TXT>MD** — Render plain .txt as Markdown
-- **✎** — Edit & save file
+- **e** — Enter edit mode (✎ button)
+- **Esc** — Save & exit edit mode
 - **📋** — Copy raw content
 - **,  /  .** — Select previous / next line; starts at line 1 if nothing highlighted (great for CSV row-by-row)
 
@@ -2408,6 +2483,50 @@ function closeShortcuts() {
 shortcutsModal.addEventListener('click', function(e) {
     if (e.target === shortcutsModal) closeShortcuts();
 });
+
+// --- Serve panel ---
+var servePanel = document.getElementById('servePanel');
+function openServePanel() {
+    updateServeCmd();
+    servePanel.classList.add('open');
+}
+function closeServePanel() {
+    servePanel.classList.remove('open');
+}
+function updateServeCmd() {
+    var host = document.getElementById('svHost').value || '0.0.0.0';
+    var port = document.getElementById('svPort').value || '8080';
+    var path = document.getElementById('svPath').value || '.';
+    document.getElementById('svCmd').textContent = 'cd ' + path + ' && php -S ' + host + ':' + port;
+}
+function copyServeCmd() {
+    var cmd = document.getElementById('svCmd').textContent;
+    var btn = document.getElementById('svCopyBtn');
+    var reset = function() {
+        btn.textContent = 'Copy command';
+        btn.style.background = 'rgb(52,168,83)';
+    };
+    var onSuccess = function() {
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#388e3c';
+        setTimeout(reset, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cmd).then(onSuccess).catch(function() {
+            var ta = document.createElement('textarea');
+            ta.value = cmd; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.focus(); ta.select();
+            if (document.execCommand('copy')) onSuccess();
+            document.body.removeChild(ta);
+        });
+    } else {
+        var ta = document.createElement('textarea');
+        ta.value = cmd; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        if (document.execCommand('copy')) onSuccess();
+        document.body.removeChild(ta);
+    }
+}
 
 // --- Text-to-Speech (m = Mandarin, a = Cantonese) ---
 var ttsVoices = [];
@@ -2932,8 +3051,9 @@ function enterEditMode(editBtn) {
             this.value = this.value.substring(0, start) + '\t' + this.value.substring(end);
             this.selectionStart = this.selectionEnd = start + 1;
         }
-        if (e.ctrlKey && e.key === 's') {
+        if (e.key === 'Escape') {
             e.preventDefault();
+            e.stopPropagation();
             saveAndExit(editBtn);
         }
     });

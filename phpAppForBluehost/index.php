@@ -351,13 +351,14 @@ if ($p2File) {
 $p2CloseParams = $_GET; unset($p2CloseParams['p2']);
 $p2CloseUrl = $p2CloseParams ? '?' . http_build_query($p2CloseParams) : '?';
 
-// Prev / next
-$prevFile = null;
-$nextFile = null;
+// File list (files-only, used for prev/next arrows, image modal, audio list)
 $fileList = $currentFolder
     ? $folderFiles
     : array_values(array_filter($items, function($i) { return $i['type'] === 'file'; }));
 
+// Prev / next (files only — arrows never land on folders)
+$prevFile = null;
+$nextFile = null;
 if ($currentFile && count($fileList) > 1) {
     foreach ($fileList as $idx => $f) {
         if ($f['path'] === $currentFile) {
@@ -1961,6 +1962,29 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 
+    // u — toggle between open file and folder file menu
+    if (e.key === 'u' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        e.preventDefault();
+        var p = new URLSearchParams(window.location.search);
+        var hasFile = p.has('file');
+        var hasFolder = p.has('folder');
+        if (hasFile) {
+            // Save current file URL, go to folder menu
+            sessionStorage.setItem('uMenuReturnUrl', window.location.href);
+            p.delete('file');
+            p.delete('view');
+            window.location.href = '?' + p.toString();
+        } else {
+            // Return to last file (or try sessionStorage)
+            var ret = sessionStorage.getItem('uMenuReturnUrl');
+            if (ret) {
+                sessionStorage.removeItem('uMenuReturnUrl');
+                window.location.href = ret;
+            }
+        }
+        return;
+    }
+
     // Grid/gallery navigation: 9 = prev (left), 0 = next (right), Enter = open focused item
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
         var hasGrid = document.querySelector('.folder-grid, .gallery') !== null;
@@ -2320,6 +2344,7 @@ var shortcutsContent = `
 ## Navigation
 - **← / →** — Previous / next file in sidebar
 - **↑ / ↓** — Page up / page down in text content (P2 right pane when active)
+- **u** — Toggle between open file and folder file menu
 - **Esc** — Close any open modal
 
 ## Folder / File Grid

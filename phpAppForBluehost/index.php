@@ -2055,7 +2055,7 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 
-    // Grid/gallery navigation: 9 = prev (left), 0 = next (right), Enter = open focused item
+    // Grid/gallery navigation: 9 = prev (left), 0 = next (right), Enter/- = open focused item
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
         var hasGrid = document.querySelector('.folder-grid, .gallery') !== null;
         if (hasGrid) {
@@ -2063,7 +2063,20 @@ document.addEventListener('keydown', function(e) {
             if (e.key === '9') { if (window.folderGridNav(-1)) { e.preventDefault(); return; } }
             if (e.key === '8') { if (window.folderGridNav(5)) { e.preventDefault(); return; } }
             if (e.key === '7') { if (window.folderGridNav(-5)) { e.preventDefault(); return; } }
-            if (e.key === 'Enter' && window.folderGridOpen()) { e.preventDefault(); return; }
+            if ((e.key === 'Enter' || e.key === '-') && window.folderGridOpen()) { e.preventDefault(); return; }
+        } else {
+            // No grid — file is open: 9/0 act as prev/next file
+            if ((e.key === '9' || e.key === '0')) {
+                var fileNavBtns = document.querySelectorAll('.sidebar-nav .sidebar-nav-btn');
+                if (fileNavBtns.length) {
+                    var fileNavBtn = e.key === '9' ? fileNavBtns[0] : fileNavBtns[fileNavBtns.length - 1];
+                    if (fileNavBtn && fileNavBtn.tagName === 'A' && fileNavBtn.getAttribute('href')) {
+                        e.preventDefault();
+                        window.location.href = fileNavBtn.href;
+                        return;
+                    }
+                }
+            }
         }
     }
 
@@ -2157,6 +2170,25 @@ document.addEventListener('keydown', function(e) {
                 e.preventDefault();
                 var ttsLangMap = { a: 'zh-HK', m: 'zh-CN', p: 'es-ES', k: 'ko-KR', f: 'fr-FR', r: 'en-US' };
                 speakSelection(ttsText, ttsLangMap[e.key]);
+            }
+        }
+
+        // p — page down (scroll down); TTS Spanish still fires when text is selected (handled above)
+        if (e.key === 'p') {
+            var pSel = window.getSelection();
+            if (!pSel || !pSel.toString().trim()) {
+                var pScrollTarget = null;
+                var pPaneRight = document.getElementById('paneRight');
+                var pContentArea = document.getElementById('contentArea');
+                if (splitMode && pPaneRight && pPaneRight.style.display !== 'none' && pPaneRight.scrollHeight > pPaneRight.clientHeight) {
+                    pScrollTarget = pPaneRight;
+                } else if (pContentArea && pContentArea.scrollHeight > pContentArea.clientHeight) {
+                    pScrollTarget = pContentArea;
+                }
+                if (pScrollTarget) {
+                    e.preventDefault();
+                    pScrollTarget.scrollBy({ top: pScrollTarget.clientHeight * 0.85, behavior: 'smooth' });
+                }
             }
         }
 
@@ -2415,7 +2447,7 @@ function showAudioTrack() {
 var shortcutsContent = `
 ## Navigation
 - **← / →** — Previous / next file in sidebar
-- **↑ / ↓** — Page up / page down in text content (P2 right pane when active)
+- **↑ / ↓** or **p** — Page up / page down in text content (P2 right pane when active)
 - **u** — Toggle between open file and folder file menu
 - **Esc** — Close any open modal
 
@@ -2424,8 +2456,12 @@ var shortcutsContent = `
 - **9** — Move highlight left (previous item)
 - **8** — Jump forward 5 items
 - **7** — Jump back 5 items
-- **Enter** — Open highlighted folder or file
+- **Enter** or **-** — Open highlighted folder or file
 - **[** — Go back (up one folder level)
+
+## File Open (no grid)
+- **0** — Next file (→)
+- **9** — Previous file (←)
 
 ## Image Modal
 - **← / →** — Prev / next image
@@ -2458,7 +2494,7 @@ var shortcutsContent = `
 ## Text-to-Speech (highlight any text first)
 - **a** — Read selection in Cantonese (zh-HK)
 - **m** — Read selection in Mandarin (zh-CN)
-- **p** — Read selection in Spanish (es-ES)
+- **p** — Read selection in Spanish (es-ES); page down when nothing selected
 - **k** — Read selection in Korean (ko-KR)
 - **f** — Read selection in French (fr-FR)
 - **r** — Read selection in English (en-US)

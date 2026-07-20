@@ -2163,12 +2163,12 @@ document.addEventListener('keydown', function(e) {
 
     // TTS — works anywhere (not editing, no modifier keys)
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (e.key === 'a' || e.key === 'm' || e.key === 'p' || e.key === 'k' || e.key === 'f' || e.key === 'r') {
+        if (e.key === 'a' || e.key === 'm' || e.key === 'h' || e.key === 'k' || e.key === 'f' || e.key === 'r') {
             var ttsSel = window.getSelection();
             var ttsText = ttsSel ? ttsSel.toString().trim() : '';
             if (ttsText) {
                 e.preventDefault();
-                var ttsLangMap = { a: 'zh-HK', m: 'zh-CN', p: 'es-ES', k: 'ko-KR', f: 'fr-FR', r: 'en-US' };
+                var ttsLangMap = { a: 'zh-HK', m: 'zh-CN', h: 'es-ES', k: 'ko-KR', f: 'fr-FR', r: 'en-US' };
                 speakSelection(ttsText, ttsLangMap[e.key]);
             }
         }
@@ -2447,7 +2447,7 @@ function showAudioTrack() {
 var shortcutsContent = `
 ## Navigation
 - **← / →** — Previous / next file in sidebar
-- **↑ / ↓** or **p** — Page up / page down in text content (P2 right pane when active)
+- **↑ / ↓** or **p** — Page up / page down in text content (P2 right pane when active); p scrolls down only
 - **u** — Toggle between open file and folder file menu
 - **Esc** — Close any open modal
 
@@ -2494,7 +2494,7 @@ var shortcutsContent = `
 ## Text-to-Speech (highlight any text first)
 - **a** — Read selection in Cantonese (zh-HK)
 - **m** — Read selection in Mandarin (zh-CN)
-- **p** — Read selection in Spanish (es-ES); page down when nothing selected
+- **h** — Read selection in Spanish (es-ES)
 - **k** — Read selection in Korean (ko-KR)
 - **f** — Read selection in French (fr-FR)
 - **r** — Read selection in English (en-US)

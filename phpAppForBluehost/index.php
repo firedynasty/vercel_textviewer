@@ -1752,11 +1752,14 @@ function contentPageDown() {
 
 
 var fontSize = 14;
-try { var saved = localStorage.getItem('fontSize'); if (saved) fontSize = parseInt(saved); } catch(e) {}
+(function() {
+    var m = document.cookie.match('(?:^|; )phpFontSize=([^;]*)');
+    if (m) fontSize = parseInt(m[1]) || 14;
+})();
 function adjustFontSize(dir) {
     fontSize = Math.min(32, Math.max(8, fontSize + dir * 2));
     applyFontSize();
-    try { localStorage.setItem('fontSize', fontSize); } catch(e) {}
+    document.cookie = 'phpFontSize=' + fontSize + '; path=/; max-age=31536000';
 }
 function applyFontSize() {
     var area = document.getElementById('contentArea');

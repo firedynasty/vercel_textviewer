@@ -923,6 +923,32 @@ body.dark #servePanel .sv-cmd { background: #252535; border-color: #444; color: 
     border: none; border-radius: 8px; cursor: pointer;
     background: rgb(52,168,83); color: #fff;
 }
+#servePanel .sv-section {
+    margin-top: 22px; padding-top: 16px;
+    border-top: 1px solid #e0e0e0; font-size: 13px; font-weight: 700;
+    color: rgb(52,168,83); margin-bottom: 14px;
+}
+body.dark #servePanel .sv-section { border-top-color: #444; }
+#servePanel .sv-toggle { display: flex; gap: 6px; margin-bottom: 12px; }
+#servePanel .sv-toggle button {
+    flex: 1; height: 28px; font-size: 12px; font-weight: 700;
+    border: 1px solid #ccc; border-radius: 6px; cursor: pointer;
+    background: #f7f7f7; color: #555;
+}
+body.dark #servePanel .sv-toggle button { background: #2a2a3e; border-color: #555; color: #aaa; }
+#servePanel .sv-toggle button.sv-active {
+    background: rgb(52,168,83); border-color: rgb(52,168,83); color: #fff;
+}
+#servePanel .sv-info {
+    margin-top: 16px; background: #f7f9ff; border-radius: 8px;
+    padding: 11px 13px; font-size: 11px; color: #555; line-height: 1.6;
+    border: 1px solid #e0e8f8;
+}
+body.dark #servePanel .sv-info { background: #1a1a2e; border-color: #333; color: #999; }
+#servePanel .sv-info b { color: #667eea; }
+#servePanel .sv-info .sv-info-safe { color: rgb(52,168,83); font-weight: 700; }
+#servePanel .sv-info hr { border: none; border-top: 1px solid #e0e8f8; margin: 8px 0; }
+body.dark #servePanel .sv-info hr { border-top-color: #333; }
 .audio-toggle-btn {
     width: 32px; height: 32px; font-size: 16px; font-weight: 700;
     border: none; border-radius: 8px; cursor: pointer;
@@ -1664,7 +1690,31 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     </div>
     <div class="sv-cmd" id="svCmd"></div>
     <button class="sv-copy" id="svCopyBtn" onclick="copyServeCmd()">Copy command</button>
-    <!-- TODO: rclone section — remote input, copy/sync toggle, live cmd preview, copy button -->
+
+    <div class="sv-section">&#8645; rclone Sync</div>
+    <div class="sv-row">
+        <label>Remote</label>
+        <input id="svRcloneRemote" value="dropbox:macbook" placeholder="dropbox:macbook" oninput="updateRcloneCmd()">
+    </div>
+    <div class="sv-toggle">
+        <button id="svRcloneCopy" class="sv-active" onclick="setRcloneMode('copy')">copy</button>
+        <button id="svRcloneSync" onclick="setRcloneMode('sync')">sync</button>
+    </div>
+    <div class="sv-cmd" id="svRcloneCmd"></div>
+    <button class="sv-copy" id="svRcloneCopyBtn" onclick="copyRcloneCmd()">Copy command</button>
+    <div class="sv-info">
+        <b>copy</b> src dst<br>
+        &nbsp;· Copies new/updated files from src → dst<br>
+        &nbsp;· Does <em>not</em> delete files at dst removed from src<br>
+        &nbsp;· Re-running uploads only changed files (size + modtime)<br>
+        <hr>
+        <b>sync</b> src dst<br>
+        &nbsp;· Makes dst an <em>exact mirror</em> of src<br>
+        &nbsp;· Deletes files at dst that no longer exist in src<br>
+        &nbsp;· Destructive — local deletions propagate to remote<br>
+        <hr>
+        <span class="sv-info-safe">&#10003; Use copy for mobile browsing</span> — nothing on Dropbox gets destroyed. sync removes remote files that don't match local, so a missing local file wipes the remote copy.
+    </div>
 </div>
 
 <!-- Audio time-jump modal -->
@@ -2524,6 +2574,7 @@ shortcutsModal.addEventListener('click', function(e) {
 var servePanel = document.getElementById('servePanel');
 function openServePanel() {
     updateServeCmd();
+    updateRcloneCmd();
     servePanel.classList.add('open');
 }
 function closeServePanel() {
@@ -2538,6 +2589,49 @@ function updateServeCmd() {
 function copyServeCmd() {
     var cmd = document.getElementById('svCmd').textContent;
     var btn = document.getElementById('svCopyBtn');
+    var reset = function() {
+        btn.textContent = 'Copy command';
+        btn.style.background = 'rgb(52,168,83)';
+    };
+    var onSuccess = function() {
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#388e3c';
+        setTimeout(reset, 1500);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(cmd).then(onSuccess).catch(function() {
+            var ta = document.createElement('textarea');
+            ta.value = cmd; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.focus(); ta.select();
+            if (document.execCommand('copy')) onSuccess();
+            document.body.removeChild(ta);
+        });
+    } else {
+        var ta = document.createElement('textarea');
+        ta.value = cmd; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        if (document.execCommand('copy')) onSuccess();
+        document.body.removeChild(ta);
+    }
+}
+
+var rcloneMode = 'copy';
+function setRcloneMode(mode) {
+    rcloneMode = mode;
+    document.getElementById('svRcloneCopy').classList.toggle('sv-active', mode === 'copy');
+    document.getElementById('svRcloneSync').classList.toggle('sv-active', mode === 'sync');
+    updateRcloneCmd();
+}
+function updateRcloneCmd() {
+    var path = document.getElementById('svPath').value || '.';
+    var remote = document.getElementById('svRcloneRemote').value || 'dropbox:macbook';
+    var localPath = currentFolderPath ? path + '/' + currentFolderPath : path;
+    var remotePath = currentFolderPath ? (remote.endsWith(':') ? remote + currentFolderPath : remote + '/' + currentFolderPath) : remote;
+    document.getElementById('svRcloneCmd').textContent = 'rclone ' + rcloneMode + ' "' + localPath + '" ' + remotePath;
+}
+function copyRcloneCmd() {
+    var cmd = document.getElementById('svRcloneCmd').textContent;
+    var btn = document.getElementById('svRcloneCopyBtn');
     var reset = function() {
         btn.textContent = 'Copy command';
         btn.style.background = 'rgb(52,168,83)';

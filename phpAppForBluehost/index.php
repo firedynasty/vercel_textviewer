@@ -2029,7 +2029,24 @@ function showModalImage() {
     window.folderGridOpen = function() {
         var items = getNavItems();
         if (kbIdx < 0 || kbIdx >= items.length) return false;
-        window.location.href = items[kbIdx].href;
+        var href = items[kbIdx].href;
+        if (splitMode) {
+            var qs = href.indexOf('?') >= 0 ? href.substring(href.indexOf('?') + 1) : '';
+            var hp = {};
+            qs.split('&').forEach(function(pair) {
+                var idx = pair.indexOf('=');
+                if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+            });
+            var fp = hp['file'];
+            var textExts = ['txt','csv','json','log','md'];
+            if (fp && textExts.indexOf(fp.split('.').pop().toLowerCase()) !== -1) {
+                var p = new URLSearchParams(window.location.search);
+                p.set('p2', fp);
+                window.location.href = '?' + p.toString();
+                return true;
+            }
+        }
+        window.location.href = href;
         return true;
     };
 
@@ -3566,6 +3583,32 @@ function toggleRightTxtMd() { applyRightTxtMd(!rightShowMd); }
     var pref = _getTxtMdCookie('right');
     var defaultMd = p2DisplayType === 'markdown';
     if (document.getElementById('p2TxtMdBtn')) applyRightTxtMd(pref ? pref === 'md' : defaultMd);
+})();
+
+// Text-file gallery clicks → load into right pane when split is ON
+(function() {
+    var textExts = ['txt','csv','json','log','md'];
+    document.querySelectorAll('.gallery-item a').forEach(function(item) {
+        var href = item.getAttribute('href');
+        if (!href || href.indexOf('?') < 0) return;
+        var qs = href.substring(href.indexOf('?') + 1);
+        var hp = {};
+        qs.split('&').forEach(function(pair) {
+            var idx = pair.indexOf('=');
+            if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+        });
+        var fp = hp['file'];
+        if (!fp) return;
+        var ext = fp.split('.').pop().toLowerCase();
+        if (textExts.indexOf(ext) === -1) return;
+        item.addEventListener('click', function(e) {
+            if (!splitMode) return;
+            e.preventDefault();
+            var p = new URLSearchParams(window.location.search);
+            p.set('p2', fp);
+            window.location.href = '?' + p.toString();
+        }, true);
+    });
 })();
 
 // Text-file sidebar clicks → load into right pane when split is ON

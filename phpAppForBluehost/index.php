@@ -2122,6 +2122,40 @@ document.addEventListener('keydown', function(e) {
                     var fileNavBtn = e.key === '9' ? fileNavBtns[0] : fileNavBtns[fileNavBtns.length - 1];
                     if (fileNavBtn && fileNavBtn.tagName === 'A' && fileNavBtn.getAttribute('href')) {
                         e.preventDefault();
+                        if (splitMode) {
+                            // Mirror the ArrowLeft/ArrowRight P2 routing logic
+                            var destHref = fileNavBtn.getAttribute('href');
+                            var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
+                            var destParams = {};
+                            destQs.split('&').forEach(function(pair) {
+                                var idx = pair.indexOf('=');
+                                if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+                            });
+                            var destFile = destParams['file'];
+                            var textExts = ['txt','csv','json','log','md'];
+                            if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
+                                var p = new URLSearchParams(window.location.search);
+                                if (p.get('p2') === destFile) {
+                                    // Txt already in right pane — advance left pane to next/prev image
+                                    var curFile = p.get('file') || '';
+                                    var curImgIdx = -1;
+                                    for (var ii = 0; ii < imageList.length; ii++) {
+                                        var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
+                                        if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
+                                    }
+                                    var nextImgIdx = curImgIdx + (e.key === '0' ? 1 : -1);
+                                    if (nextImgIdx >= 0 && nextImgIdx < imageList.length) {
+                                        window.location.href = imageList[nextImgIdx].url;
+                                    }
+                                    return;
+                                }
+                                // Text file → load into right pane, keep current left pane file
+                                p.set('p2', destFile);
+                                window.location.href = '?' + p.toString();
+                                return;
+                            }
+                        }
+                        // Media file (or P2 closed) → normal left-pane navigation
                         window.location.href = fileNavBtn.href;
                         return;
                     }

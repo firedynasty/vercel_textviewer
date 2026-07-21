@@ -2257,8 +2257,8 @@ document.addEventListener('keydown', function(e) {
             }
         }
 
-        // p — page down (scroll down); TTS Spanish still fires when text is selected (handled above)
-        if (e.key === 'p') {
+        // o — page up, p — page down; TTS Spanish still fires when text is selected (handled above)
+        if (e.key === 'p' || e.key === 'o') {
             var pSel = window.getSelection();
             if (!pSel || !pSel.toString().trim()) {
                 var pScrollTarget = null;
@@ -2271,7 +2271,7 @@ document.addEventListener('keydown', function(e) {
                 }
                 if (pScrollTarget) {
                     e.preventDefault();
-                    pScrollTarget.scrollBy({ top: pScrollTarget.clientHeight * 0.85, behavior: 'smooth' });
+                    pScrollTarget.scrollBy({ top: (e.key === 'p' ? 1 : -1) * pScrollTarget.clientHeight * 0.85, behavior: 'smooth' });
                 }
             }
         }

@@ -331,6 +331,7 @@ if ($currentFile) {
         elseif ($ext === 'docx')                    { $displayType = 'docx';  $displayContent = $filePath; }
         elseif ($ext === 'rtf')                     { $displayType = 'rtf';   $displayContent = $filePath; }
         elseif ($ext === 'md')                        { $displayType = 'markdown'; $displayContent = file_get_contents($filePath); }
+        elseif ($ext === 'pgn')                       { $displayType = 'pgn';  $displayContent = file_get_contents($filePath); }
         elseif (in_array($ext, $textExts))          { $displayType = 'text';  $displayContent = file_get_contents($filePath); }
     }
 }
@@ -383,6 +384,27 @@ foreach ($fileList as $f) {
                 ? itemUrl(['folder'=>$currentFolder,'file'=>$f['path']])
                 : itemUrl(['file'=>$f['path']])
         ];
+    }
+}
+
+// PGN list for chess viewer modal
+$pgnList = [];
+foreach ($fileList as $f) {
+    $fext = $f['ext'] ?? '';
+    if ($fext === 'pgn') {
+        $encodedPath = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
+        $pgnList[] = [
+            'name' => $f['name'],
+            'src'  => $contentDir . '/' . $encodedPath,
+        ];
+    }
+}
+
+// Current PGN index (for auto-opening chess viewer on ?file=... deep links)
+$currentPgnIdx = -1;
+if ($displayType === 'pgn' && !empty($pgnList)) {
+    foreach ($pgnList as $pi => $pEntry) {
+        if ($pEntry['name'] === basename($currentFile)) { $currentPgnIdx = $pi; break; }
     }
 }
 
@@ -766,6 +788,37 @@ body.dark .gallery-item.kb-focus {
 .modal-caption { color: #ccc; font-size: 13px; margin-top: 12px; }
 .modal-counter { color: #888; font-size: 11px; margin-top: 4px; }
 
+/* PGN viewer modal */
+.pgn-modal {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.92);
+    z-index: 2000;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+.pgn-modal.open { display: flex; }
+.pgn-modal-inner { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; justify-content: center; max-width: 95vw; max-height: 85vh; }
+.pgn-board-col { flex: 0 0 auto; }
+.pgn-controls { margin-top: 10px; display: flex; gap: 8px; justify-content: center; }
+.pgn-controls button { padding: 6px 14px; border-radius: 6px; border: 1px solid #555; background: #333; color: #ccc; cursor: pointer; font-size: 13px; }
+.pgn-controls button:hover { background: #444; }
+.pgn-controls button:disabled { opacity: 0.4; cursor: default; }
+.pgn-comment { margin-top: 10px; max-width: 400px; min-height: 1.4em; font-size: 14px; font-style: italic; color: #ffd700; text-align: center; }
+.pgn-moves { flex: 1; min-width: 280px; max-width: 450px; max-height: 80vh; overflow-y: auto; background: #fff; color: #333; padding: 16px 20px; border-radius: 4px; font-size: 15px; line-height: 2; user-select: none; }
+.pgn-moves .move-number { color: #888; }
+.pgn-moves .move-san, .pgn-moves .variation-move { cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-right: 4px; font-weight: 600; }
+.pgn-moves .move-san:hover, .pgn-moves .variation-move:hover { background: #e6f2ff; }
+.pgn-moves .current { background: #ffe58a; }
+.pgn-moves .variation-container { color: #888; }
+.pgn-file-nav { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+.pgn-file-nav button { background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 20px; padding: 6px 14px; cursor: pointer; border-radius: 4px; }
+.pgn-file-nav button:hover { background: rgba(255,255,255,0.3); }
+body.dark .pgn-moves { background: #2a2a2a; color: #ddd; }
+body.dark .pgn-moves .move-san:hover, body.dark .pgn-moves .variation-move:hover { background: #3a4a5a; }
+body.dark .pgn-moves .current { background: #8a6d1a; color: #fff; }
+
 /* Audio modal */
 .audio-modal {
     display: none;
@@ -1147,6 +1200,46 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     width: 100%; height: 100%; border: none; border-radius: 6px;
     display: block;
 }
+
+/* PGN paste modal */
+.pgn-paste-modal {
+    display: none;
+    position: fixed; bottom: 0; left: 220px; right: 0;
+    height: 38vh;
+    background: #0f0f0f;
+    z-index: 1490;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 16px 14px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.5);
+    border-top: 2px solid #2e7d32;
+}
+.pgn-paste-modal.open { display: flex; }
+@media (max-width: 768px) { .pgn-paste-modal { left: 0; } }
+.pgn-paste-bar {
+    display: flex; width: 100%; max-width: 960px;
+    gap: 8px; align-items: center; margin-bottom: 8px; flex-shrink: 0;
+}
+.pgn-paste-load-btn {
+    padding: 6px 14px; border-radius: 6px; border: none;
+    background: #2e7d32; color: #fff; font-size: 12px;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+}
+.pgn-paste-load-btn:hover { background: #1b5e20; }
+.pgn-paste-close {
+    background: none; border: none; color: #888;
+    font-size: 22px; cursor: pointer; padding: 0 4px; line-height: 1;
+    margin-left: auto;
+}
+.pgn-paste-close:hover { color: #fff; }
+#pgnPasteInput {
+    width: 100%; max-width: 960px; flex: 1; min-height: 0;
+    padding: 10px; border-radius: 6px;
+    border: 1px solid #444; background: #1a1a1a; color: #eee;
+    font-family: monospace; font-size: 13px; line-height: 1.5;
+    resize: none; outline: none;
+}
+#pgnPasteInput:focus { border-color: #2e7d32; }
 </style>
 </head>
 <body>
@@ -1305,6 +1398,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <?php endif; ?>
             <button title="YouTube music" onclick="toggleYtModal()" style="width:32px;height:32px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);display:flex;align-items:center;justify-content:center;padding:0"><svg width="20" height="14" viewBox="0 0 68 48"><path d="M66.5 7.7s-.7-4.7-2.7-6.8C61-1.7 58-1.7 56.6-1.9 47.3-2.6 34-2.6 34-2.6s-13.3 0-22.6.7C10-1.7 7-1.7 4.2.9 2.2 3 1.5 7.7 1.5 7.7S.8 13.2.8 18.8v5.2c0 5.5.7 11.1.7 11.1s.7 4.7 2.7 6.8c2.8 2.6 6.4 2.5 8 2.8 5.8.5 24.8.7 24.8.7s13.3 0 22.6-.7c1.4-.2 4.4-.2 7.2-2.8 2-2.1 2.7-6.8 2.7-6.8s.7-5.5.7-11.1v-5.2c0-5.6-.7-11.1-.7-11.1z" fill="red"/><path d="M27 33V13l18.2 10L27 33z" fill="white"/></svg></button>
             <button id="ytEmbedToggleBtn" title="YouTube embed — paste any URL" onclick="toggleYtEmbedModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#ff0000;color:#fff">YT</button>
+            <button id="pgnPasteBtn" title="Paste PGN and view on chess board" onclick="togglePgnPasteModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#2e7d32;color:#fff">PGN</button>
             <?php if ($currentFile): ?>
                 <a class="download-link" href="<?= $contentDir . '/' . htmlspecialchars($currentFile) ?>" download>Download</a>
             <?php endif; ?>
@@ -1396,7 +1490,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                         <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
                     </div>
                 <?php
-                    elseif (in_array($f['ext'], ['txt','csv','json','log','md','html','htm','docx','rtf','pdf'])):
+                    elseif (in_array($f['ext'], ['txt','csv','json','log','md','html','htm','docx','rtf','pdf','pgn'])):
                 ?>
                     <div class="gallery-item">
                         <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>"
@@ -1501,6 +1595,9 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             })();
             </script>
 
+        <?php elseif ($displayType === 'pgn'): ?>
+            <div class="text-content" style="color:#888">Opening chess viewer&#8230; (if the board does not appear, <a href="" onclick="openPgnModal(0); return false;" style="color:#7ec8e3">click here</a>)</div>
+
         <?php elseif ($displayType === 'text'): ?>
             <div class="text-content"><?= htmlspecialchars($displayContent) ?></div>
 
@@ -1539,7 +1636,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             $rootImageExts = ['png','jpg','jpeg','gif','webp','bmp','svg'];
             $rootVideoExts = ['mp4','webm','ogg','mov','avi','mkv','m4v'];
             $rootAudioExts = ['mp3','m4a'];
-            $rootTextExts  = ['txt','csv','json','log','md','html','htm','docx','rtf','pdf'];
+            $rootTextExts  = ['txt','csv','json','log','md','html','htm','docx','rtf','pdf','pgn'];
             $rootFiles     = array_values(array_filter($items, function($i) { return $i['type'] === 'file'; }));
             $hasAnything   = !empty($folderCards) || !empty($rootFiles);
             ?>
@@ -1736,6 +1833,40 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     <div class="modal-counter" id="modalCounter"></div>
 </div>
 
+<!-- PGN Viewer Modal -->
+<div class="pgn-modal" id="pgnModal">
+    <button class="modal-close" onclick="closePgnModal()">&times;</button>
+    <div class="pgn-modal-inner">
+        <div class="pgn-board-col">
+            <div id="pgnBoard" style="width:400px;max-width:90vw"></div>
+            <div class="pgn-controls">
+                <button id="pgnStartBtn" onclick="pgnGoStart()" title="Start">|&laquo;</button>
+                <button id="pgnPrevBtn" onclick="pgnGoPrev()" title="Previous move">&laquo; Prev</button>
+                <button id="pgnNextBtn" onclick="pgnGoNext()" title="Next move">Next &raquo;</button>
+                <button id="pgnEndBtn" onclick="pgnGoEnd()" title="End">&raquo;|</button>
+            </div>
+            <div class="pgn-comment" id="pgnComment"></div>
+        </div>
+        <div class="pgn-moves" id="pgnMoves"></div>
+    </div>
+    <div class="pgn-file-nav" id="pgnFileNav" style="display:none">
+        <button onclick="pgnFileNav(-1)" title="Previous PGN file">&#8249;</button>
+        <div class="modal-caption" id="pgnModalCaption" style="margin-top:0"></div>
+        <button onclick="pgnFileNav(1)" title="Next PGN file">&#8250;</button>
+    </div>
+    <div class="modal-caption" id="pgnModalCaptionSolo"></div>
+</div>
+
+<!-- PGN Paste Modal -->
+<div class="pgn-paste-modal" id="pgnPasteModal">
+    <div class="pgn-paste-bar">
+        <span style="color:#eee;font-size:12px;font-weight:700">Paste PGN below — headers, {comments}, (variations), ? ?? ! annotations supported</span>
+        <button class="pgn-paste-load-btn" onclick="loadPastedPgn()">&#9654; Load</button>
+        <button class="pgn-paste-close" onclick="togglePgnPasteModal()">&times;</button>
+    </div>
+    <textarea id="pgnPasteInput" placeholder="1. b4 {A00 Polish Opening} e5 2. Bb2 Qf6 (3. Nf3 Nc6 4. b5 Nd4 5. e3) 3. f4? exf4?? 4. Bxf6 *"></textarea>
+</div>
+
 <!-- Audio Modal -->
 <div class="yt-modal" id="ytModal">
     <div class="yt-modal-header">
@@ -1775,6 +1906,8 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 
 <script>
 var imageList = <?= json_encode($imageList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
+var pgnList = <?= json_encode($pgnList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
+var pgnAutoOpenIdx = <?= $currentPgnIdx ?>;
 var modalIndex = 0;
 
 // --- Navigation history ([ = back, ] = forward) ---
@@ -1988,6 +2121,467 @@ function showModalImage() {
     });
 }
 
+// =====================================================================
+// PGN CHESS VIEWER MODAL
+// =====================================================================
+var pgnModalEl = document.getElementById('pgnModal');
+var pgnPasteModalEl = document.getElementById('pgnPasteModal');
+var pgnBoard = null, pgnRoot = null, pgnCurrent = null, pgnNodeRegistry = {};
+var pgnFileIndex = -1;
+
+// --- Lazy-load chess libraries (jQuery -> chessboard-js -> chess.js) ---
+var pgnLibsState = 'none'; // none | loading | ready
+var pgnLibsCallbacks = [];
+function ensureChessLibs(cb) {
+    if (pgnLibsState === 'ready') { cb(); return; }
+    pgnLibsCallbacks.push(cb);
+    if (pgnLibsState === 'loading') return;
+    pgnLibsState = 'loading';
+    function loadScript(src, next) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = next;
+        s.onerror = function() {
+            pgnLibsState = 'none'; pgnLibsCallbacks = [];
+            document.getElementById('pgnMoves').textContent = 'Failed to load chess libraries (internet required).';
+        };
+        document.head.appendChild(s);
+    }
+    var link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css';
+    document.head.appendChild(link);
+    loadScript('https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js', function() {
+        loadScript('https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js', function() {
+            loadScript('https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js', function() {
+                pgnLibsState = 'ready';
+                var cbs = pgnLibsCallbacks; pgnLibsCallbacks = [];
+                cbs.forEach(function(f) { f(); });
+            });
+        });
+    });
+}
+
+// --- Open/close ---
+function openPgnModal(idx) {
+    if (!pgnList.length) return;
+    pgnFileIndex = ((idx % pgnList.length) + pgnList.length) % pgnList.length;
+    var entry = pgnList[pgnFileIndex];
+    var multi = pgnList.length > 1;
+    document.getElementById('pgnFileNav').style.display = multi ? 'flex' : 'none';
+    document.getElementById('pgnModalCaptionSolo').style.display = multi ? 'none' : 'block';
+    document.getElementById('pgnModalCaption').textContent = entry.name + ' (' + (pgnFileIndex + 1) + '/' + pgnList.length + ')';
+    document.getElementById('pgnModalCaptionSolo').textContent = entry.name;
+    loadPgnIntoModal(entry.src);
+}
+
+function pgnFileNav(dir) { if (pgnFileIndex >= 0) openPgnModal(pgnFileIndex + dir); }
+
+function loadPgnIntoModal(src) {
+    pgnModalEl.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('pgnMoves').innerHTML = 'Loading&#8230;';
+    document.getElementById('pgnComment').textContent = '';
+    ensureChessLibs(function() {
+        fetch(src)
+            .then(function(r) { return r.text(); })
+            .then(renderPgnText)
+            .catch(function() {
+                document.getElementById('pgnMoves').textContent = 'Failed to load PGN file.';
+            });
+    });
+}
+
+function closePgnModal() {
+    pgnModalEl.classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+// --- Paste-PGN box (toolbar PGN button) ---
+function togglePgnPasteModal() {
+    var open = pgnPasteModalEl.classList.toggle('open');
+    if (open) setTimeout(function() { document.getElementById('pgnPasteInput').focus(); }, 60);
+}
+
+function loadPastedPgn() {
+    var text = document.getElementById('pgnPasteInput').value.trim();
+    if (!text) return;
+    pgnPasteModalEl.classList.remove('open');
+    pgnFileIndex = -1;
+    document.getElementById('pgnFileNav').style.display = 'none';
+    document.getElementById('pgnModalCaptionSolo').style.display = 'block';
+    document.getElementById('pgnModalCaptionSolo').textContent = 'Pasted PGN';
+    pgnModalEl.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('pgnMoves').innerHTML = 'Loading&#8230;';
+    document.getElementById('pgnComment').textContent = '';
+    ensureChessLibs(function() { renderPgnText(text); });
+}
+
+// --- Shared parse + render (used by file loading and pasted PGN) ---
+function renderPgnText(text) {
+    // Multi-game PGNs: viewer shows the first game only
+    var evRe = /^\[Event /gm, m, hits = [];
+    while ((m = evRe.exec(text)) !== null) hits.push(m.index);
+    if (hits.length > 1) text = text.slice(0, hits[1]);
+
+    pgnRoot = pgnParseWithVariations(text);
+    if (!pgnBoard) {
+        pgnBoard = Chessboard('pgnBoard', {
+            draggable: false,
+            position: pgnRoot.fen,
+            pieceTheme: 'https://assets.codepen.io/1075762/{piece}.png'
+        });
+    }
+    pgnRenderMoveTable(pgnRoot);
+    pgnJumpToNode('root');
+}
+
+// --- PGN parsing (adapted from chess analysis app) ---
+var pgnNagToSymbol = {
+    '$1': '!', '$2': '?', '$3': '!!', '$4': '??', '$5': '!?', '$6': '?!',
+    '$7': '□', '$8': '□', '$9': '', '$10': '=', '$11': '=', '$12': '=',
+    '$13': '∞', '$14': '+=', '$15': '=+', '$16': '±', '$17': '∓',
+    '$18': '+-', '$19': '-+', '$22': '⨀', '$32': '⟳', '$36': '→',
+    '$40': '↑', '$132': '⇆', '$138': '⊕', '$140': '∆', '$146': 'N'
+};
+
+function pgnTokenize(moveText) {
+    var tokens = [];
+    var current = '';
+    var inComment = false;
+    for (var i = 0; i < moveText.length; i++) {
+        var ch = moveText[i];
+        if (ch === '{') {
+            if (current.trim()) tokens.push(current.trim());
+            current = '{'; inComment = true;
+        } else if (ch === '}') {
+            current += '}'; tokens.push(current); current = ''; inComment = false;
+        } else if (inComment) {
+            current += ch;
+        } else if (ch === '(' || ch === ')') {
+            if (current.trim()) tokens.push(current.trim());
+            tokens.push(ch); current = '';
+        } else if (/\s/.test(ch)) {
+            if (current.trim()) tokens.push(current.trim());
+            current = '';
+        } else {
+            current += ch;
+        }
+    }
+    if (current.trim()) tokens.push(current.trim());
+    return tokens;
+}
+
+function pgnParseWithVariations(pgnString) {
+    var fenMatch = pgnString.match(/\[FEN\s+"([^"]+)"\]/);
+    var startingFen = fenMatch ? fenMatch[1] : 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    var moveText = pgnString.replace(/\[.*?\]/g, '').trim();
+    var tokens = pgnTokenize(moveText);
+
+    var chess = new Chess();
+    try { chess.load(startingFen); } catch (e) { chess.reset(); }
+
+    var rootNode = {
+        san: null, fen: chess.fen(), moveNumber: 0, isBlackMove: false,
+        comment: '', annotation: '', parent: null, children: [], depth: 0, nodeId: 'root'
+    };
+    pgnNodeRegistry = { 'root': rootNode };
+    pgnParseTokens(tokens, 0, chess, rootNode, 0, { counter: 0 });
+    return rootNode;
+}
+
+function pgnParseTokens(tokens, startIndex, chess, parentNode, depth, counterObj) {
+    var i = startIndex;
+    var lastMoveNode = parentNode;
+    var branchChess = chess;
+    var mainlineNeedsReorder = false;
+
+    while (i < tokens.length) {
+        var token = tokens[i];
+
+        if (token === '(') {
+            var branchPoint = lastMoveNode.parent || parentNode;
+            var firstMoveToken = null;
+            var firstMoveIsBlack = null;
+            for (var j = i + 1; j < tokens.length; j++) {
+                var t = tokens[j];
+                if (t === ')' || t === '(') break;
+                if (t.charAt(0) === '{') continue;
+                if (/^\$\d+$/.test(t)) continue;
+                if (['1-0', '0-1', '1/2-1/2', '*'].indexOf(t) !== -1) continue;
+                if (/^\d+\.+$/.test(t)) { firstMoveIsBlack = t.indexOf('...') !== -1; continue; }
+                firstMoveToken = t.replace(/^\d+\.+/, '').replace(/[!?]+$/, '');
+                break;
+            }
+
+            // Detect continuation-style variations (variation continues from last move
+            // instead of replacing it)
+            if (firstMoveToken && lastMoveNode !== parentNode) {
+                if (firstMoveIsBlack !== null) {
+                    var currentTurn = lastMoveNode.fen.split(' ')[1];
+                    if (firstMoveIsBlack === (currentTurn === 'b')) {
+                        branchPoint = lastMoveNode;
+                        mainlineNeedsReorder = true;
+                    }
+                } else {
+                    var testCurrent = new Chess();
+                    testCurrent.load(lastMoveNode.fen);
+                    if (testCurrent.move(firstMoveToken, { sloppy: true })) {
+                        var parentBranch = lastMoveNode.parent || parentNode;
+                        var testParent = new Chess();
+                        testParent.load(parentBranch.fen);
+                        if (!testParent.move(firstMoveToken, { sloppy: true })) {
+                            branchPoint = lastMoveNode;
+                            mainlineNeedsReorder = true;
+                        }
+                    }
+                }
+            }
+
+            var variationChess = new Chess();
+            variationChess.load(branchPoint.fen);
+            i = pgnParseTokens(tokens, i + 1, variationChess, branchPoint, depth + 1, counterObj);
+            continue;
+        }
+
+        if (token === ')') return i + 1;
+
+        if (token.charAt(0) === '{') {
+            var comment = token.slice(1, -1).trim();
+            if (lastMoveNode && lastMoveNode !== parentNode) lastMoveNode.comment = comment;
+            i++;
+            continue;
+        }
+
+        if (/^\d+\.+$/.test(token)) { i++; continue; }
+
+        if (/^\$\d+$/.test(token)) {
+            var nagSymbol = pgnNagToSymbol[token] || '';
+            if (nagSymbol && lastMoveNode && lastMoveNode.nodeId !== 'root') {
+                lastMoveNode.annotation = (lastMoveNode.annotation || '') + nagSymbol;
+            }
+            i++;
+            continue;
+        }
+
+        if (['1-0', '0-1', '1/2-1/2', '*'].indexOf(token) !== -1) { i++; continue; }
+
+        // Move token
+        try {
+            var moveToken = token.replace(/^\d+\.+/, '');
+            var annotationMatch = moveToken.match(/^(.+?)([!?]+)$/);
+            var cleanMove = annotationMatch ? annotationMatch[1] : moveToken;
+            var annotation = annotationMatch ? annotationMatch[2] : '';
+
+            var turnBeforeMove = branchChess.turn();
+            var move = branchChess.move(cleanMove, { sloppy: true });
+            if (move) {
+                var moveNumber;
+                var isBlackMove = (turnBeforeMove === 'b');
+                if (lastMoveNode.nodeId === 'root') {
+                    var fenParts = lastMoveNode.fen.split(' ');
+                    moveNumber = fenParts.length >= 6 ? parseInt(fenParts[5]) || 1 : 1;
+                } else if (isBlackMove) {
+                    moveNumber = lastMoveNode.moveNumber;
+                } else {
+                    moveNumber = lastMoveNode.moveNumber + (lastMoveNode.isBlackMove ? 1 : 0);
+                }
+
+                var newNode = {
+                    san: move.san, annotation: annotation, fen: branchChess.fen(),
+                    moveNumber: moveNumber, isBlackMove: isBlackMove, comment: '',
+                    parent: lastMoveNode, children: [], depth: depth,
+                    nodeId: 'pgn-node-' + (counterObj.counter++)
+                };
+                if (mainlineNeedsReorder && lastMoveNode.children.length > 0) {
+                    lastMoveNode.children.unshift(newNode);
+                } else {
+                    lastMoveNode.children.push(newNode);
+                }
+                mainlineNeedsReorder = false;
+                pgnNodeRegistry[newNode.nodeId] = newNode;
+                lastMoveNode = newNode;
+            }
+        } catch (e) { /* skip invalid move */ }
+
+        i++;
+    }
+    return i;
+}
+
+// --- Move list rendering ---
+function pgnAnnotationColor(annotation) {
+    if (!annotation) return null;
+    if (annotation.indexOf('??') !== -1) return '#ff4444'; // Blunder - red
+    if (annotation.indexOf('?!') !== -1) return '#ffd700'; // Dubious - yellow
+    if (annotation.indexOf('?') !== -1 && annotation.indexOf('!?') === -1) return '#ff69b4'; // Mistake - pink
+    return null;
+}
+
+function pgnRenderMoveTable(rootNode) {
+    var container = document.getElementById('pgnMoves');
+    if (!container) return;
+    container.innerHTML = '';
+    if (rootNode.children && rootNode.children.length > 0) {
+        pgnRenderMoveSequence(rootNode.children[0], container, true);
+    }
+}
+
+function pgnRenderMoveSequence(startNode, container, isMainLine) {
+    var node = startNode;
+    var lastMoveNumber = 0;
+    while (node) {
+        if (!node.isBlackMove && node.moveNumber !== lastMoveNumber) {
+            var numSpan = document.createElement('span');
+            numSpan.className = 'move-number';
+            numSpan.textContent = node.moveNumber + '. ';
+            container.appendChild(numSpan);
+            lastMoveNumber = node.moveNumber;
+        }
+
+        var moveSpan = document.createElement('span');
+        moveSpan.className = isMainLine ? 'move-san main-line' : 'move-san';
+        moveSpan.textContent = node.san + (node.annotation || '');
+        moveSpan.dataset.nodeId = node.nodeId;
+        moveSpan.onclick = function() { pgnJumpToNode(this.dataset.nodeId); };
+        var color = pgnAnnotationColor(node.annotation);
+        if (color) moveSpan.style.color = color;
+        container.appendChild(moveSpan);
+
+        if (node.parent && node.parent.children.length > 1) {
+            var siblingIndex = node.parent.children.indexOf(node);
+            if (siblingIndex === 0) {
+                for (var v = 1; v < node.parent.children.length; v++) {
+                    pgnRenderVariation(node.parent.children[v], container);
+                }
+            }
+        }
+
+        if (node.children && node.children.length > 0) node = node.children[0];
+        else break;
+    }
+}
+
+function pgnRenderVariation(startNode, container) {
+    var openParen = document.createElement('span');
+    openParen.className = 'variation-container';
+    openParen.textContent = '(';
+    container.appendChild(openParen);
+
+    var node = startNode;
+    var isFirst = true;
+    while (node) {
+        if (isFirst) {
+            var numSpan = document.createElement('span');
+            numSpan.className = 'move-number';
+            numSpan.textContent = node.isBlackMove ? node.moveNumber + '... ' : node.moveNumber + '. ';
+            container.appendChild(numSpan);
+            isFirst = false;
+        } else if (!node.isBlackMove) {
+            var wSpan = document.createElement('span');
+            wSpan.className = 'move-number';
+            wSpan.textContent = node.moveNumber + '. ';
+            container.appendChild(wSpan);
+        }
+
+        var moveSpan = document.createElement('span');
+        moveSpan.className = 'variation-move';
+        moveSpan.textContent = node.san + (node.annotation || '');
+        moveSpan.dataset.nodeId = node.nodeId;
+        moveSpan.onclick = function() { pgnJumpToNode(this.dataset.nodeId); };
+        var color = pgnAnnotationColor(node.annotation);
+        if (color) moveSpan.style.color = color;
+        container.appendChild(moveSpan);
+        container.appendChild(document.createTextNode(' '));
+
+        if (node.children && node.children.length > 1) {
+            for (var v = 1; v < node.children.length; v++) {
+                pgnRenderVariation(node.children[v], container);
+            }
+        }
+
+        if (node.children && node.children.length > 0) node = node.children[0];
+        else break;
+    }
+
+    var closeParen = document.createElement('span');
+    closeParen.className = 'variation-container';
+    closeParen.textContent = ') ';
+    container.appendChild(closeParen);
+}
+
+// --- Navigation ---
+function pgnJumpToNode(nodeId) {
+    var node = pgnNodeRegistry[nodeId];
+    if (!node) return;
+    pgnCurrent = node;
+    if (pgnBoard) pgnBoard.position(node.fen);
+
+    var cur = document.querySelectorAll('#pgnMoves .current');
+    for (var i = 0; i < cur.length; i++) cur[i].classList.remove('current');
+    var el = document.querySelector('#pgnMoves [data-node-id="' + nodeId + '"]');
+    if (el) {
+        el.classList.add('current');
+        el.scrollIntoView({ block: 'nearest' });
+    }
+    document.getElementById('pgnComment').textContent = node.comment || '';
+    pgnUpdateNavButtons();
+}
+
+function pgnGoPrev() { if (pgnCurrent && pgnCurrent.parent) pgnJumpToNode(pgnCurrent.parent.nodeId); }
+function pgnGoNext() { if (pgnCurrent && pgnCurrent.children.length) pgnJumpToNode(pgnCurrent.children[0].nodeId); }
+function pgnGoStart() { if (pgnRoot) pgnJumpToNode('root'); }
+function pgnGoEnd() {
+    var n = pgnCurrent;
+    while (n && n.children.length) n = n.children[0];
+    if (n) pgnJumpToNode(n.nodeId);
+}
+function pgnUpdateNavButtons() {
+    var hasParent = !!(pgnCurrent && pgnCurrent.parent);
+    var hasChild = !!(pgnCurrent && pgnCurrent.children.length);
+    document.getElementById('pgnPrevBtn').disabled = !hasParent;
+    document.getElementById('pgnStartBtn').disabled = !hasParent;
+    document.getElementById('pgnNextBtn').disabled = !hasChild;
+    document.getElementById('pgnEndBtn').disabled = !hasChild;
+}
+
+// --- Intercept clicks on .pgn file links → open modal instead of navigating ---
+document.addEventListener('click', function(e) {
+    var a = e.target.closest ? e.target.closest('a') : null;
+    if (!a) return;
+    var href = a.getAttribute('href') || '';
+    if (href.indexOf('file=') === -1) return;
+    var qs = href.indexOf('?') >= 0 ? href.substring(href.indexOf('?') + 1) : href;
+    var fileParam = null;
+    qs.split('&').forEach(function(pair) {
+        var i = pair.indexOf('=');
+        if (i > 0 && decodeURIComponent(pair.substring(0, i)) === 'file') {
+            fileParam = decodeURIComponent(pair.substring(i + 1));
+        }
+    });
+    if (!fileParam || fileParam.split('.').pop().toLowerCase() !== 'pgn') return;
+    e.preventDefault();
+    var baseName = fileParam.split('/').pop();
+    var idx = -1;
+    for (var i = 0; i < pgnList.length; i++) {
+        if (pgnList[i].name === baseName) { idx = i; break; }
+    }
+    if (idx >= 0) {
+        openPgnModal(idx);
+    } else {
+        // File not in current listing — fetch directly, no file-cycling
+        pgnFileIndex = -1;
+        document.getElementById('pgnFileNav').style.display = 'none';
+        document.getElementById('pgnModalCaptionSolo').style.display = 'block';
+        document.getElementById('pgnModalCaptionSolo').textContent = baseName;
+        loadPgnIntoModal('./' + fileParam.split('/').map(encodeURIComponent).join('/'));
+    }
+});
+
+// Auto-open viewer on ?file=....pgn deep links
+if (pgnAutoOpenIdx >= 0) openPgnModal(pgnAutoOpenIdx);
+
 // Grid/gallery keyboard navigation (0/9 = prev/next, Enter = open)
 (function() {
     var kbIdx = -1;
@@ -2181,7 +2775,13 @@ document.addEventListener('keydown', function(e) {
         }
     }
 
-    if (modal.classList.contains('open')) {
+    if (pgnModalEl.classList.contains('open')) {
+        if (e.key === 'Escape') closePgnModal();
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); pgnGoPrev(); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); pgnGoNext(); }
+    } else if (pgnPasteModalEl.classList.contains('open')) {
+        if (e.key === 'Escape') togglePgnPasteModal();
+    } else if (modal.classList.contains('open')) {
         if (e.key === 'Escape') closeModal();
         else if (e.key === 'ArrowLeft') modalNav(-1);
         else if (e.key === 'ArrowRight') modalNav(1);

@@ -198,6 +198,18 @@ $currentFile   = isset($_GET['file'])   ? $_GET['file']   : null;
 $currentFolder = isset($_GET['folder']) ? $_GET['folder'] : null;
 $sortBy        = isset($_GET['sort'])   ? $_GET['sort']   : 'name';
 
+// Text/markdown/docx files only ever render in the right pane (P2).
+// Redirect any ?file=<text> deep link to ?p2=<text> (pane 1 keeps its context).
+$p2Exts = ['txt','csv','json','log','md','docx'];
+if ($currentFile && in_array(strtolower(pathinfo($currentFile, PATHINFO_EXTENSION)), $p2Exts)
+    && file_exists($contentDir . '/' . $currentFile)) {
+    $redir = $_GET;
+    unset($redir['file']);
+    $redir['p2'] = $currentFile;
+    header('Location: ?' . http_build_query($redir));
+    exit;
+}
+
 // --- Helpers ---
 
 function scanContent($dir, $sortBy) {
@@ -346,6 +358,7 @@ if ($p2File) {
         $p2Ext    = strtolower(pathinfo($p2File, PATHINFO_EXTENSION));
         $p2TextExts = ['txt','csv','json','log'];
         if ($p2Ext === 'md')                    { $p2DisplayType = 'markdown'; $p2DisplayContent = file_get_contents($p2FilePath); }
+        elseif ($p2Ext === 'docx')              { $p2DisplayType = 'docx';     $p2DisplayContent = $p2FilePath; }
         elseif (in_array($p2Ext, $p2TextExts))  { $p2DisplayType = 'text';     $p2DisplayContent = file_get_contents($p2FilePath); }
     }
 }
@@ -387,7 +400,7 @@ foreach ($fileList as $f) {
     }
 }
 
-// PGN list for chess viewer modal
+// PGN list for inline chess viewer (prev/next PGN file cycling)
 $pgnList = [];
 foreach ($fileList as $f) {
     $fext = $f['ext'] ?? '';
@@ -400,7 +413,7 @@ foreach ($fileList as $f) {
     }
 }
 
-// Current PGN index (for auto-opening chess viewer on ?file=... deep links)
+// Current PGN index (for file-cycling position when viewing a .pgn file)
 $currentPgnIdx = -1;
 if ($displayType === 'pgn' && !empty($pgnList)) {
     foreach ($pgnList as $pi => $pEntry) {
@@ -788,33 +801,27 @@ body.dark .gallery-item.kb-focus {
 .modal-caption { color: #ccc; font-size: 13px; margin-top: 12px; }
 .modal-counter { color: #888; font-size: 11px; margin-top: 4px; }
 
-/* PGN viewer modal */
-.pgn-modal {
-    display: none;
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.92);
-    z-index: 2000;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-}
-.pgn-modal.open { display: flex; }
-.pgn-modal-inner { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; justify-content: center; max-width: 95vw; max-height: 85vh; }
+/* PGN viewer (inline in first pane) */
+.pgn-inline { display: flex; flex-direction: column; align-items: center; width: 100%; padding: 8px 0 40px; }
+.pgn-inline-inner { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; justify-content: center; max-width: 100%; }
 .pgn-board-col { flex: 0 0 auto; }
 .pgn-controls { margin-top: 10px; display: flex; gap: 8px; justify-content: center; }
 .pgn-controls button { padding: 6px 14px; border-radius: 6px; border: 1px solid #555; background: #333; color: #ccc; cursor: pointer; font-size: 13px; }
 .pgn-controls button:hover { background: #444; }
 .pgn-controls button:disabled { opacity: 0.4; cursor: default; }
-.pgn-comment { margin-top: 10px; max-width: 400px; min-height: 1.4em; font-size: 14px; font-style: italic; color: #ffd700; text-align: center; }
-.pgn-moves { flex: 1; min-width: 280px; max-width: 450px; max-height: 80vh; overflow-y: auto; background: #fff; color: #333; padding: 16px 20px; border-radius: 4px; font-size: 15px; line-height: 2; user-select: none; }
+.pgn-comment { margin-top: 10px; max-width: 400px; min-height: 1.4em; font-size: 14px; font-style: italic; color: #b8860b; text-align: center; }
+body.dark .pgn-comment { color: #ffd700; }
+.pgn-moves { flex: 1; min-width: 280px; max-width: 450px; max-height: 80vh; overflow-y: auto; background: #fff; color: #333; padding: 16px 20px; border-radius: 4px; font-size: 15px; line-height: 2; user-select: none; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
 .pgn-moves .move-number { color: #888; }
 .pgn-moves .move-san, .pgn-moves .variation-move { cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-right: 4px; font-weight: 600; }
 .pgn-moves .move-san:hover, .pgn-moves .variation-move:hover { background: #e6f2ff; }
 .pgn-moves .current { background: #ffe58a; }
 .pgn-moves .variation-container { color: #888; }
 .pgn-file-nav { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
-.pgn-file-nav button { background: rgba(255,255,255,0.15); border: none; color: #fff; font-size: 20px; padding: 6px 14px; cursor: pointer; border-radius: 4px; }
-.pgn-file-nav button:hover { background: rgba(255,255,255,0.3); }
+.pgn-file-nav button { padding: 4px 14px; border-radius: 6px; border: 1px solid #555; background: #333; color: #ccc; font-size: 18px; cursor: pointer; }
+.pgn-file-nav button:hover { background: #444; }
+.pgn-inline-caption { margin-top: 10px; font-size: 13px; color: #555; }
+body.dark .pgn-inline-caption { color: #aaa; }
 body.dark .pgn-moves { background: #2a2a2a; color: #ddd; }
 body.dark .pgn-moves .move-san:hover, body.dark .pgn-moves .variation-move:hover { background: #3a4a5a; }
 body.dark .pgn-moves .current { background: #8a6d1a; color: #fff; }
@@ -1240,6 +1247,18 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     resize: none; outline: none;
 }
 #pgnPasteInput:focus { border-color: #2e7d32; }
+
+/* Engine eval display (pasted from chess analysis app) */
+.pgn-moves .move-eval { font-size: 11px; font-weight: 400; margin-left: 1px; }
+.pgn-eval { text-align: center; font-family: monospace; font-size: 13px; min-height: 1.3em; margin-top: 4px; font-weight: 700; }
+#evalPasteInput {
+    width: 100%; max-width: 960px; flex: 1; min-height: 0;
+    padding: 10px; border-radius: 6px;
+    border: 1px solid #444; background: #1a1a1a; color: #eee;
+    font-family: monospace; font-size: 13px; line-height: 1.5;
+    resize: none; outline: none;
+}
+#evalPasteInput:focus { border-color: #f57f17; }
 </style>
 </head>
 <body>
@@ -1386,9 +1405,10 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button id="splitBtn" title="Toggle dual-pane (left=media, right=text/md)" onclick="toggleSplit()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">P2</button>
             <button id="shortcutsBtn" title="Keyboard shortcuts" onclick="openShortcuts()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(102,126,234);color:#fff">Shortcuts</button>
             <button id="servePanelBtn" title="PHP serve command" onclick="openServePanel()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(52,168,83);color:#fff">Serve</button>
-            <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
+            <?php if ($p2DisplayType === 'text' || $p2DisplayType === 'markdown'): ?>
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
-                <button id="editBtn" class="edit-btn" title="Edit and save back to local file" onclick="toggleEdit()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
+                <button id="p2TxtMdBtn" onclick="toggleRightTxtMd()" title="Toggle markdown/text view (right pane)" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $p2DisplayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
+                <button id="p2EditBtn" onclick="toggleP2Edit()" title="Edit and save back to local file" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
             <?php endif; ?>
             <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
                 <button id="txtMdBtn" onclick="toggleLeftTxtMd()" title="Toggle markdown/text view" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $displayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
@@ -1399,6 +1419,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button title="YouTube music" onclick="toggleYtModal()" style="width:32px;height:32px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);display:flex;align-items:center;justify-content:center;padding:0"><svg width="20" height="14" viewBox="0 0 68 48"><path d="M66.5 7.7s-.7-4.7-2.7-6.8C61-1.7 58-1.7 56.6-1.9 47.3-2.6 34-2.6 34-2.6s-13.3 0-22.6.7C10-1.7 7-1.7 4.2.9 2.2 3 1.5 7.7 1.5 7.7S.8 13.2.8 18.8v5.2c0 5.5.7 11.1.7 11.1s.7 4.7 2.7 6.8c2.8 2.6 6.4 2.5 8 2.8 5.8.5 24.8.7 24.8.7s13.3 0 22.6-.7c1.4-.2 4.4-.2 7.2-2.8 2-2.1 2.7-6.8 2.7-6.8s.7-5.5.7-11.1v-5.2c0-5.6-.7-11.1-.7-11.1z" fill="red"/><path d="M27 33V13l18.2 10L27 33z" fill="white"/></svg></button>
             <button id="ytEmbedToggleBtn" title="YouTube embed — paste any URL" onclick="toggleYtEmbedModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#ff0000;color:#fff">YT</button>
             <button id="pgnPasteBtn" title="Paste PGN or FEN and view on chess board" onclick="togglePgnPasteModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#2e7d32;color:#fff">PGN</button>
+            <button id="evalPasteBtn" title="Paste engine evals copied from the chess analysis app (Copy Evals)" onclick="toggleEvalPasteModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#f57f17;color:#fff">EVAL</button>
             <?php if ($currentFile): ?>
                 <a class="download-link" href="<?= $contentDir . '/' . htmlspecialchars($currentFile) ?>" download>Download</a>
             <?php endif; ?>
@@ -1596,7 +1617,13 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             </script>
 
         <?php elseif ($displayType === 'pgn'): ?>
-            <div class="text-content" style="color:#888">Opening chess viewer&#8230; (if the board does not appear, <a href="" onclick="openPgnModal(0); return false;" style="color:#7ec8e3">click here</a>)</div>
+            <div id="pgnInlineHost" style="width:100%"></div>
+            <script>
+            window._pgnInlineBoot = {
+                name: <?= json_encode(basename($currentFile)) ?>,
+                text: <?= json_encode($displayContent, JSON_HEX_TAG | JSON_HEX_AMP) ?>
+            };
+            </script>
 
         <?php elseif ($displayType === 'text'): ?>
             <div class="text-content"><?= htmlspecialchars($displayContent) ?></div>
@@ -1715,10 +1742,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     <div class="pane-right" id="paneRight" style="display:none">
         <?php if ($p2DisplayType): ?>
         <div class="pane-right-bar">
-            <span><?= htmlspecialchars(basename($p2File)) ?></span>
-            <?php if ($p2DisplayType === 'text' || $p2DisplayType === 'markdown'): ?>
-                <button id="p2TxtMdBtn" onclick="toggleRightTxtMd()" title="Toggle markdown/text view" style="height:22px;font-size:10px;font-weight:700;padding:0 6px;border:none;border-radius:4px;cursor:pointer;background:rgba(0,0,0,0.12);color:inherit;margin-right:6px"><?= $p2DisplayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
-            <?php endif; ?>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:6px"><?= htmlspecialchars(basename($p2File)) ?></span>
             <a href="<?= htmlspecialchars($p2CloseUrl) ?>" class="pr-close" title="Close right pane">&times;</a>
         </div>
         <?php endif; ?>
@@ -1735,9 +1759,24 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 document.querySelectorAll('#p2-md-render pre code').forEach(function(b) { hljs.highlightElement(b); });
             })();
             </script>
+        <?php elseif ($p2DisplayType === 'docx'): ?>
+            <div class="docx-content" id="p2-docx-render">Loading document...</div>
+            <script>
+            (function() {
+                fetch('<?= htmlspecialchars($p2DisplayContent) ?>')
+                    .then(function(r) { return r.arrayBuffer(); })
+                    .then(function(buf) { return mammoth.convertToHtml({ arrayBuffer: buf }); })
+                    .then(function(result) { document.getElementById('p2-docx-render').innerHTML = result.value; })
+                    .catch(function(err) {
+                        document.getElementById('p2-docx-render').innerHTML =
+                            '<p style="color:red">Could not render DOCX: ' + err.message + '</p>' +
+                            '<p><a href="<?= $contentDir . '/' . htmlspecialchars($p2File) ?>" download>Download instead</a></p>';
+                    });
+            })();
+            </script>
         <?php else: ?>
             <div style="display:flex;align-items:center;justify-content:center;height:70%;color:#aaa;font-size:13px;text-align:center;pointer-events:none">
-                <div><div style="font-size:36px;margin-bottom:10px">&#128196;</div><p>Click a .txt or .md file<br>to open it here</p></div>
+                <div><div style="font-size:36px;margin-bottom:10px">&#128196;</div><p>Click a .txt, .md or .docx file<br>to open it here</p></div>
             </div>
         <?php endif; ?>
     </div>
@@ -1833,30 +1872,6 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     <div class="modal-counter" id="modalCounter"></div>
 </div>
 
-<!-- PGN Viewer Modal -->
-<div class="pgn-modal" id="pgnModal">
-    <button class="modal-close" onclick="closePgnModal()">&times;</button>
-    <div class="pgn-modal-inner">
-        <div class="pgn-board-col">
-            <div id="pgnBoard" style="width:400px;max-width:90vw"></div>
-            <div class="pgn-controls">
-                <button id="pgnStartBtn" onclick="pgnGoStart()" title="Start">|&laquo;</button>
-                <button id="pgnPrevBtn" onclick="pgnGoPrev()" title="Previous move">&laquo; Prev</button>
-                <button id="pgnNextBtn" onclick="pgnGoNext()" title="Next move">Next &raquo;</button>
-                <button id="pgnEndBtn" onclick="pgnGoEnd()" title="End">&raquo;|</button>
-            </div>
-            <div class="pgn-comment" id="pgnComment"></div>
-        </div>
-        <div class="pgn-moves" id="pgnMoves"></div>
-    </div>
-    <div class="pgn-file-nav" id="pgnFileNav" style="display:none">
-        <button onclick="pgnFileNav(-1)" title="Previous PGN file">&#8249;</button>
-        <div class="modal-caption" id="pgnModalCaption" style="margin-top:0"></div>
-        <button onclick="pgnFileNav(1)" title="Next PGN file">&#8250;</button>
-    </div>
-    <div class="modal-caption" id="pgnModalCaptionSolo"></div>
-</div>
-
 <!-- PGN Paste Modal -->
 <div class="pgn-paste-modal" id="pgnPasteModal">
     <div class="pgn-paste-bar">
@@ -1865,6 +1880,16 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <button class="pgn-paste-close" onclick="togglePgnPasteModal()">&times;</button>
     </div>
     <textarea id="pgnPasteInput" placeholder="1. b4 {A00 Polish Opening} e5 2. Bb2 Qf6 (3. Nf3 Nc6 4. b5 Nd4 5. e3) 3. f4? exf4?? 4. Bxf6 *"></textarea>
+</div>
+
+<!-- Eval Paste Modal -->
+<div class="pgn-paste-modal" id="evalPasteModal" style="border-top: 2px solid #f57f17">
+    <div class="pgn-paste-bar">
+        <span style="color:#eee;font-size:12px;font-weight:700">Paste evals copied from the chess analysis app ("&#128203; Copy Evals") — load the same PGN here, then evals show next to each move</span>
+        <button class="pgn-paste-load-btn" style="background:#f57f17" onclick="loadPastedEval()">&#9654; Load Evals</button>
+        <button class="pgn-paste-close" onclick="toggleEvalPasteModal()">&times;</button>
+    </div>
+    <textarea id="evalPasteInput" placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w	0&#10;rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b	30"></textarea>
 </div>
 
 <!-- Audio Modal -->
@@ -2122,12 +2147,84 @@ function showModalImage() {
 }
 
 // =====================================================================
-// PGN CHESS VIEWER MODAL
+// PGN CHESS VIEWER (inline in first pane)
 // =====================================================================
-var pgnModalEl = document.getElementById('pgnModal');
 var pgnPasteModalEl = document.getElementById('pgnPasteModal');
+var evalPasteModalEl = document.getElementById('evalPasteModal');
 var pgnBoard = null, pgnRoot = null, pgnCurrent = null, pgnNodeRegistry = {};
+var pgnEvalMap = {}; // "<board> <turn>" -> centipawns, White perspective (pasted from chess analysis app)
+
+// --- Eval paste box (toolbar EVAL button) ---
+function toggleEvalPasteModal() {
+    var open = evalPasteModalEl.classList.toggle('open');
+    if (open) setTimeout(function() { document.getElementById('evalPasteInput').focus(); }, 60);
+}
+
+function pgnEvalKey(fen) {
+    var p = fen.split(/\s+/);
+    return p[0] + ' ' + p[1];
+}
+
+function pgnEvalCpForFen(fen) {
+    if (!fen) return null;
+    var k = pgnEvalKey(fen);
+    return (pgnEvalMap[k] !== undefined) ? pgnEvalMap[k] : null;
+}
+
+function pgnFormatEval(cp) {
+    if (Math.abs(cp) >= 9000) {
+        var m = 10000 - Math.abs(cp);
+        return (cp > 0 ? 'M' : '-M') + m;
+    }
+    var p = cp / 100;
+    return (p >= 0 ? '+' : '') + p.toFixed(2);
+}
+
+function loadPastedEval() {
+    var input = document.getElementById('evalPasteInput');
+    var text = input.value.trim();
+    if (!text) return;
+
+    // Accepts a bare eval list or a whole analysis report — ENGINE EVALUATIONS
+    // is always the last section of the report, so parse from that marker down.
+    var marker = text.lastIndexOf('ENGINE EVALUATIONS');
+    if (marker >= 0) text = text.slice(marker);
+
+    var map = {};
+    var lines = text.split('\n');
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line || line.charAt(0) === '#') continue;
+        // Format: "<board> <turn><TAB>cp" (full-FEN keys also accepted — eval is the last token)
+        var sep = line.lastIndexOf('\t');
+        if (sep < 0) sep = line.lastIndexOf(' ');
+        if (sep <= 0) continue;
+        var keyPart = line.slice(0, sep).trim();
+        if (keyPart.indexOf('/') < 0) continue; // data lines must start with a FEN board field
+        var cp = parseInt(line.slice(sep + 1).trim(), 10);
+        if (isNaN(cp)) continue;
+        map[pgnEvalKey(keyPart)] = cp;
+    }
+    pgnEvalMap = map;
+    input.value = '';
+    evalPasteModalEl.classList.remove('open');
+    if (pgnRoot) pgnRenderMoveTable(pgnRoot);
+    if (pgnCurrent) pgnJumpToNode(pgnCurrent.nodeId);
+}
+
+// Small eval badge after a move in the move list (green = White better, red = Black better)
+function pgnAppendEvalBadge(node, container) {
+    var cp = pgnEvalCpForFen(node.fen);
+    if (cp === null) return;
+    var evSpan = document.createElement('span');
+    evSpan.className = 'move-eval';
+    evSpan.textContent = pgnFormatEval(cp);
+    evSpan.style.color = cp > 0 ? '#43a047' : (cp < 0 ? '#e53935' : '#888');
+    container.appendChild(evSpan);
+    container.appendChild(document.createTextNode(' '));
+}
 var pgnFileIndex = -1;
+var pgnInlineActive = false;
 
 // --- Lazy-load chess libraries (jQuery -> chessboard-js -> chess.js) ---
 var pgnLibsState = 'none'; // none | loading | ready
@@ -2162,40 +2259,81 @@ function ensureChessLibs(cb) {
     });
 }
 
-// --- Open/close ---
-function openPgnModal(idx) {
-    if (!pgnList.length) return;
-    pgnFileIndex = ((idx % pgnList.length) + pgnList.length) % pgnList.length;
-    var entry = pgnList[pgnFileIndex];
-    var multi = pgnList.length > 1;
-    document.getElementById('pgnFileNav').style.display = multi ? 'flex' : 'none';
-    document.getElementById('pgnModalCaptionSolo').style.display = multi ? 'none' : 'block';
-    document.getElementById('pgnModalCaption').textContent = entry.name + ' (' + (pgnFileIndex + 1) + '/' + pgnList.length + ')';
-    document.getElementById('pgnModalCaptionSolo').textContent = entry.name;
-    loadPgnIntoModal(entry.src);
+// --- Inline viewer markup (single source of truth for both PHP-boot and paste flows) ---
+function pgnInlineHtml() {
+    return '<div class="pgn-inline" id="pgnInline">'
+        + '<div class="pgn-inline-inner">'
+        +   '<div class="pgn-board-col">'
+        +     '<div id="pgnBoard" style="width:400px;max-width:90vw"></div>'
+        +     '<div class="pgn-controls">'
+        +       '<button id="pgnStartBtn" onclick="pgnGoStart()" title="Start">|&laquo;</button>'
+        +       '<button id="pgnPrevBtn" onclick="pgnGoPrev()" title="Previous move">&laquo; Prev</button>'
+        +       '<button id="pgnNextBtn" onclick="pgnGoNext()" title="Next move">Next &raquo;</button>'
+        +       '<button id="pgnEndBtn" onclick="pgnGoEnd()" title="End">&raquo;|</button>'
+        +     '</div>'
+        +     '<div class="pgn-comment" id="pgnComment"></div>'
+        +     '<div class="pgn-eval" id="pgnEval"></div>'
+        +   '</div>'
+        +   '<div class="pgn-moves" id="pgnMoves"></div>'
+        + '</div>'
+        + '<div class="pgn-file-nav" id="pgnFileNav" style="display:none">'
+        +   '<button onclick="pgnFileNav(-1)" title="Previous PGN file">&#8249;</button>'
+        +   '<div class="pgn-inline-caption" id="pgnCaption" style="margin-top:0"></div>'
+        +   '<button onclick="pgnFileNav(1)" title="Next PGN file">&#8250;</button>'
+        + '</div>'
+        + '<div class="pgn-inline-caption" id="pgnCaptionSolo"></div>'
+        + '</div>';
 }
 
-function pgnFileNav(dir) { if (pgnFileIndex >= 0) openPgnModal(pgnFileIndex + dir); }
+// Find or create the viewer host inside the first pane. On non-PGN pages
+// (paste flow) this replaces the content area's current contents.
+function pgnEnsureInlineHost() {
+    var host = document.getElementById('pgnInlineHost');
+    if (!host) {
+        var area = document.getElementById('contentArea');
+        area.innerHTML = '';
+        host = document.createElement('div');
+        host.id = 'pgnInlineHost';
+        host.style.width = '100%';
+        area.appendChild(host);
+    }
+    if (!document.getElementById('pgnInline')) {
+        pgnBoard = null; // board element (if any) was destroyed with old markup
+        host.innerHTML = pgnInlineHtml();
+    }
+    return host;
+}
 
-function loadPgnIntoModal(src) {
-    pgnModalEl.classList.add('open');
-    document.body.style.overflow = 'hidden';
+// --- Open/show ---
+function pgnShowInline(caption, text, idx) {
+    pgnEnsureInlineHost();
+    pgnInlineActive = true;
+    pgnFileIndex = (typeof idx === 'number') ? idx : -1;
+    var multi = pgnList.length > 1 && pgnFileIndex >= 0;
+    document.getElementById('pgnFileNav').style.display = multi ? 'flex' : 'none';
+    document.getElementById('pgnCaptionSolo').style.display = multi ? 'none' : 'block';
+    if (multi) document.getElementById('pgnCaption').textContent = caption + ' (' + (pgnFileIndex + 1) + '/' + pgnList.length + ')';
+    document.getElementById('pgnCaptionSolo').textContent = caption;
     document.getElementById('pgnMoves').innerHTML = 'Loading&#8230;';
     document.getElementById('pgnComment').textContent = '';
-    ensureChessLibs(function() {
-        fetch(src)
-            .then(function(r) { return r.text(); })
-            .then(renderPgnText)
-            .catch(function() {
-                document.getElementById('pgnMoves').textContent = 'Failed to load PGN file.';
-            });
-    });
+    document.getElementById('contentArea').scrollTop = 0;
+    ensureChessLibs(function() { renderPgnText(text); });
 }
 
-function closePgnModal() {
-    pgnModalEl.classList.remove('open');
-    document.body.style.overflow = '';
+function openPgnInline(idx) {
+    if (!pgnList.length) return;
+    idx = ((idx % pgnList.length) + pgnList.length) % pgnList.length;
+    var entry = pgnList[idx];
+    fetch(entry.src)
+        .then(function(r) { return r.text(); })
+        .then(function(text) { pgnShowInline(entry.name, text, idx); })
+        .catch(function() {
+            pgnEnsureInlineHost();
+            document.getElementById('pgnMoves').textContent = 'Failed to load PGN file.';
+        });
 }
+
+function pgnFileNav(dir) { if (pgnFileIndex >= 0) openPgnInline(pgnFileIndex + dir); }
 
 // --- Paste-PGN box (toolbar PGN button) ---
 function togglePgnPasteModal() {
@@ -2226,15 +2364,7 @@ function loadPastedPgn() {
         text = '[FEN "' + fenParts.join(' ') + '"]\n*';
     }
     pgnPasteModalEl.classList.remove('open');
-    pgnFileIndex = -1;
-    document.getElementById('pgnFileNav').style.display = 'none';
-    document.getElementById('pgnModalCaptionSolo').style.display = 'block';
-    document.getElementById('pgnModalCaptionSolo').textContent = isFen ? 'Pasted FEN' : 'Pasted PGN';
-    pgnModalEl.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    document.getElementById('pgnMoves').innerHTML = 'Loading&#8230;';
-    document.getElementById('pgnComment').textContent = '';
-    ensureChessLibs(function() { renderPgnText(text); });
+    pgnShowInline(isFen ? 'Pasted FEN' : 'Pasted PGN', text);
 }
 
 // --- Shared parse + render (used by file loading and pasted PGN) ---
@@ -2476,6 +2606,7 @@ function pgnRenderMoveSequence(startNode, container, isMainLine) {
         var color = pgnAnnotationColor(node.annotation);
         if (color) moveSpan.style.color = color;
         container.appendChild(moveSpan);
+        pgnAppendEvalBadge(node, container);
 
         if (node.parent && node.parent.children.length > 1) {
             var siblingIndex = node.parent.children.indexOf(node);
@@ -2521,6 +2652,7 @@ function pgnRenderVariation(startNode, container) {
         var color = pgnAnnotationColor(node.annotation);
         if (color) moveSpan.style.color = color;
         container.appendChild(moveSpan);
+        pgnAppendEvalBadge(node, container);
         container.appendChild(document.createTextNode(' '));
 
         if (node.children && node.children.length > 1) {
@@ -2554,6 +2686,16 @@ function pgnJumpToNode(nodeId) {
         el.scrollIntoView({ block: 'nearest' });
     }
     document.getElementById('pgnComment').textContent = node.comment || '';
+    var evEl = document.getElementById('pgnEval');
+    if (evEl) {
+        var curCp = pgnEvalCpForFen(node.fen);
+        if (curCp !== null) {
+            evEl.textContent = 'Eval: ' + pgnFormatEval(curCp) + (curCp > 0 ? ' (White)' : curCp < 0 ? ' (Black)' : '');
+            evEl.style.color = curCp > 0 ? '#43a047' : (curCp < 0 ? '#e53935' : '#888');
+        } else {
+            evEl.textContent = '';
+        }
+    }
     pgnUpdateNavButtons();
 }
 
@@ -2574,41 +2716,11 @@ function pgnUpdateNavButtons() {
     document.getElementById('pgnEndBtn').disabled = !hasChild;
 }
 
-// --- Intercept clicks on .pgn file links → open modal instead of navigating ---
-document.addEventListener('click', function(e) {
-    var a = e.target.closest ? e.target.closest('a') : null;
-    if (!a) return;
-    var href = a.getAttribute('href') || '';
-    if (href.indexOf('file=') === -1) return;
-    var qs = href.indexOf('?') >= 0 ? href.substring(href.indexOf('?') + 1) : href;
-    var fileParam = null;
-    qs.split('&').forEach(function(pair) {
-        var i = pair.indexOf('=');
-        if (i > 0 && decodeURIComponent(pair.substring(0, i)) === 'file') {
-            fileParam = decodeURIComponent(pair.substring(i + 1));
-        }
-    });
-    if (!fileParam || fileParam.split('.').pop().toLowerCase() !== 'pgn') return;
-    e.preventDefault();
-    var baseName = fileParam.split('/').pop();
-    var idx = -1;
-    for (var i = 0; i < pgnList.length; i++) {
-        if (pgnList[i].name === baseName) { idx = i; break; }
-    }
-    if (idx >= 0) {
-        openPgnModal(idx);
-    } else {
-        // File not in current listing — fetch directly, no file-cycling
-        pgnFileIndex = -1;
-        document.getElementById('pgnFileNav').style.display = 'none';
-        document.getElementById('pgnModalCaptionSolo').style.display = 'block';
-        document.getElementById('pgnModalCaptionSolo').textContent = baseName;
-        loadPgnIntoModal('./' + fileParam.split('/').map(encodeURIComponent).join('/'));
-    }
-});
-
-// Auto-open viewer on ?file=....pgn deep links
-if (pgnAutoOpenIdx >= 0) openPgnModal(pgnAutoOpenIdx);
+// Boot inline viewer on ?file=....pgn pages (PHP embedded the PGN text)
+if (window._pgnInlineBoot) {
+    pgnShowInline(window._pgnInlineBoot.name, window._pgnInlineBoot.text,
+                  pgnAutoOpenIdx >= 0 ? pgnAutoOpenIdx : undefined);
+}
 
 // Grid/gallery keyboard navigation (0/9 = prev/next, Enter = open)
 (function() {
@@ -2652,21 +2764,20 @@ if (pgnAutoOpenIdx >= 0) openPgnModal(pgnAutoOpenIdx);
         var items = getNavItems();
         if (kbIdx < 0 || kbIdx >= items.length) return false;
         var href = items[kbIdx].href;
-        if (splitMode) {
-            var qs = href.indexOf('?') >= 0 ? href.substring(href.indexOf('?') + 1) : '';
-            var hp = {};
-            qs.split('&').forEach(function(pair) {
-                var idx = pair.indexOf('=');
-                if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
-            });
-            var fp = hp['file'];
-            var textExts = ['txt','csv','json','log','md'];
-            if (fp && textExts.indexOf(fp.split('.').pop().toLowerCase()) !== -1) {
-                var p = new URLSearchParams(window.location.search);
-                p.set('p2', fp);
-                window.location.href = '?' + p.toString();
-                return true;
-            }
+        // Text files always open in the right pane, even when P2 is off
+        var qs = href.indexOf('?') >= 0 ? href.substring(href.indexOf('?') + 1) : '';
+        var hp = {};
+        qs.split('&').forEach(function(pair) {
+            var idx = pair.indexOf('=');
+            if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+        });
+        var fp = hp['file'];
+        var textExts = ['txt','csv','json','log','md','docx'];
+        if (fp && textExts.indexOf(fp.split('.').pop().toLowerCase()) !== -1) {
+            var p = new URLSearchParams(window.location.search);
+            p.set('p2', fp);
+            window.location.href = '?' + p.toString();
+            return true;
         }
         window.location.href = href;
         return true;
@@ -2712,11 +2823,11 @@ document.addEventListener('keydown', function(e) {
         return;
     }
 
-    // e — enter edit mode
+    // e — edit right-pane text file
     if (e.key === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (currentFilePath && (currentDisplayType === 'text' || currentDisplayType === 'markdown')) {
+        if (typeof p2FilePath !== 'undefined' && p2FilePath && (p2DisplayType === 'text' || p2DisplayType === 'markdown')) {
             e.preventDefault();
-            toggleEdit();
+            toggleP2Edit();
         }
         return;
     }
@@ -2761,40 +2872,38 @@ document.addEventListener('keydown', function(e) {
                     var fileNavBtn = e.key === '9' ? fileNavBtns[0] : fileNavBtns[fileNavBtns.length - 1];
                     if (fileNavBtn && fileNavBtn.tagName === 'A' && fileNavBtn.getAttribute('href')) {
                         e.preventDefault();
-                        if (splitMode) {
-                            // Mirror the ArrowLeft/ArrowRight P2 routing logic
-                            var destHref = fileNavBtn.getAttribute('href');
-                            var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
-                            var destParams = {};
-                            destQs.split('&').forEach(function(pair) {
-                                var idx = pair.indexOf('=');
-                                if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
-                            });
-                            var destFile = destParams['file'];
-                            var textExts = ['txt','csv','json','log','md'];
-                            if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
-                                var p = new URLSearchParams(window.location.search);
-                                if (p.get('p2') === destFile) {
-                                    // Txt already in right pane — advance left pane to next/prev image
-                                    var curFile = p.get('file') || '';
-                                    var curImgIdx = -1;
-                                    for (var ii = 0; ii < imageList.length; ii++) {
-                                        var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
-                                        if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
-                                    }
-                                    var nextImgIdx = curImgIdx + (e.key === '0' ? 1 : -1);
-                                    if (nextImgIdx >= 0 && nextImgIdx < imageList.length) {
-                                        window.location.href = imageList[nextImgIdx].url;
-                                    }
-                                    return;
+                        // Text files always route to the right pane, even when P2 is off
+                        var destHref = fileNavBtn.getAttribute('href');
+                        var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
+                        var destParams = {};
+                        destQs.split('&').forEach(function(pair) {
+                            var idx = pair.indexOf('=');
+                            if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+                        });
+                        var destFile = destParams['file'];
+                        var textExts = ['txt','csv','json','log','md','docx'];
+                        if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
+                            var p = new URLSearchParams(window.location.search);
+                            if (p.get('p2') === destFile) {
+                                // Txt already in right pane — advance left pane to next/prev image
+                                var curFile = p.get('file') || '';
+                                var curImgIdx = -1;
+                                for (var ii = 0; ii < imageList.length; ii++) {
+                                    var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
+                                    if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
                                 }
-                                // Text file → load into right pane, keep current left pane file
-                                p.set('p2', destFile);
-                                window.location.href = '?' + p.toString();
+                                var nextImgIdx = curImgIdx + (e.key === '0' ? 1 : -1);
+                                if (nextImgIdx >= 0 && nextImgIdx < imageList.length) {
+                                    window.location.href = imageList[nextImgIdx].url;
+                                }
                                 return;
                             }
+                            // Text file → load into right pane, keep current left pane file
+                            p.set('p2', destFile);
+                            window.location.href = '?' + p.toString();
+                            return;
                         }
-                        // Media file (or P2 closed) → normal left-pane navigation
+                        // Media file → normal left-pane navigation
                         window.location.href = fileNavBtn.href;
                         return;
                     }
@@ -2803,12 +2912,13 @@ document.addEventListener('keydown', function(e) {
         }
     }
 
-    if (pgnModalEl.classList.contains('open')) {
-        if (e.key === 'Escape') closePgnModal();
-        else if (e.key === 'ArrowLeft') { e.preventDefault(); pgnGoPrev(); }
-        else if (e.key === 'ArrowRight') { e.preventDefault(); pgnGoNext(); }
+    if (evalPasteModalEl.classList.contains('open')) {
+        if (e.key === 'Escape') toggleEvalPasteModal();
     } else if (pgnPasteModalEl.classList.contains('open')) {
         if (e.key === 'Escape') togglePgnPasteModal();
+    } else if (pgnInlineActive) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); pgnGoPrev(); }
+        else if (e.key === 'ArrowRight') { e.preventDefault(); pgnGoNext(); }
     } else if (modal.classList.contains('open')) {
         if (e.key === 'Escape') closeModal();
         else if (e.key === 'ArrowLeft') modalNav(-1);
@@ -2820,40 +2930,38 @@ document.addEventListener('keydown', function(e) {
         var btn = e.key === 'ArrowLeft' ? navBtns[0] : navBtns[navBtns.length - 1];
         if (btn && btn.tagName === 'A' && btn.getAttribute('href')) {
             e.preventDefault();
-            if (splitMode) {
-                // When P2 is open, route text/md files to the right pane
-                var destHref = btn.getAttribute('href');
-                var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
-                var destParams = {};
-                destQs.split('&').forEach(function(pair) {
-                    var idx = pair.indexOf('=');
-                    if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
-                });
-                var destFile = destParams['file'];
-                var textExts = ['txt','csv','json','log','md'];
-                if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
-                    var p = new URLSearchParams(window.location.search);
-                    if (p.get('p2') === destFile) {
-                        // Txt already in right pane — advance left pane to next/prev image
-                        var curFile = p.get('file') || '';
-                        var curImgIdx = -1;
-                        for (var ii = 0; ii < imageList.length; ii++) {
-                            var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
-                            if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
-                        }
-                        var nextImgIdx = curImgIdx + (e.key === 'ArrowRight' ? 1 : -1);
-                        if (nextImgIdx >= 0 && nextImgIdx < imageList.length) {
-                            window.location.href = imageList[nextImgIdx].url;
-                        }
-                        return;
+            // Text files always route to the right pane, even when P2 is off
+            var destHref = btn.getAttribute('href');
+            var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
+            var destParams = {};
+            destQs.split('&').forEach(function(pair) {
+                var idx = pair.indexOf('=');
+                if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+            });
+            var destFile = destParams['file'];
+            var textExts = ['txt','csv','json','log','md','docx'];
+            if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
+                var p = new URLSearchParams(window.location.search);
+                if (p.get('p2') === destFile) {
+                    // Txt already in right pane — advance left pane to next/prev image
+                    var curFile = p.get('file') || '';
+                    var curImgIdx = -1;
+                    for (var ii = 0; ii < imageList.length; ii++) {
+                        var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
+                        if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
                     }
-                    // Text file → load into right pane, keep current left pane file
-                    p.set('p2', destFile);
-                    window.location.href = '?' + p.toString();
+                    var nextImgIdx = curImgIdx + (e.key === 'ArrowRight' ? 1 : -1);
+                    if (nextImgIdx >= 0 && nextImgIdx < imageList.length) {
+                        window.location.href = imageList[nextImgIdx].url;
+                    }
                     return;
                 }
+                // Text file → load into right pane, keep current left pane file
+                p.set('p2', destFile);
+                window.location.href = '?' + p.toString();
+                return;
             }
-            // Media file (or P2 closed) → normal left-pane navigation
+            // Media file → normal left-pane navigation
             window.location.href = btn.href;
         }
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -3665,10 +3773,10 @@ audioJumpModal.addEventListener('click', function(e) {
 })();
 <?php endif; ?>
 
-// --- Copy content ---
+// --- Copy content (right pane — text/md files always open in P2) ---
 var rawContent = <?= ($displayType === 'text' || $displayType === 'markdown') ? json_encode($displayContent, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
 function copyContent() {
-    if (!rawContent) return;
+    if (typeof p2RawContent === 'undefined' || p2RawContent === null) return;
     var btn = document.getElementById('copyBtn');
     var fallback = function(text) {
         var ta = document.createElement('textarea');
@@ -3697,11 +3805,11 @@ function copyContent() {
         }, 1500);
     };
     if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(rawContent).then(onSuccess).catch(function() {
-            if (fallback(rawContent)) onSuccess();
+        navigator.clipboard.writeText(p2RawContent).then(onSuccess).catch(function() {
+            if (fallback(p2RawContent)) onSuccess();
         });
     } else {
-        if (fallback(rawContent)) onSuccess();
+        if (fallback(p2RawContent)) onSuccess();
     }
 }
 
@@ -3821,36 +3929,46 @@ function renameFile() {
     });
 }
 
-// --- Edit & Save ---
+// --- Edit & Save (right pane — text/md files always open in P2) ---
 var isEditing = false;
 var editTextarea = null;
 var currentFilePath = <?= $currentFile ? json_encode($currentFile, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
 var currentDisplayType = <?= json_encode($displayType) ?>;
 
-function toggleEdit() {
-    if (!currentFilePath || (currentDisplayType !== 'text' && currentDisplayType !== 'markdown')) return;
-    var editBtn = document.getElementById('editBtn');
-    if (!isEditing) {
-        enterEditMode(editBtn);
+// Content element currently showing p2 text (respects TXT/MD toggle state)
+function p2ContentEl() {
+    var el = null;
+    if (p2DisplayType === 'markdown') {
+        el = rightShowMd ? document.getElementById('p2-md-render') : rightTxtEl;
     } else {
-        saveAndExit(editBtn);
+        el = rightShowMd ? rightMdEl : document.querySelector('#paneRight .text-content');
+    }
+    if (!el) el = document.querySelector('#paneRight .text-content') || document.getElementById('p2-md-render');
+    return el;
+}
+
+function toggleP2Edit() {
+    if (!p2FilePath || (p2DisplayType !== 'text' && p2DisplayType !== 'markdown')) return;
+    var editBtn = document.getElementById('p2EditBtn');
+    if (isEditing) {
+        p2SaveAndExit(editBtn);
+    } else {
+        p2EnterEditMode(editBtn);
     }
 }
 
-function enterEditMode(editBtn) {
+function p2EnterEditMode(editBtn) {
+    var contentEl = p2ContentEl();
+    if (!contentEl) return;
+
     isEditing = true;
     editBtn.innerHTML = '&#128190;'; // floppy disk icon
     editBtn.title = 'Save changes';
     editBtn.style.background = '#4caf50';
     editBtn.style.color = '#fff';
 
-    var contentEl = currentDisplayType === 'markdown'
-        ? document.getElementById('markdown-render')
-        : document.querySelector('.text-content');
-    if (!contentEl) return;
-
     editTextarea = document.createElement('textarea');
-    editTextarea.value = rawContent;
+    editTextarea.value = p2RawContent;
     editTextarea.style.cssText = 'width:100%;min-height:80vh;padding:16px;font-family:monospace;font-size:14px;border:2px solid #4caf50;border-radius:8px;resize:vertical;box-sizing:border-box;background:#1e1e1e;color:#d4d4d4;line-height:1.6;tab-size:4;';
     editTextarea.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
@@ -3863,7 +3981,7 @@ function enterEditMode(editBtn) {
         if (e.key === 'Escape') {
             e.preventDefault();
             e.stopPropagation();
-            saveAndExit(editBtn);
+            p2SaveAndExit(editBtn);
         }
     });
     contentEl.style.display = 'none';
@@ -3871,13 +3989,13 @@ function enterEditMode(editBtn) {
     editTextarea.focus();
 }
 
-function saveAndExit(editBtn) {
+function p2SaveAndExit(editBtn) {
     if (!editTextarea) return;
     var newContent = editTextarea.value;
     editBtn.innerHTML = '&#8987;'; // hourglass
     editBtn.style.background = '#ff9800';
 
-    fetch('?save=' + encodeURIComponent(currentFilePath), {
+    fetch('?save=' + encodeURIComponent(p2FilePath), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ content: newContent })
@@ -3885,22 +4003,20 @@ function saveAndExit(editBtn) {
     .then(function(r) { return r.json(); })
     .then(function(data) {
         if (data.ok) {
-            rawContent = newContent;
-            var contentEl = currentDisplayType === 'markdown'
-                ? document.getElementById('markdown-render')
-                : document.querySelector('.text-content');
-            if (currentDisplayType === 'markdown') {
-                contentEl.innerHTML = marked.parse(newContent);
-                contentEl.querySelectorAll('pre code').forEach(function(block) {
-                    hljs.highlightElement(block);
-                });
-            } else {
-                contentEl.textContent = newContent;
+            p2RawContent = newContent;
+            var textEl = document.querySelector('#paneRight .text-content');
+            if (textEl) textEl.textContent = newContent;
+            if (rightTxtEl) rightTxtEl.textContent = newContent;
+            var mdEl = document.getElementById('p2-md-render');
+            if (mdEl) {
+                mdEl.innerHTML = marked.parse(newContent);
+                mdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
             }
-            contentEl.style.display = '';
             editTextarea.remove();
             editTextarea = null;
             isEditing = false;
+            // Restores the visible view per TXT/MD toggle state
+            applyRightTxtMd(rightShowMd);
             editBtn.innerHTML = '&#9998;';
             editBtn.title = 'Edit and save back to local file';
             editBtn.style.background = 'rgb(224,224,224)';
@@ -4149,6 +4265,7 @@ function toggleLeftTxtMd() { applyLeftTxtMd(!leftShowMd); }
 })();
 
 // --- TXT>MD toggle (right pane) ---
+var p2FilePath = <?= $p2File ? json_encode($p2File, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
 var p2DisplayType = <?= json_encode($p2DisplayType) ?>;
 var p2RawContent = <?= ($p2DisplayType === 'text' || $p2DisplayType === 'markdown') ? json_encode($p2DisplayContent, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
 var rightShowMd = p2DisplayType === 'markdown';
@@ -4157,7 +4274,7 @@ var rightTxtEl = null;
 
 function applyRightTxtMd(showMd) {
     var btn = document.getElementById('p2TxtMdBtn');
-    if (!btn || !p2RawContent) return;
+    if (!btn || p2RawContent === null) return;
     rightShowMd = showMd;
     if (p2DisplayType === 'text') {
         var textEl = document.querySelector('#paneRight .text-content');
@@ -4200,7 +4317,7 @@ function applyRightTxtMd(showMd) {
         btn.style.background = '#4caf50'; btn.style.color = '#fff';
     } else {
         btn.textContent = 'TXT\u003EMD';
-        btn.style.background = 'rgba(0,0,0,0.12)'; btn.style.color = '';
+        btn.style.background = 'rgb(224,224,224)'; btn.style.color = 'rgb(51,51,51)';
     }
     _setTxtMdCookie('right', showMd ? 'md' : 'text');
 }
@@ -4213,58 +4330,36 @@ function toggleRightTxtMd() { applyRightTxtMd(!rightShowMd); }
     if (document.getElementById('p2TxtMdBtn')) applyRightTxtMd(pref ? pref === 'md' : defaultMd);
 })();
 
-// Text-file gallery clicks → load into right pane when split is ON
-(function() {
-    var textExts = ['txt','csv','json','log','md'];
-    document.querySelectorAll('.gallery-item a').forEach(function(item) {
-        var href = item.getAttribute('href');
-        if (!href || href.indexOf('?') < 0) return;
-        var qs = href.substring(href.indexOf('?') + 1);
-        var hp = {};
-        qs.split('&').forEach(function(pair) {
-            var idx = pair.indexOf('=');
-            if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
-        });
-        var fp = hp['file'];
-        if (!fp) return;
-        var ext = fp.split('.').pop().toLowerCase();
-        if (textExts.indexOf(ext) === -1) return;
-        item.addEventListener('click', function(e) {
-            if (!splitMode) return;
-            e.preventDefault();
-            var p = new URLSearchParams(window.location.search);
-            p.set('p2', fp);
-            window.location.href = '?' + p.toString();
-        }, true);
+// Text files only open in the right pane (P2) — intercept ALL internal text-file
+// links, regardless of split state. (href must start with '?' so external links
+// rendered inside markdown are never hijacked.)
+document.addEventListener('click', function(e) {
+    var a = e.target.closest ? e.target.closest('a') : null;
+    if (!a) return;
+    var href = a.getAttribute('href') || '';
+    if (href.charAt(0) !== '?' || href.indexOf('file=') === -1) return;
+    var qs = href.substring(1);
+    var fp = null;
+    qs.split('&').forEach(function(pair) {
+        var i = pair.indexOf('=');
+        if (i > 0 && decodeURIComponent(pair.substring(0, i)) === 'file') fp = decodeURIComponent(pair.substring(i + 1));
     });
-})();
+    if (!fp) return;
+    var textExts = ['txt','csv','json','log','md','docx'];
+    if (textExts.indexOf(fp.split('.').pop().toLowerCase()) === -1) return;
+    e.preventDefault();
+    var p = new URLSearchParams(window.location.search);
+    p.set('p2', fp);
+    window.location.href = '?' + p.toString();
+}, true);
 
-// Text-file sidebar clicks → load into right pane when split is ON
+// Text files live in the right pane only — a p2 param means split must be ON,
+// even if the user previously toggled P2 off.
 (function() {
-    var textExts = ['txt','csv','json','log','md'];
-    document.querySelectorAll('.sidebar-item').forEach(function(item) {
-        var href = item.getAttribute('href');
-        if (!href || href.indexOf('?') < 0) return;
-        var qs = href.substring(href.indexOf('?') + 1);
-        var hp = {};
-        qs.split('&').forEach(function(pair) {
-            var idx = pair.indexOf('=');
-            if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
-        });
-        var fp = hp['file'];
-        if (!fp) return; // folder link
-        var ext = fp.split('.').pop().toLowerCase();
-        if (textExts.indexOf(ext) === -1) return; // not a text file
-        item.addEventListener('click', function(e) {
-            if (!splitMode) return; // let normal nav happen
-            e.preventDefault();
-            var p = new URLSearchParams(window.location.search);
-            p.set('p2', fp);
-            // Remove 'file' if it was the same text file in the left pane
-            // (keep left pane on its current media file)
-            window.location.href = '?' + p.toString();
-        }, true);
-    });
+    if (splitMode) return;
+    if (!new URLSearchParams(window.location.search).get('p2')) return;
+    splitMode = true;
+    try { localStorage.setItem('splitMode', '1'); } catch(e) {}
 })();
 
 applySplitMode();

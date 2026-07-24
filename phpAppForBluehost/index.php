@@ -4119,6 +4119,29 @@ function createNewFile() {
     });
 })();
 
+// --- Preserve pane-1 grid scroll position across page loads ---
+// (clicking a text file reloads the page with ?p2=...; keep the grid where it was)
+(function() {
+    var area = document.getElementById('contentArea');
+    if (!area) return;
+    var isGridView = <?= ($currentFolder && !$currentFile) ? 'true' : 'false' ?>;
+    if (!isGridView) return;
+    var key = 'gridScrollTop:' + <?= json_encode(($currentFolder ?: '') . '|' . $sortBy . '|' . (isset($_GET['view']) ? $_GET['view'] : '')) ?>;
+    var saved = sessionStorage.getItem(key);
+    if (saved !== null) {
+        var target = parseInt(saved, 10);
+        var restore = function() { area.scrollTop = target; };
+        restore();
+        // Re-apply as images/videos load and shift the grid layout
+        window.addEventListener('load', restore);
+        setTimeout(restore, 400);
+        setTimeout(restore, 1200);
+    }
+    window.addEventListener('beforeunload', function() {
+        sessionStorage.setItem(key, area.scrollTop);
+    });
+})();
+
 // Make sidebar audio file clicks open modal instead of navigating
 document.querySelectorAll('.sidebar-item').forEach(function(item) {
     var href = item.getAttribute('href');

@@ -1400,7 +1400,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button title="New file (from clipboard)" onclick="createNewFile()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:#10b981;color:#fff">+</button>
             <button title="Decrease font size" onclick="adjustFontSize(-1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">-</button>
             <button title="Increase font size" onclick="adjustFontSize(1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">+</button>
-            <button id="marginBtn" title="Toggle reading margins" onclick="toggleMargins()" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#8614;</button>
+            <button id="ttsSettingsBtn" title="Choose text-to-speech languages for the highlight tooltip" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#7ec8e3;color:#1a1a2e">TTS</button>
             <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
             <button id="splitBtn" title="Toggle dual-pane (left=media, right=text/md)" onclick="toggleSplit()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">P2</button>
             <button id="shortcutsBtn" title="Keyboard shortcuts" onclick="openShortcuts()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(102,126,234);color:#fff">Shortcuts</button>
@@ -1531,7 +1531,9 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         ?>
             <img src="<?= htmlspecialchars($encodedCurrentPath) ?>"
                  alt="<?= htmlspecialchars($currentFile) ?>"
-                 style="max-width:100%">
+                 style="max-width:100%;cursor:pointer"
+                 onclick="openModalAt(<?= $currentImgIdx ?>)"
+                 title="Click to enlarge — ← → arrow keys change images">
 
         <?php elseif ($displayType === 'video'):
             $encodedVideoPath = $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $currentFile)));
@@ -1865,9 +1867,9 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 <!-- Image Modal -->
 <div class="image-modal" id="imageModal">
     <button class="modal-close" onclick="closeModal()">&times;</button>
-    <button class="modal-arrow left" onclick="modalNav(-1)">&#8249;</button>
+    <button class="modal-arrow left" onclick="sidebarSiblingNav('ArrowLeft', true)">&#8249;</button>
     <img class="modal-img" id="modalImg" src="" alt="">
-    <button class="modal-arrow right" onclick="modalNav(1)">&#8250;</button>
+    <button class="modal-arrow right" onclick="sidebarSiblingNav('ArrowRight', true)">&#8250;</button>
     <div class="modal-caption" id="modalCaption"></div>
     <div class="modal-counter" id="modalCounter"></div>
 </div>
@@ -2069,46 +2071,6 @@ function toggleDarkMode() {
     } catch(e) {}
 })();
 
-// --- Reading margins toggle ---
-var marginsOn = false;
-function applyMargins() {
-    var areas = [document.getElementById('contentArea'), document.getElementById('paneRight')];
-    var btn = document.getElementById('marginBtn');
-    areas.forEach(function(area) {
-        if (!area) return;
-        var targets = area.querySelectorAll('.text-content, .markdown-content, .docx-content');
-        if (marginsOn) {
-            targets.forEach(function(el) { el.style.maxWidth = '750px'; el.style.margin = '0 auto'; });
-        } else {
-            targets.forEach(function(el) { el.style.maxWidth = ''; el.style.margin = ''; });
-        }
-    });
-    if (marginsOn) {
-        btn.style.background = '#7ec8e3';
-        btn.style.color = '#1a1a2e';
-    } else {
-        btn.style.background = 'rgb(224,224,224)';
-        btn.style.color = 'rgb(51,51,51)';
-        if (document.body.classList.contains('dark')) {
-            btn.style.background = '#555';
-            btn.style.color = '#ffdd57';
-        }
-    }
-}
-function toggleMargins() {
-    marginsOn = !marginsOn;
-    applyMargins();
-    try { localStorage.setItem('readingMargins', marginsOn ? '1' : '0'); } catch(e) {}
-}
-(function() {
-    try {
-        if (localStorage.getItem('readingMargins') === '1') {
-            marginsOn = true;
-            applyMargins();
-        }
-    } catch(e) {}
-})();
-
 function openModalAt(idx) {
     if (!imageList.length) return;
     modalIndex = (typeof idx === 'number') ? idx : 0;
@@ -2120,13 +2082,6 @@ function openModalAt(idx) {
 function closeModal() {
     modal.classList.remove('open');
     document.body.style.overflow = '';
-}
-
-function modalNav(dir) {
-    modalIndex += dir;
-    if (modalIndex < 0) modalIndex = imageList.length - 1;
-    if (modalIndex >= imageList.length) modalIndex = 0;
-    showModalImage();
 }
 
 function showModalImage() {
@@ -2145,6 +2100,65 @@ function showModalImage() {
         }
     });
 }
+
+// Prev/next file navigation via sidebar nav buttons — shared by plain arrow keys
+// and the image modal. reopenModal=true re-opens the image modal after page load.
+function sidebarSiblingNav(key, reopenModal, evt) {
+    function go(url) {
+        if (reopenModal) { try { sessionStorage.setItem('imageModalReopen', '1'); } catch (err) {} }
+        window.location.href = url;
+    }
+    var navBtns = document.querySelectorAll('.sidebar-nav .sidebar-nav-btn');
+    if (!navBtns.length) return;
+    var btn = key === 'ArrowLeft' ? navBtns[0] : navBtns[navBtns.length - 1];
+    if (!(btn && btn.tagName === 'A' && btn.getAttribute('href'))) return;
+    if (evt) evt.preventDefault();
+    // Text files always route to the right pane, even when P2 is off
+    var destHref = btn.getAttribute('href');
+    var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
+    var destParams = {};
+    destQs.split('&').forEach(function(pair) {
+        var idx = pair.indexOf('=');
+        if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+    });
+    var destFile = destParams['file'];
+    var textExts = ['txt','csv','json','log','md','docx'];
+    if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
+        var p = new URLSearchParams(window.location.search);
+        if (p.get('p2') === destFile) {
+            // Txt already in right pane — advance left pane to next/prev image
+            var curFile = p.get('file') || '';
+            var curImgIdx = -1;
+            for (var ii = 0; ii < imageList.length; ii++) {
+                var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
+                if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
+            }
+            var nextImgIdx = curImgIdx + (key === 'ArrowRight' ? 1 : -1);
+            if (nextImgIdx >= 0 && nextImgIdx < imageList.length) go(imageList[nextImgIdx].url);
+            return;
+        }
+        // Text file → load into right pane, keep current left pane file
+        p.set('p2', destFile);
+        go('?' + p.toString());
+        return;
+    }
+    // Media file → normal left-pane navigation
+    go(btn.href);
+}
+
+// Re-open the image modal after modal-arrow navigation (flag set by sidebarSiblingNav)
+(function() {
+    try {
+        if (sessionStorage.getItem('imageModalReopen') !== '1') return;
+        sessionStorage.removeItem('imageModalReopen');
+        var curFile = new URLSearchParams(window.location.search).get('file') || '';
+        if (!curFile || !imageList.length) return;
+        for (var ii = 0; ii < imageList.length; ii++) {
+            var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
+            if (iuParams.get('file') === curFile) { openModalAt(ii); return; }
+        }
+    } catch (e) {}
+})();
 
 // =====================================================================
 // PGN CHESS VIEWER (inline in first pane)
@@ -2921,49 +2935,9 @@ document.addEventListener('keydown', function(e) {
         else if (e.key === 'ArrowRight') { e.preventDefault(); pgnGoNext(); }
     } else if (modal.classList.contains('open')) {
         if (e.key === 'Escape') closeModal();
-        else if (e.key === 'ArrowLeft') modalNav(-1);
-        else if (e.key === 'ArrowRight') modalNav(1);
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') sidebarSiblingNav(e.key, true, e);
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        // Navigate prev/next file via sidebar nav buttons
-        var navBtns = document.querySelectorAll('.sidebar-nav .sidebar-nav-btn');
-        if (!navBtns.length) return;
-        var btn = e.key === 'ArrowLeft' ? navBtns[0] : navBtns[navBtns.length - 1];
-        if (btn && btn.tagName === 'A' && btn.getAttribute('href')) {
-            e.preventDefault();
-            // Text files always route to the right pane, even when P2 is off
-            var destHref = btn.getAttribute('href');
-            var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
-            var destParams = {};
-            destQs.split('&').forEach(function(pair) {
-                var idx = pair.indexOf('=');
-                if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
-            });
-            var destFile = destParams['file'];
-            var textExts = ['txt','csv','json','log','md','docx'];
-            if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
-                var p = new URLSearchParams(window.location.search);
-                if (p.get('p2') === destFile) {
-                    // Txt already in right pane — advance left pane to next/prev image
-                    var curFile = p.get('file') || '';
-                    var curImgIdx = -1;
-                    for (var ii = 0; ii < imageList.length; ii++) {
-                        var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
-                        if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
-                    }
-                    var nextImgIdx = curImgIdx + (e.key === 'ArrowRight' ? 1 : -1);
-                    if (nextImgIdx >= 0 && nextImgIdx < imageList.length) {
-                        window.location.href = imageList[nextImgIdx].url;
-                    }
-                    return;
-                }
-                // Text file → load into right pane, keep current left pane file
-                p.set('p2', destFile);
-                window.location.href = '?' + p.toString();
-                return;
-            }
-            // Media file → normal left-pane navigation
-            window.location.href = btn.href;
-        }
+        sidebarSiblingNav(e.key, false, e);
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         // Scroll text content area by one page (like PageUp/PageDown)
         var scrollTarget = null;
@@ -3158,7 +3132,7 @@ document.addEventListener('keydown', function(e) {
         var dx = e.changedTouches[0].screenX - startX;
         var dy = e.changedTouches[0].screenY - startY;
         if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-            modalNav(dx < 0 ? 1 : -1);
+            sidebarSiblingNav(dx < 0 ? 'ArrowRight' : 'ArrowLeft', true);
         }
     }, { passive: true });
 })();
@@ -3240,6 +3214,52 @@ var audioPlayer = document.getElementById('audioPlayer');
 var audioTitle = document.getElementById('audioTitle');
 var audioToggleBtn = document.getElementById('audioToggleBtn');
 
+// --- Audio state persistence (survives page reloads from P2 navigation) ---
+var AUDIO_STATE_KEY = 'audioPlayerState';
+var audioLastSave = 0;
+
+function getSavedAudioState() {
+    try { return JSON.parse(localStorage.getItem(AUDIO_STATE_KEY) || 'null'); }
+    catch(e) { return null; }
+}
+
+function saveAudioState() {
+    if (!audioListData.length || !audioPlayer.src) return;
+    var track = audioListData[audioIndex];
+    if (!track) return;
+    try {
+        localStorage.setItem(AUDIO_STATE_KEY, JSON.stringify({
+            src: track.src,
+            name: track.name,
+            time: audioPlayer.currentTime,
+            paused: audioPlayer.paused,
+            open: audioModal.classList.contains('open')
+        }));
+    } catch(e) {}
+}
+
+audioPlayer.addEventListener('pause', saveAudioState);
+audioPlayer.addEventListener('play', saveAudioState);
+audioPlayer.addEventListener('timeupdate', function() {
+    var now = Date.now();
+    if (now - audioLastSave > 1000) { audioLastSave = now; saveAudioState(); }
+});
+// Track finished — clear state so next open starts fresh
+audioPlayer.addEventListener('ended', function() {
+    try { localStorage.removeItem(AUDIO_STATE_KEY); } catch(e) {}
+});
+window.addEventListener('beforeunload', saveAudioState);
+
+function restoreAudioPosition(time) {
+    var apply = function() {
+        if (time > 0 && (!audioPlayer.duration || time < audioPlayer.duration - 1)) {
+            audioPlayer.currentTime = time;
+        }
+    };
+    if (audioPlayer.readyState >= 1) apply();
+    else audioPlayer.addEventListener('loadedmetadata', apply, { once: true });
+}
+
 function toggleAudioModal() {
     if (audioModal.classList.contains('open')) {
         audioModal.classList.remove('open');
@@ -3249,6 +3269,8 @@ function toggleAudioModal() {
         if (!audioListData.length) return;
         audioModal.classList.add('open');
         showAudioTrack();
+        var saved = getSavedAudioState();
+        if (saved && saved.src === audioListData[audioIndex].src) restoreAudioPosition(saved.time);
         if (audioToggleBtn) audioToggleBtn.classList.add('playing');
     }
 }
@@ -3301,7 +3323,7 @@ var shortcutsContent = `
 - **9** — Previous file (←)
 
 ## Image Modal
-- **← / →** — Prev / next image
+- **← / →** or **‹ › buttons** — Prev / next file (real sidebar navigation — modal re-opens on the new image)
 - **Esc** — Close
 
 ## Audio Player  *(open with ♩ button)*
@@ -3317,7 +3339,6 @@ var shortcutsContent = `
 
 ## Text / Markdown
 - **+  /  −** — Increase / decrease font size
-- **↦** — Toggle reading margins
 - **TXT>MD** — Render plain .txt as Markdown
 - **e** — Enter edit mode (✎ button)
 - **Esc** — Save & exit edit mode
@@ -3329,6 +3350,7 @@ var shortcutsContent = `
 - **y** — Seek to highlighted time in text (e.g. highlight \`1:23\` and press y)
 
 ## Text-to-Speech (highlight any text first)
+- **TTS button** (header) — Choose which languages appear in the highlight tooltip
 - **a** — Read selection in Cantonese (zh-HK)
 - **m** — Read selection in Mandarin (zh-CN)
 - **h** — Read selection in Spanish (es-ES)
@@ -3596,7 +3618,7 @@ function speakSelection(text, lang) {
 
     // Show on mouse-up if text is selected inside a text container
     document.addEventListener('mouseup', function(e) {
-        if (e.target.closest && e.target.closest('#ttsTooltip, #ttsBtnSettings')) return;
+        if (e.target.closest && e.target.closest('#ttsTooltip, #ttsBtnSettings, #ttsSettingsBtn')) return;
         setTimeout(function() {
             var sel = window.getSelection();
             var text = sel ? sel.toString().trim() : '';
@@ -3617,7 +3639,7 @@ function speakSelection(text, lang) {
 
     // Hide on click outside
     document.addEventListener('mousedown', function(e) {
-        if (e.target.closest && (e.target.closest('#ttsTooltip') || e.target.closest('#ttsBtnSettings'))) return;
+        if (e.target.closest && (e.target.closest('#ttsTooltip') || e.target.closest('#ttsBtnSettings') || e.target.closest('#ttsSettingsBtn'))) return;
         hideTooltip();
         closeSettings();
     });
@@ -3646,13 +3668,15 @@ function speakSelection(text, lang) {
         });
     }
 
-    function openSettings() {
+    function openSettings(anchorEl) {
         buildSettingsRows();
-        // Position near tooltip
-        var tr = tooltip.getBoundingClientRect();
-        settingsEl.style.left = tr.left + 'px';
-        settingsEl.style.top  = (tr.bottom + 6) + 'px';
         settingsEl.classList.add('open');
+        // Position below the anchor (tooltip gear → tooltip, header button → itself)
+        var tr = anchorEl ? anchorEl.getBoundingClientRect() : tooltip.getBoundingClientRect();
+        var pw = settingsEl.offsetWidth || 180;
+        var left = Math.max(8, Math.min(tr.left, window.innerWidth - pw - 8));
+        settingsEl.style.left = left + 'px';
+        settingsEl.style.top  = (tr.bottom + 6) + 'px';
     }
 
     function closeSettings() {
@@ -3660,6 +3684,16 @@ function speakSelection(text, lang) {
     }
 
     document.getElementById('ttsBtnSettingsClose').addEventListener('click', closeSettings);
+
+    // Header TTS button toggles the settings panel — always reachable,
+    // even when every language is unchecked and the tooltip can't appear
+    var headerBtn = document.getElementById('ttsSettingsBtn');
+    if (headerBtn) {
+        headerBtn.addEventListener('click', function() {
+            if (settingsEl.classList.contains('open')) closeSettings();
+            else openSettings(headerBtn);
+        });
+    }
 })();
 
 // --- Audio time-jump modal (v key) ---
@@ -3766,10 +3800,21 @@ audioJumpModal.addEventListener('click', function(e) {
 <?php if ($currentAudioIdx >= 0): ?>
 (function() {
     audioIndex = <?= $currentAudioIdx ?>;
-    audioModal.classList.add('open');
+    var track = audioListData[audioIndex];
+    var saved = getSavedAudioState();
+    var resume = !!(saved && track && saved.src === track.src);
+    // Keep modal closed if user closed it and this is the same track
+    if (!resume || saved.open !== false) {
+        audioModal.classList.add('open');
+        if (audioToggleBtn) audioToggleBtn.classList.add('playing');
+    }
     showAudioTrack();
-    audioPlayer.play();
-    if (audioToggleBtn) audioToggleBtn.classList.add('playing');
+    if (resume) {
+        restoreAudioPosition(saved.time);
+        if (!saved.paused) audioPlayer.play();
+    } else {
+        audioPlayer.play();
+    }
 })();
 <?php endif; ?>
 
@@ -4159,6 +4204,8 @@ document.querySelectorAll('.sidebar-item').forEach(function(item) {
                 if (audioToggleBtn) audioToggleBtn.classList.add('playing');
             }
             showAudioTrack();
+            var saved = getSavedAudioState();
+            if (saved && saved.src === audioListData[audioIndex].src) restoreAudioPosition(saved.time);
             audioPlayer.play();
         });
     }

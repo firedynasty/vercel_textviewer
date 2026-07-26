@@ -431,7 +431,7 @@ foreach ($fileList as $f) {
         $encodedPath = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
         $audioList[] = [
             'name' => $f['name'],
-            'src'  => '?stream=' . ($currentFolder ? $currentFolder . '/' : '') . $f['path'],
+            'src'  => '?stream=' . $encodedPath,
             'mime' => isset($audioMimeMap[$fext]) ? $audioMimeMap[$fext] : 'audio/mpeg',
             'url'  => $currentFolder
                 ? itemUrl(['folder'=>$currentFolder,'file'=>$f['path']])
@@ -625,14 +625,14 @@ body {
     flex-shrink: 0;
 }
 .main-header .download-link { font-size: 12px; color: #7ec8e3; text-decoration: none; }
-.content-area { flex: 1; padding: 20px; overflow-y: auto; }
+.content-area { flex: 3; padding: 20px; overflow-y: auto; }
 
 /* Dual-pane layout */
 .panes-container { flex: 1; display: flex; overflow: hidden; }
 .pane-divider { width: 3px; background: #ccc; flex-shrink: 0; }
 body.dark .pane-divider { background: #444; }
 .pane-right {
-    flex: 1; overflow-y: auto; padding: 20px;
+    flex: 5; overflow-y: auto; padding: 20px;
     background: #fafafa; position: relative;
     border-left: 1px solid #ddd;
 }
@@ -1404,7 +1404,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button id="darkModeBtn" title="Toggle dark/light mode" onclick="toggleDarkMode()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9789;</button>
             <button id="splitBtn" title="Toggle dual-pane (left=media, right=text/md)" onclick="toggleSplit()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">P2</button>
             <button id="shortcutsBtn" title="Keyboard shortcuts" onclick="openShortcuts()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(102,126,234);color:#fff">Shortcuts</button>
-            <button id="servePanelBtn" title="PHP serve command" onclick="openServePanel()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(52,168,83);color:#fff">Serve</button>
+            <button id="servePanelBtn" title="cd command to current folder" onclick="openServePanel()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(52,168,83);color:#fff">CD</button>
             <?php if ($p2DisplayType === 'text' || $p2DisplayType === 'markdown'): ?>
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
                 <button id="p2TxtMdBtn" onclick="toggleRightTxtMd()" title="Toggle markdown/text view (right pane)" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $p2DisplayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
@@ -1471,14 +1471,15 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             </div>
             <?php endif; ?>
 
-            <!-- Gallery grid inside folder -->
+            <!-- Gallery grid inside folder — images only; videos/audio/text open from the sidebar -->
             <div class="gallery">
                 <?php
                 $imageExts = ['png','jpg','jpeg','gif','webp','bmp','svg'];
-                $imgIdx = 0;
+                $gridImgCount = 0;
                 foreach ($folderFiles as $f):
-                    if (in_array($f['ext'], $imageExts)):
-                        $enc = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
+                    if (!in_array($f['ext'], $imageExts)) continue;
+                    $gridImgCount++;
+                    $enc = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
                 ?>
                     <div class="gallery-item">
                         <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
@@ -1487,40 +1488,11 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                         </a>
                         <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
                     </div>
-                <?php $imgIdx++;
-                    elseif (in_array($f['ext'], ['mp4','webm','ogg','mov','avi','mkv','m4v'])):
-                        $encVid = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
-                ?>
-                    <div class="gallery-item">
-                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
-                            <video style="width:100%;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1)" muted preload="metadata">
-                                <source src="<?= $contentDir . '/' . htmlspecialchars($encVid) ?>" type="video/mp4">
-                            </video>
-                        </a>
-                        <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
-                    </div>
-                <?php
-                    elseif (in_array($f['ext'], ['mp3','m4a'])):
-                ?>
-                    <div class="gallery-item">
-                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>"
-                           style="display:block;padding:20px;background:#1a1a2e;border-radius:4px;text-decoration:none;color:#eee;box-shadow:0 2px 8px rgba(0,0,0,0.08);text-align:center">
-                            <div style="font-size:28px;margin-bottom:8px">&#9835;</div>
-                            <?= htmlspecialchars($f['name']) ?>
-                        </a>
-                        <div class="caption"><?= htmlspecialchars($f['name']) ?></div>
-                    </div>
-                <?php
-                    elseif (in_array($f['ext'], ['txt','csv','json','log','md','html','htm','docx','rtf','pdf','pgn'])):
-                ?>
-                    <div class="gallery-item">
-                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>"
-                           style="display:block;padding:20px;background:#fff;border-radius:4px;text-decoration:none;color:#333;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
-                            <?= htmlspecialchars($f['name']) ?>
-                        </a>
-                    </div>
-                <?php endif; endforeach; ?>
+                <?php endforeach; ?>
             </div>
+            <?php if ($gridImgCount === 0): ?>
+                <div style="color:#999;text-align:center;padding:40px 20px;font-size:13px">No images in this folder — open other files from the sidebar.</div>
+            <?php endif; ?>
 
         <?php elseif ($displayType === 'image'):
             $encodedCurrentPath = $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $currentFile)));
@@ -1811,20 +1783,12 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 <!-- Serve panel -->
 <div id="servePanel">
     <div class="sv-title">
-        <span>&#9654; PHP Serve</span>
+        <span>&#128193; Go to folder</span>
         <button class="sv-close" onclick="closeServePanel()" title="Close">&times;</button>
     </div>
     <div class="sv-row">
-        <label>Host</label>
-        <input id="svHost" value="0.0.0.0" oninput="updateServeCmd()">
-    </div>
-    <div class="sv-row">
-        <label>Port</label>
-        <input id="svPort" value="8080" oninput="updateServeCmd()">
-    </div>
-    <div class="sv-row">
         <label>Path</label>
-        <input id="svPath" value="<?php echo htmlspecialchars(realpath($contentDir), ENT_QUOTES); ?>" oninput="updateServeCmd()">
+        <input id="svPath" value="<?php echo htmlspecialchars(realpath($currentFolder ? $contentDir . '/' . $currentFolder : $contentDir) ?: realpath($contentDir), ENT_QUOTES); ?>" oninput="updateServeCmd()">
     </div>
     <div class="sv-cmd" id="svCmd"></div>
     <button class="sv-copy" id="svCopyBtn" onclick="copyServeCmd()">Copy command</button>
@@ -1867,9 +1831,9 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 <!-- Image Modal -->
 <div class="image-modal" id="imageModal">
     <button class="modal-close" onclick="closeModal()">&times;</button>
-    <button class="modal-arrow left" onclick="sidebarSiblingNav('ArrowLeft', true)">&#8249;</button>
+    <button class="modal-arrow left" onclick="modalImageNav('ArrowLeft')">&#8249;</button>
     <img class="modal-img" id="modalImg" src="" alt="">
-    <button class="modal-arrow right" onclick="sidebarSiblingNav('ArrowRight', true)">&#8250;</button>
+    <button class="modal-arrow right" onclick="modalImageNav('ArrowRight')">&#8250;</button>
     <div class="modal-caption" id="modalCaption"></div>
     <div class="modal-counter" id="modalCounter"></div>
 </div>
@@ -2146,7 +2110,17 @@ function sidebarSiblingNav(key, reopenModal, evt) {
     go(btn.href);
 }
 
-// Re-open the image modal after modal-arrow navigation (flag set by sidebarSiblingNav)
+// Modal arrows: cycle images only — text/video/audio files are skipped entirely
+function modalImageNav(key, evt) {
+    if (!imageList.length) return;
+    if (evt) evt.preventDefault();
+    var next = modalIndex + (key === 'ArrowRight' ? 1 : -1);
+    if (next < 0 || next >= imageList.length) return;
+    try { sessionStorage.setItem('imageModalReopen', '1'); } catch (err) {}
+    window.location.href = imageList[next].url;
+}
+
+// Re-open the image modal after modal-arrow navigation (flag set by sidebarSiblingNav/modalImageNav)
 (function() {
     try {
         if (sessionStorage.getItem('imageModalReopen') !== '1') return;
@@ -2935,7 +2909,7 @@ document.addEventListener('keydown', function(e) {
         else if (e.key === 'ArrowRight') { e.preventDefault(); pgnGoNext(); }
     } else if (modal.classList.contains('open')) {
         if (e.key === 'Escape') closeModal();
-        else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') sidebarSiblingNav(e.key, true, e);
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') modalImageNav(e.key, e);
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
         sidebarSiblingNav(e.key, false, e);
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -3132,7 +3106,7 @@ document.addEventListener('keydown', function(e) {
         var dx = e.changedTouches[0].screenX - startX;
         var dy = e.changedTouches[0].screenY - startY;
         if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
-            sidebarSiblingNav(dx < 0 ? 'ArrowRight' : 'ArrowLeft', true);
+            modalImageNav(dx < 0 ? 'ArrowRight' : 'ArrowLeft');
         }
     }, { passive: true });
 })();
@@ -3390,10 +3364,8 @@ function closeServePanel() {
     servePanel.classList.remove('open');
 }
 function updateServeCmd() {
-    var host = document.getElementById('svHost').value || '0.0.0.0';
-    var port = document.getElementById('svPort').value || '8080';
     var path = document.getElementById('svPath').value || '.';
-    document.getElementById('svCmd').textContent = 'cd ' + path + ' && php -S ' + host + ':' + port;
+    document.getElementById('svCmd').textContent = 'cd ' + path;
 }
 function copyServeCmd() {
     var cmd = document.getElementById('svCmd').textContent;

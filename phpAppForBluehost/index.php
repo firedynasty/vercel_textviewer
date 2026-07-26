@@ -3130,6 +3130,11 @@ function openServePanel() {
 function closeServePanel() {
     servePanel.classList.remove('open');
 }
+document.addEventListener('click', function(e) {
+    if (!servePanel.classList.contains('open')) return;
+    if (e.target.closest('#servePanel') || e.target.closest('#servePanelBtn')) return;
+    closeServePanel();
+});
 function updateServeCmd() {
     var path = document.getElementById('svPath').value || '.';
     document.getElementById('svCmd').textContent = 'cd ' + path;

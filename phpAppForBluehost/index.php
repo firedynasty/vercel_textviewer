@@ -32,10 +32,17 @@ if (isset($_GET['stream'])) {
     }
 
     header("Content-Length: " . ($end - $start + 1));
+
+    // Notice client disconnects promptly — a held-open media stream otherwise
+    // occupies the single-threaded PHP dev server forever and the app looks "stuck"
+    ignore_user_abort(false);
+    while (ob_get_level()) ob_end_clean();
+
     $fp = fopen($streamPath, 'rb');
     fseek($fp, $start);
     $remaining = $end - $start + 1;
     while ($remaining > 0 && !feof($fp)) {
+        if (connection_aborted()) break;
         $chunk = min(8192, $remaining);
         echo fread($fp, $chunk);
         $remaining -= $chunk;
@@ -365,7 +372,7 @@ if ($p2File) {
 $p2CloseParams = $_GET; unset($p2CloseParams['p2']);
 $p2CloseUrl = $p2CloseParams ? '?' . http_build_query($p2CloseParams) : '?';
 
-// File list (files-only, used for prev/next arrows, image modal, audio list)
+// File list (files-only, used for prev/next arrows, image modal)
 $fileList = $currentFolder
     ? $folderFiles
     : array_values(array_filter($items, function($i) { return $i['type'] === 'file'; }));
@@ -418,33 +425,6 @@ $currentPgnIdx = -1;
 if ($displayType === 'pgn' && !empty($pgnList)) {
     foreach ($pgnList as $pi => $pEntry) {
         if ($pEntry['name'] === basename($currentFile)) { $currentPgnIdx = $pi; break; }
-    }
-}
-
-// Audio list for audio modal
-$audioList = [];
-$audioExtsAll = ['mp3','m4a'];
-$audioMimeMap = ['mp3'=>'audio/mpeg','m4a'=>'audio/mp4'];
-foreach ($fileList as $f) {
-    $fext = $f['ext'] ?? '';
-    if (in_array($fext, $audioExtsAll)) {
-        $encodedPath = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
-        $audioList[] = [
-            'name' => $f['name'],
-            'src'  => '?stream=' . $encodedPath,
-            'mime' => isset($audioMimeMap[$fext]) ? $audioMimeMap[$fext] : 'audio/mpeg',
-            'url'  => $currentFolder
-                ? itemUrl(['folder'=>$currentFolder,'file'=>$f['path']])
-                : itemUrl(['file'=>$f['path']])
-        ];
-    }
-}
-
-// Current audio index (for auto-opening modal)
-$currentAudioIdx = -1;
-if ($displayType === 'audio' && !empty($audioList)) {
-    foreach ($audioList as $ai => $aEntry) {
-        if ($aEntry['name'] === basename($currentFile)) { $currentAudioIdx = $ai; break; }
     }
 }
 
@@ -826,90 +806,6 @@ body.dark .pgn-moves { background: #2a2a2a; color: #ddd; }
 body.dark .pgn-moves .move-san:hover, body.dark .pgn-moves .variation-move:hover { background: #3a4a5a; }
 body.dark .pgn-moves .current { background: #8a6d1a; color: #fff; }
 
-/* Audio modal */
-.audio-modal {
-    display: none;
-    position: fixed; bottom: 0; left: 220px; right: 0;
-    background: #1a1a2e;
-    z-index: 1500;
-    flex-direction: column;
-    align-items: center;
-    padding: 20px 20px 25px;
-    box-shadow: 0 -4px 20px rgba(0,0,0,0.4);
-    border-top: 2px solid #7ec8e3;
-}
-.audio-modal.open { display: flex; }
-.audio-modal-header {
-    display: flex;
-    width: 100%;
-    max-width: 600px;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
-}
-.audio-modal-title {
-    color: #eee;
-    font-size: 14px;
-    font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    flex: 1;
-    margin-right: 10px;
-}
-.audio-modal-close {
-    background: none; border: none; color: #888; font-size: 22px;
-    cursor: pointer; padding: 0 4px;
-}
-.audio-modal-close:hover { color: #fff; }
-.audio-modal-controls {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    max-width: 600px;
-}
-.audio-modal-controls audio {
-    flex: 1;
-    height: 40px;
-}
-.audio-nav-btn {
-    background: rgba(255,255,255,0.1); border: none; color: #7ec8e3;
-    font-size: 20px; width: 36px; height: 36px; border-radius: 50%;
-    cursor: pointer; display: flex; align-items: center; justify-content: center;
-    flex-shrink: 0;
-}
-.audio-nav-btn:hover { background: rgba(255,255,255,0.2); }
-.audio-nav-btn:disabled { color: #444; cursor: default; }
-.audio-nav-btn:disabled:hover { background: rgba(255,255,255,0.1); }
-/* Audio time-jump modal */
-#audioJumpModal {
-    display: none;
-    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 3000;
-    align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.55);
-}
-#audioJumpModal.open { display: flex; }
-#audioJumpModal .ajm-box {
-    background: #1a1a2e; border: 1px solid #7ec8e3;
-    border-radius: 10px; padding: 20px 24px;
-    display: flex; flex-direction: column; align-items: center; gap: 12px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.6); min-width: 200px;
-}
-#audioJumpModal .ajm-label {
-    color: #7ec8e3; font-size: 13px; font-weight: 600;
-}
-#audioJumpInput {
-    width: 110px; padding: 8px 10px; border: 1px solid #555;
-    border-radius: 6px; background: #0e0e1f; color: #fff;
-    font-size: 20px; text-align: center; outline: none;
-    letter-spacing: 2px;
-}
-#audioJumpInput:focus { border-color: #7ec8e3; }
-#audioJumpModal .ajm-hint {
-    color: #666; font-size: 11px;
-}
 /* Shortcuts modal */
 #shortcutsModal {
     display: none;
@@ -1009,13 +905,6 @@ body.dark #servePanel .sv-info { background: #1a1a2e; border-color: #333; color:
 #servePanel .sv-info .sv-info-safe { color: rgb(52,168,83); font-weight: 700; }
 #servePanel .sv-info hr { border: none; border-top: 1px solid #e0e8f8; margin: 8px 0; }
 body.dark #servePanel .sv-info hr { border-top-color: #333; }
-.audio-toggle-btn {
-    width: 32px; height: 32px; font-size: 16px; font-weight: 700;
-    border: none; border-radius: 8px; cursor: pointer;
-    background: rgb(224,224,224); color: rgb(51,51,51);
-    display: flex; align-items: center; justify-content: center;
-}
-.audio-toggle-btn.playing { background: #7ec8e3; color: #1a1a2e; }
 
 /* TTS selection tooltip */
 #ttsTooltip {
@@ -1110,7 +999,6 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     .modal-arrow { padding: 10px 14px; font-size: 24px; }
     .modal-arrow.left { left: 5px; }
     .modal-arrow.right { right: 5px; }
-    .audio-modal { left: 0; }
     .yt-modal { left: 0; }
 }
 
@@ -1413,9 +1301,6 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
                 <button id="txtMdBtn" onclick="toggleLeftTxtMd()" title="Toggle markdown/text view" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $displayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
             <?php endif; ?>
-            <?php if (!empty($audioList)): ?>
-                <button class="audio-toggle-btn" id="audioToggleBtn" title="Toggle audio player" onclick="toggleAudioModal()">&#9835;</button>
-            <?php endif; ?>
             <button title="YouTube music" onclick="toggleYtModal()" style="width:32px;height:32px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);display:flex;align-items:center;justify-content:center;padding:0"><svg width="20" height="14" viewBox="0 0 68 48"><path d="M66.5 7.7s-.7-4.7-2.7-6.8C61-1.7 58-1.7 56.6-1.9 47.3-2.6 34-2.6 34-2.6s-13.3 0-22.6.7C10-1.7 7-1.7 4.2.9 2.2 3 1.5 7.7 1.5 7.7S.8 13.2.8 18.8v5.2c0 5.5.7 11.1.7 11.1s.7 4.7 2.7 6.8c2.8 2.6 6.4 2.5 8 2.8 5.8.5 24.8.7 24.8.7s13.3 0 22.6-.7c1.4-.2 4.4-.2 7.2-2.8 2-2.1 2.7-6.8 2.7-6.8s.7-5.5.7-11.1v-5.2c0-5.6-.7-11.1-.7-11.1z" fill="red"/><path d="M27 33V13l18.2 10L27 33z" fill="white"/></svg></button>
             <button id="ytEmbedToggleBtn" title="YouTube embed — paste any URL" onclick="toggleYtEmbedModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#ff0000;color:#fff">YT</button>
             <button id="pgnPasteBtn" title="Paste PGN or FEN and view on chess board" onclick="togglePgnPasteModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#2e7d32;color:#fff">PGN</button>
@@ -1478,11 +1363,15 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 $gridImgCount = 0;
                 foreach ($folderFiles as $f):
                     if (!in_array($f['ext'], $imageExts)) continue;
+                    // Grid index == imageList index (same source array, same ext filter, same order)
+                    $imgIdx = $gridImgCount;
                     $gridImgCount++;
                     $enc = implode('/', array_map('rawurlencode', explode('/', $f['path'])));
                 ?>
                     <div class="gallery-item">
-                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
+                        <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>"
+                           onclick="openModalAt(<?= $imgIdx ?>); return false;"
+                           title="Click to enlarge — ← → arrow keys change images">
                             <img src="<?= $contentDir . '/' . htmlspecialchars($enc) ?>"
                                  alt="<?= htmlspecialchars($f['name']) ?>">
                         </a>
@@ -1576,6 +1465,21 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 });
             })();
             </script>
+
+        <?php elseif ($displayType === 'audio'):
+            $audioMimeMap = ['mp3'=>'audio/mpeg','m4a'=>'audio/mp4'];
+            $aExt = strtolower(pathinfo($currentFile, PATHINFO_EXTENSION));
+            $aMime = isset($audioMimeMap[$aExt]) ? $audioMimeMap[$aExt] : 'audio/mpeg';
+            $encodedAudioPath = implode('/', array_map('rawurlencode', explode('/', $currentFile)));
+        ?>
+            <div style="padding:60px 20px;text-align:center">
+                <div style="font-size:56px;margin-bottom:14px">&#9835;</div>
+                <div style="font-size:14px;margin-bottom:20px;word-break:break-all"><?= htmlspecialchars(basename($currentFile)) ?></div>
+                <audio controls autoplay style="width:100%;max-width:640px">
+                    <source src="?stream=<?= $encodedAudioPath ?>" type="<?= $aMime ?>">
+                    Your browser does not support this audio format.
+                </audio>
+            </div>
 
         <?php elseif ($displayType === 'markdown'): ?>
             <div class="markdown-content" id="markdown-render"></div>
@@ -1819,15 +1723,6 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     </div>
 </div>
 
-<!-- Audio time-jump modal -->
-<div id="audioJumpModal">
-    <div class="ajm-box">
-        <div class="ajm-label">Jump to time</div>
-        <input id="audioJumpInput" type="text" placeholder="1:23 or 90" autocomplete="off" inputmode="numeric">
-        <div class="ajm-hint">Enter&nbsp;to jump &nbsp;·&nbsp; Esc&nbsp;to cancel &nbsp;·&nbsp; bare&nbsp;seconds&nbsp;ok</div>
-    </div>
-</div>
-
 <!-- Image Modal -->
 <div class="image-modal" id="imageModal">
     <button class="modal-close" onclick="closeModal()">&times;</button>
@@ -1858,7 +1753,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     <textarea id="evalPasteInput" placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w	0&#10;rnbqkbnr/pppppppp/8/8/3P4/8/PPP1PPPP/RNBQKBNR b	30"></textarea>
 </div>
 
-<!-- Audio Modal -->
+<!-- YouTube Music Modal -->
 <div class="yt-modal" id="ytModal">
     <div class="yt-modal-header">
         <div class="yt-modal-title" id="ytTitle">YouTube Music</div>
@@ -1867,20 +1762,6 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     <div class="yt-track-list" id="ytTrackList"></div>
     <div style="margin-bottom:8px"><button id="ytRandomBtn" onclick="ytRandomSeek()" style="background:linear-gradient(45deg,#ff9800,#f57c00);padding:6px 12px;font-size:12px;border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">🎲 Random</button></div>
     <div class="yt-iframe-wrap" id="ytIframeWrap"></div>
-</div>
-
-<div class="audio-modal" id="audioModal">
-    <div class="audio-modal-header">
-        <div class="audio-modal-title" id="audioTitle">No audio</div>
-        <button class="audio-modal-close" onclick="toggleAudioModal()">&times;</button>
-    </div>
-    <div class="audio-modal-controls">
-        <button class="audio-nav-btn" id="audioPrevBtn" onclick="audioNav(-1)">&#8249;</button>
-        <button class="audio-nav-btn" onclick="audioSeek(-10)" style="font-size:13px;font-weight:700">-10</button>
-        <audio controls id="audioPlayer"></audio>
-        <button class="audio-nav-btn" onclick="audioSeek(10)" style="font-size:13px;font-weight:700">+10</button>
-        <button class="audio-nav-btn" id="audioNextBtn" onclick="audioNav(1)">&#8250;</button>
-    </div>
 </div>
 
 <!-- YouTube Embed (paste-any-URL) footer modal -->
@@ -2927,23 +2808,6 @@ document.addEventListener('keydown', function(e) {
             var pageAmt = scrollTarget.clientHeight * 0.85;
             scrollTarget.scrollBy({ top: e.key === 'ArrowDown' ? pageAmt : -pageAmt, behavior: 'smooth' });
         }
-    } else if (audioModal.classList.contains('open')) {
-        if (e.key === 's') {
-            e.preventDefault();
-            if (audioPlayer.paused) audioPlayer.play(); else audioPlayer.pause();
-        } else if (e.key === 'v') {
-            e.preventDefault();
-            openAudioJumpModal();
-        } else if (e.key === 'c') {
-            // Jump to highlighted (selected) text — accepts M:SS, H:MM:SS, or bare seconds
-            e.preventDefault();
-            var sel = window.getSelection();
-            var text = sel ? sel.toString().trim() : '';
-            if (text && /^(\d+:\d{2}(:\d{2})?|\d+)$/.test(text)) {
-                audioPlayer.currentTime = parseAudioTime(text);
-                audioPlayer.play();
-            }
-        }
     }
 
     // TTS — works anywhere (not editing, no modifier keys)
@@ -3123,9 +2987,7 @@ document.querySelectorAll('.sidebar-item').forEach(function(item) {
     });
 });
 
-// --- Audio Modal ---
-var audioListData = <?= json_encode($audioList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
-var audioIndex = 0;
+// --- YouTube Music Modal ---
 /* YouTube modal */
 var ytModal = document.getElementById('ytModal');
 var ytTracks = [
@@ -3183,96 +3045,6 @@ function ytRandomSeek() {
     loadYtTrack(ytCurrentIdx, randomSec);
 }
 
-var audioModal = document.getElementById('audioModal');
-var audioPlayer = document.getElementById('audioPlayer');
-var audioTitle = document.getElementById('audioTitle');
-var audioToggleBtn = document.getElementById('audioToggleBtn');
-
-// --- Audio state persistence (survives page reloads from P2 navigation) ---
-var AUDIO_STATE_KEY = 'audioPlayerState';
-var audioLastSave = 0;
-
-function getSavedAudioState() {
-    try { return JSON.parse(localStorage.getItem(AUDIO_STATE_KEY) || 'null'); }
-    catch(e) { return null; }
-}
-
-function saveAudioState() {
-    if (!audioListData.length || !audioPlayer.src) return;
-    var track = audioListData[audioIndex];
-    if (!track) return;
-    try {
-        localStorage.setItem(AUDIO_STATE_KEY, JSON.stringify({
-            src: track.src,
-            name: track.name,
-            time: audioPlayer.currentTime,
-            paused: audioPlayer.paused,
-            open: audioModal.classList.contains('open')
-        }));
-    } catch(e) {}
-}
-
-audioPlayer.addEventListener('pause', saveAudioState);
-audioPlayer.addEventListener('play', saveAudioState);
-audioPlayer.addEventListener('timeupdate', function() {
-    var now = Date.now();
-    if (now - audioLastSave > 1000) { audioLastSave = now; saveAudioState(); }
-});
-// Track finished — clear state so next open starts fresh
-audioPlayer.addEventListener('ended', function() {
-    try { localStorage.removeItem(AUDIO_STATE_KEY); } catch(e) {}
-});
-window.addEventListener('beforeunload', saveAudioState);
-
-function restoreAudioPosition(time) {
-    var apply = function() {
-        if (time > 0 && (!audioPlayer.duration || time < audioPlayer.duration - 1)) {
-            audioPlayer.currentTime = time;
-        }
-    };
-    if (audioPlayer.readyState >= 1) apply();
-    else audioPlayer.addEventListener('loadedmetadata', apply, { once: true });
-}
-
-function toggleAudioModal() {
-    if (audioModal.classList.contains('open')) {
-        audioModal.classList.remove('open');
-        audioPlayer.pause();
-        if (audioToggleBtn) audioToggleBtn.classList.remove('playing');
-    } else {
-        if (!audioListData.length) return;
-        audioModal.classList.add('open');
-        showAudioTrack();
-        var saved = getSavedAudioState();
-        if (saved && saved.src === audioListData[audioIndex].src) restoreAudioPosition(saved.time);
-        if (audioToggleBtn) audioToggleBtn.classList.add('playing');
-    }
-}
-
-function audioSeek(seconds) {
-    if (!audioPlayer.duration || isNaN(audioPlayer.duration)) return;
-    var newTime = audioPlayer.currentTime + seconds;
-    audioPlayer.currentTime = Math.max(0, Math.min(audioPlayer.duration, newTime));
-}
-
-function audioNav(dir) {
-    audioIndex += dir;
-    if (audioIndex < 0) audioIndex = audioListData.length - 1;
-    if (audioIndex >= audioListData.length) audioIndex = 0;
-    showAudioTrack();
-    audioPlayer.play();
-}
-
-function showAudioTrack() {
-    if (!audioListData.length) return;
-    var track = audioListData[audioIndex];
-    audioPlayer.src = track.src;
-    audioPlayer.type = track.mime;
-    audioTitle.textContent = track.name;
-    document.getElementById('audioPrevBtn').disabled = audioListData.length <= 1;
-    document.getElementById('audioNextBtn').disabled = audioListData.length <= 1;
-}
-
 // =====================================================================
 // SHORTCUTS REFERENCE — edit the template literal below freely.
 // Rendered as Markdown. Reload the page after saving to see changes.
@@ -3299,11 +3071,6 @@ var shortcutsContent = `
 ## Image Modal
 - **← / →** or **‹ › buttons** — Prev / next file (real sidebar navigation — modal re-opens on the new image)
 - **Esc** — Close
-
-## Audio Player  *(open with ♩ button)*
-- **s** — Play / pause toggle
-- **v** — Open time-jump modal (type \`1:23\` or \`90\` → Enter/v to jump)
-- **c** — Jump to highlighted/selected time in text (no modal)
 
 ## Dual Pane (P2)
 - **P2 button** — Toggle left/right split view
@@ -3740,56 +3507,6 @@ document.getElementById('ytEmbedInput').addEventListener('keydown', function(e) 
     if (e.key === 'Enter') { e.preventDefault(); loadYtEmbed(); }
 });
 
-var audioJumpModal = document.getElementById('audioJumpModal');
-var audioJumpInput = document.getElementById('audioJumpInput');
-
-function openAudioJumpModal() {
-    audioJumpInput.value = '';
-    audioJumpModal.classList.add('open');
-    setTimeout(function() { audioJumpInput.focus(); }, 30);
-}
-function closeAudioJumpModal() {
-    audioJumpModal.classList.remove('open');
-    audioJumpInput.value = '';
-}
-function doAudioJump() {
-    var val = audioJumpInput.value.trim();
-    if (!val) { closeAudioJumpModal(); return; }
-    audioPlayer.currentTime = parseAudioTime(val);
-    audioPlayer.play();
-    closeAudioJumpModal();
-}
-
-audioJumpInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' || e.key === 'v') { e.preventDefault(); doAudioJump(); }
-    if (e.key === 'Escape') { e.preventDefault(); closeAudioJumpModal(); }
-});
-audioJumpModal.addEventListener('click', function(e) {
-    if (e.target === audioJumpModal) closeAudioJumpModal();
-});
-
-// Auto-open audio modal if an audio file was clicked
-<?php if ($currentAudioIdx >= 0): ?>
-(function() {
-    audioIndex = <?= $currentAudioIdx ?>;
-    var track = audioListData[audioIndex];
-    var saved = getSavedAudioState();
-    var resume = !!(saved && track && saved.src === track.src);
-    // Keep modal closed if user closed it and this is the same track
-    if (!resume || saved.open !== false) {
-        audioModal.classList.add('open');
-        if (audioToggleBtn) audioToggleBtn.classList.add('playing');
-    }
-    showAudioTrack();
-    if (resume) {
-        restoreAudioPosition(saved.time);
-        if (!saved.paused) audioPlayer.play();
-    } else {
-        audioPlayer.play();
-    }
-})();
-<?php endif; ?>
-
 // --- Copy content (right pane — text/md files always open in P2) ---
 var rawContent = <?= ($displayType === 'text' || $displayType === 'markdown') ? json_encode($displayContent, JSON_HEX_TAG | JSON_HEX_AMP) : 'null' ?>;
 function copyContent() {
@@ -4136,6 +3853,16 @@ function createNewFile() {
     });
 })();
 
+// --- Abort media streams before navigation ---
+// A held-open video/audio range stream occupies the single-threaded PHP dev
+// server, so every subsequent page load hangs ("stuck"). Tearing the element
+// down on beforeunload makes the browser close the connection immediately.
+window.addEventListener('beforeunload', function() {
+    document.querySelectorAll('video, audio').forEach(function(m) {
+        try { m.pause(); m.removeAttribute('src'); m.innerHTML = ''; m.load(); } catch(e) {}
+    });
+});
+
 // --- Preserve pane-1 grid scroll position across page loads ---
 // (clicking a text file reloads the page with ?p2=...; keep the grid where it was)
 (function() {
@@ -4158,30 +3885,6 @@ function createNewFile() {
         sessionStorage.setItem(key, area.scrollTop);
     });
 })();
-
-// Make sidebar audio file clicks open modal instead of navigating
-document.querySelectorAll('.sidebar-item').forEach(function(item) {
-    var href = item.getAttribute('href');
-    if (!href) return;
-    var isAudio = false;
-    for (var i = 0; i < audioListData.length; i++) {
-        if (href === audioListData[i].url) { isAudio = true; item.dataset.audioIdx = i; break; }
-    }
-    if (isAudio) {
-        item.addEventListener('click', function(e) {
-            e.preventDefault();
-            audioIndex = parseInt(this.dataset.audioIdx);
-            if (!audioModal.classList.contains('open')) {
-                audioModal.classList.add('open');
-                if (audioToggleBtn) audioToggleBtn.classList.add('playing');
-            }
-            showAudioTrack();
-            var saved = getSavedAudioState();
-            if (saved && saved.src === audioListData[audioIndex].src) restoreAudioPosition(saved.time);
-            audioPlayer.play();
-        });
-    }
-});
 
 // --- Dual-pane split mode ---
 var splitMode = false;

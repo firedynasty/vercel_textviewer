@@ -203,7 +203,7 @@ if (isset($_GET['search']) && $_GET['search'] !== '') {
 
 $currentFile   = isset($_GET['file'])   ? $_GET['file']   : null;
 $currentFolder = isset($_GET['folder']) ? $_GET['folder'] : null;
-$sortBy        = isset($_GET['sort'])   ? $_GET['sort']   : 'name';
+$sortBy        = isset($_GET['sort'])   ? $_GET['sort']   : 'type';
 
 // Text/markdown/docx files only ever render in the right pane (P2).
 // Redirect any ?file=<text> deep link to ?p2=<text> (pane 1 keeps its context).
@@ -417,6 +417,16 @@ foreach ($fileList as $f) {
             'name' => $f['name'],
             'src'  => $contentDir . '/' . $encodedPath,
         ];
+    }
+}
+
+// Text list (txt/md/docx) for ← → arrow-key navigation through prose files
+$textList    = [];
+$textNavExts = ['txt','md','docx'];
+foreach ($fileList as $f) {
+    $fext = $f['ext'] ?? '';
+    if (in_array($fext, $textNavExts)) {
+        $textList[] = ['name' => $f['name'], 'file' => $f['path']];
     }
 }
 
@@ -753,6 +763,11 @@ body.dark .gallery-item.kb-focus {
 /* Stacked images */
 .stacked-images { display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .stacked-images img { max-width: 100%; }
+.stacked-images .p1-item { text-align: center; }
+.stacked-images .p1-item img { cursor: pointer; display: block; border-radius: 4px; }
+.stacked-images .p1-item.current img { outline: 2px solid #7ec8e3; }
+.stacked-images .p1-item .caption { font-size: 12px; color: #666; margin-top: 5px; }
+body.dark .stacked-images .p1-item .caption { color: #aaa; }
 
 /* Image modal */
 .image-modal {
@@ -1371,7 +1386,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                     <div class="gallery-item">
                         <a href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>"
                            onclick="openModalAt(<?= $imgIdx ?>); return false;"
-                           title="Click to enlarge — ← → arrow keys change images">
+                           title="Click to enlarge — ‹ › buttons or swipe change images">
                             <img src="<?= $contentDir . '/' . htmlspecialchars($enc) ?>"
                                  alt="<?= htmlspecialchars($f['name']) ?>">
                         </a>
@@ -1390,11 +1405,32 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 if ($imgEntry['src'] === $encodedCurrentPath) { $currentImgIdx = $ii; break; }
             }
         ?>
-            <img src="<?= htmlspecialchars($encodedCurrentPath) ?>"
-                 alt="<?= htmlspecialchars($currentFile) ?>"
-                 style="max-width:100%;cursor:pointer"
-                 onclick="openModalAt(<?= $currentImgIdx ?>)"
-                 title="Click to enlarge — ← → arrow keys change images">
+            <!-- Vertical list of ALL folder images (the modal's set, laid out vertically) -->
+            <div class="stacked-images" id="p1ImageList">
+                <?php foreach ($imageList as $ii => $imgEntry): ?>
+                    <div class="p1-item<?= $ii === $currentImgIdx ? ' current' : '' ?>" data-img-idx="<?= $ii ?>">
+                        <img src="<?= htmlspecialchars($imgEntry['src']) ?>"
+                             alt="<?= htmlspecialchars($imgEntry['name']) ?>"
+                             onclick="openModalAt(<?= $ii ?>)"
+                             title="Click to enlarge — ‹ › buttons or swipe change images">
+                        <div class="caption"><?= htmlspecialchars($imgEntry['name']) ?></div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+            <script>
+            (function() {
+                var cur = document.querySelector('#p1ImageList .p1-item.current');
+                if (!cur) return;
+                function go() { cur.scrollIntoView({ block: 'center' }); }
+                go();
+                // Images decode after first layout — re-pin the scroll position as
+                // each one loads so the scrollbar lands on (and stays on) the image
+                document.querySelectorAll('#p1ImageList img').forEach(function(im) {
+                    if (!im.complete) im.addEventListener('load', go, { once: true });
+                });
+                window.addEventListener('load', go);
+            })();
+            </script>
 
         <?php elseif ($displayType === 'video'):
             $encodedVideoPath = $contentDir . '/' . implode('/', array_map('rawurlencode', explode('/', $currentFile)));
@@ -1779,6 +1815,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 <script>
 var imageList = <?= json_encode($imageList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
 var pgnList = <?= json_encode($pgnList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
+var textList = <?= json_encode($textList, JSON_HEX_TAG | JSON_UNESCAPED_SLASHES) ?: '[]' ?>;
 var pgnAutoOpenIdx = <?= $currentPgnIdx ?>;
 var modalIndex = 0;
 
@@ -1927,6 +1964,14 @@ function openModalAt(idx) {
 function closeModal() {
     modal.classList.remove('open');
     document.body.style.overflow = '';
+    // Reflect the last-viewed modal image back into pane 1's vertical list
+    var item = document.querySelector('#p1ImageList .p1-item[data-img-idx="' + modalIndex + '"]');
+    if (item) {
+        var prev = document.querySelector('#p1ImageList .p1-item.current');
+        if (prev) prev.classList.remove('current');
+        item.classList.add('current');
+        item.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }
 }
 
 function showModalImage() {
@@ -1946,74 +1991,37 @@ function showModalImage() {
     });
 }
 
-// Prev/next file navigation via sidebar nav buttons — shared by plain arrow keys
-// and the image modal. reopenModal=true re-opens the image modal after page load.
-function sidebarSiblingNav(key, reopenModal, evt) {
-    function go(url) {
-        if (reopenModal) { try { sessionStorage.setItem('imageModalReopen', '1'); } catch (err) {} }
-        window.location.href = url;
-    }
-    var navBtns = document.querySelectorAll('.sidebar-nav .sidebar-nav-btn');
-    if (!navBtns.length) return;
-    var btn = key === 'ArrowLeft' ? navBtns[0] : navBtns[navBtns.length - 1];
-    if (!(btn && btn.tagName === 'A' && btn.getAttribute('href'))) return;
+// ← → arrow keys: cycle through text files (txt/md/docx) only — images and
+// other media are skipped entirely. Destination always loads in the right pane (p2).
+function textFileNav(key, evt) {
+    if (!textList.length) return;
     if (evt) evt.preventDefault();
-    // Text files always route to the right pane, even when P2 is off
-    var destHref = btn.getAttribute('href');
-    var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
-    var destParams = {};
-    destQs.split('&').forEach(function(pair) {
-        var idx = pair.indexOf('=');
-        if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
-    });
-    var destFile = destParams['file'];
-    var textExts = ['txt','csv','json','log','md','docx'];
-    if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
-        var p = new URLSearchParams(window.location.search);
-        if (p.get('p2') === destFile) {
-            // Txt already in right pane — advance left pane to next/prev image
-            var curFile = p.get('file') || '';
-            var curImgIdx = -1;
-            for (var ii = 0; ii < imageList.length; ii++) {
-                var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
-                if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
-            }
-            var nextImgIdx = curImgIdx + (key === 'ArrowRight' ? 1 : -1);
-            if (nextImgIdx >= 0 && nextImgIdx < imageList.length) go(imageList[nextImgIdx].url);
-            return;
-        }
-        // Text file → load into right pane, keep current left pane file
-        p.set('p2', destFile);
-        go('?' + p.toString());
-        return;
+    var p = new URLSearchParams(window.location.search);
+    var cur = p.get('p2') || p.get('file') || '';
+    var idx = -1;
+    for (var i = 0; i < textList.length; i++) {
+        if (textList[i].file === cur) { idx = i; break; }
     }
-    // Media file → normal left-pane navigation
-    go(btn.href);
+    var next;
+    if (idx === -1) next = key === 'ArrowRight' ? 0 : textList.length - 1;
+    else next = idx + (key === 'ArrowRight' ? 1 : -1);
+    if (next < 0 || next >= textList.length) return;
+    p.set('p2', textList[next].file);
+    window.location.href = '?' + p.toString();
 }
 
-// Modal arrows: cycle images only — text/video/audio files are skipped entirely
+// Modal ‹ › buttons / swipe: cycle images in place (no page reload) — pane 1's
+// vertical list re-syncs to the last-viewed image when the modal closes.
 function modalImageNav(key, evt) {
     if (!imageList.length) return;
     if (evt) evt.preventDefault();
     var next = modalIndex + (key === 'ArrowRight' ? 1 : -1);
     if (next < 0 || next >= imageList.length) return;
-    try { sessionStorage.setItem('imageModalReopen', '1'); } catch (err) {}
-    window.location.href = imageList[next].url;
+    modalIndex = next;
+    showModalImage();
+    // Keep the URL truthful so refresh / 9-0 file nav stay in sync
+    try { history.replaceState(null, '', imageList[modalIndex].url); } catch (e) {}
 }
-
-// Re-open the image modal after modal-arrow navigation (flag set by sidebarSiblingNav/modalImageNav)
-(function() {
-    try {
-        if (sessionStorage.getItem('imageModalReopen') !== '1') return;
-        sessionStorage.removeItem('imageModalReopen');
-        var curFile = new URLSearchParams(window.location.search).get('file') || '';
-        if (!curFile || !imageList.length) return;
-        for (var ii = 0; ii < imageList.length; ii++) {
-            var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
-            if (iuParams.get('file') === curFile) { openModalAt(ii); return; }
-        }
-    } catch (e) {}
-})();
 
 // =====================================================================
 // PGN CHESS VIEWER (inline in first pane)
@@ -2790,9 +2798,9 @@ document.addEventListener('keydown', function(e) {
         else if (e.key === 'ArrowRight') { e.preventDefault(); pgnGoNext(); }
     } else if (modal.classList.contains('open')) {
         if (e.key === 'Escape') closeModal();
-        else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') modalImageNav(e.key, e);
+        else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') textFileNav(e.key, e);
     } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-        sidebarSiblingNav(e.key, false, e);
+        textFileNav(e.key, e);
     } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
         // Scroll text content area by one page (like PageUp/PageDown)
         var scrollTarget = null;
@@ -3051,7 +3059,7 @@ function ytRandomSeek() {
 // =====================================================================
 var shortcutsContent = `
 ## Navigation
-- **← / →** — Previous / next file in sidebar
+- **← / →** — Previous / next text file (txt / md / docx only — opens in right pane)
 - **↑ / ↓** or **p** — Page up / page down in text content (P2 right pane when active); p scrolls down only
 - **u** — Toggle between open file and folder file menu
 - **Esc** — Close any open modal
@@ -3069,7 +3077,8 @@ var shortcutsContent = `
 - **9** — Previous file (←)
 
 ## Image Modal
-- **← / →** or **‹ › buttons** — Prev / next file (real sidebar navigation — modal re-opens on the new image)
+- **‹ › buttons** or **swipe** — Prev / next image
+- **← / →** — Prev / next text file (txt / md / docx), leaves the modal
 - **Esc** — Close
 
 ## Dual Pane (P2)
@@ -4126,7 +4135,10 @@ applySplitMode();
             var idx = pair.indexOf('=');
             if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
         });
-        if (hp['file'] === p2File) item.classList.add('p2-active');
+        if (hp['file'] === p2File) {
+            item.classList.add('p2-active');
+            item.scrollIntoView({ block: 'nearest' });
+        }
     });
 })();
 </script>

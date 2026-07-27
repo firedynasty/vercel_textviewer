@@ -1933,7 +1933,7 @@ function applyFontSize() {
     var paneRight = document.getElementById('paneRight');
     if (paneRight) {
         paneRight.style.fontSize = fontSize + 'px';
-        paneRight.querySelectorAll('.text-content, .markdown-content').forEach(function(el) {
+        paneRight.querySelectorAll('.text-content, .markdown-content, .docx-content').forEach(function(el) {
             el.style.fontSize = fontSize + 'px';
         });
     }

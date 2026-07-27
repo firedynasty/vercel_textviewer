@@ -998,8 +998,8 @@ body.dark .folder-card .label { border-top-color: #444; }
 body.dark .gallery-item .caption { color: #aaa; }
 body.dark .content-area img { box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 body.dark #darkModeBtn { background: #555; color: #ffdd57; }
-body.dark .content-area > button[title="Page down"] { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.1); }
-body.dark .content-area > button[title="Page down"] svg path { stroke: rgba(255,255,255,0.5); }
+body.dark .content-area > button[title^="Page"] { border-color: rgba(255,255,255,0.5); background: rgba(255,255,255,0.1); }
+body.dark .content-area > button[title^="Page"] svg path { stroke: rgba(255,255,255,0.5); }
 body.dark #copyBtn { background: #555; color: #ffdd57; }
 
 /* Mobile */
@@ -1328,7 +1328,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 
     <div class="panes-container" id="panesContainer">
     <div class="content-area" id="contentArea">
-        <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page up" onclick="contentPageUp()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 44 L32 20 L56 44" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:90%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
 
@@ -1899,9 +1899,21 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
 }
 
+function contentPageTarget() {
+    // Page buttons target pane 2's text when split view is active; pane 1 otherwise
+    var p2 = document.getElementById('paneRight');
+    return (typeof splitMode !== 'undefined' && splitMode && p2 && p2.style.display !== 'none'
+            && p2.scrollHeight > p2.clientHeight)
+        ? p2
+        : document.getElementById('contentArea');
+}
 function contentPageDown() {
-    var el = document.getElementById('contentArea');
+    var el = contentPageTarget();
     el.scrollBy({ top: el.clientHeight * 0.9, behavior: 'smooth' });
+}
+function contentPageUp() {
+    var el = contentPageTarget();
+    el.scrollBy({ top: -el.clientHeight * 0.9, behavior: 'smooth' });
 }
 
 

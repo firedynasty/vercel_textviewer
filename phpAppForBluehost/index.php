@@ -1900,12 +1900,9 @@ function toggleSidebar() {
 }
 
 function contentPageTarget() {
-    // Page buttons target pane 2's text when split view is active; pane 1 otherwise
+    // Page buttons on pane 1 always scroll pane 2 whenever the right pane is visible
     var p2 = document.getElementById('paneRight');
-    return (typeof splitMode !== 'undefined' && splitMode && p2 && p2.style.display !== 'none'
-            && p2.scrollHeight > p2.clientHeight)
-        ? p2
-        : document.getElementById('contentArea');
+    return (p2 && p2.style.display !== 'none') ? p2 : document.getElementById('contentArea');
 }
 function contentPageDown() {
     var el = contentPageTarget();

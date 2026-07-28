@@ -1320,6 +1320,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button id="ytEmbedToggleBtn" title="YouTube embed — paste any URL" onclick="toggleYtEmbedModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#ff0000;color:#fff">YT</button>
             <button id="pgnPasteBtn" title="Paste PGN or FEN and view on chess board" onclick="togglePgnPasteModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#2e7d32;color:#fff">PGN</button>
             <button id="evalPasteBtn" title="Paste engine evals copied from the chess analysis app (Copy Evals)" onclick="toggleEvalPasteModal()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#f57f17;color:#fff">EVAL</button>
+            <button id="writeBtn" title="Toggle writing panel" onclick="toggleWritePanel()" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#4f46e5;color:#fff">Write</button>
             <?php if ($currentFile): ?>
                 <a class="download-link" href="<?= $contentDir . '/' . htmlspecialchars($currentFile) ?>" download>Download</a>
             <?php endif; ?>
@@ -1798,6 +1799,28 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     <div class="yt-track-list" id="ytTrackList"></div>
     <div style="margin-bottom:8px"><button id="ytRandomBtn" onclick="ytRandomSeek()" style="background:linear-gradient(45deg,#ff9800,#f57c00);padding:6px 12px;font-size:12px;border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:600">🎲 Random</button></div>
     <div class="yt-iframe-wrap" id="ytIframeWrap"></div>
+</div>
+
+<!-- Writing panel — fixed floating panel at bottom of screen -->
+<div id="writingPanel" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9000;box-shadow:0 -4px 24px rgba(0,0,0,0.18);background:#ffffff;border-top:2px solid #6366f1;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 12px 4px;border-bottom:1px solid #e5e7eb;">
+        <span style="font-size:12px;font-weight:600;color:#6366f1;letter-spacing:0.03em;">Writing <span style="font-size:10px;color:#9ca3af;font-weight:400;margin-left:4px;">tab to scroll</span></span>
+        <div style="display:flex;gap:6px;align-items:center;">
+            <button onclick="writeAdjFont(-1)" style="font-size:13px;font-weight:700;color:#6b7280;background:none;border:1px solid #d1d5db;cursor:pointer;padding:1px 7px;border-radius:3px;line-height:1.4;" title="Decrease font size">A−</button>
+            <span id="writeFontSizeLabel" style="font-size:11px;color:#9ca3af;min-width:24px;text-align:center;">15</span>
+            <button onclick="writeAdjFont(1)" style="font-size:13px;font-weight:700;color:#6b7280;background:none;border:1px solid #d1d5db;cursor:pointer;padding:1px 7px;border-radius:3px;line-height:1.4;" title="Increase font size">A+</button>
+            <button onclick="writeAdjMargin(-10)" style="font-size:11px;color:#6b7280;background:none;border:1px solid #d1d5db;cursor:pointer;padding:1px 7px;border-radius:3px;line-height:1.4;font-family:monospace;" title="Decrease left margin">←</button>
+            <span id="writeMarginLabel" style="font-size:11px;color:#9ca3af;min-width:28px;text-align:center;">0%</span>
+            <button onclick="writeAdjMargin(10)" style="font-size:11px;color:#6b7280;background:none;border:1px solid #d1d5db;cursor:pointer;padding:1px 7px;border-radius:3px;line-height:1.4;font-family:monospace;" title="Increase left margin">→</button>
+            <button onclick="writeCopy()" style="font-size:11px;color:#6b7280;background:none;border:1px solid #d1d5db;cursor:pointer;padding:2px 8px;border-radius:3px;" title="Copy text to clipboard">Copy</button>
+            <button onclick="writeClear()" style="font-size:11px;color:#6b7280;background:none;border:1px solid #d1d5db;cursor:pointer;padding:2px 8px;border-radius:3px;">Clear</button>
+            <button onclick="toggleWritePanel()" style="font-size:14px;font-weight:700;color:#6b7280;background:none;border:none;cursor:pointer;padding:2px 6px;line-height:1;" title="Close">✕</button>
+        </div>
+    </div>
+    <textarea id="writingTextarea"
+        placeholder="Write here..."
+        style="width:100%;height:160px;resize:vertical;padding:10px 14px;font-size:15px;line-height:1.6;background:#f9fafb;color:#111827;border:none;outline:none;font-family:inherit;box-sizing:border-box;display:block;"
+    ></textarea>
 </div>
 
 <!-- YouTube Embed (paste-any-URL) footer modal -->
@@ -3409,6 +3432,31 @@ function speakSelection(text, lang) {
     // --- Settings panel ---
     function buildSettingsRows() {
         rowsEl.innerHTML = '';
+        // Select All / Deselect All controls
+        var ctrlRow = document.createElement('div');
+        ctrlRow.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;';
+        var btnSelAll = document.createElement('button');
+        btnSelAll.textContent = 'Select All';
+        btnSelAll.style.cssText = 'flex:1;font-size:11px;font-weight:600;padding:3px 0;border:1px solid #555;border-radius:4px;background:#2a2a3e;color:#7ec8e3;cursor:pointer;';
+        btnSelAll.addEventListener('click', function() {
+            var v = loadVisible();
+            TTS_LANGS.forEach(function(l) { v[l.key] = true; });
+            saveVisible(v);
+            rowsEl.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = true; });
+        });
+        var btnDeselAll = document.createElement('button');
+        btnDeselAll.textContent = 'Deselect All';
+        btnDeselAll.style.cssText = 'flex:1;font-size:11px;font-weight:600;padding:3px 0;border:1px solid #555;border-radius:4px;background:#2a2a3e;color:#aaa;cursor:pointer;';
+        btnDeselAll.addEventListener('click', function() {
+            var v = loadVisible();
+            TTS_LANGS.forEach(function(l) { v[l.key] = false; });
+            saveVisible(v);
+            rowsEl.querySelectorAll('input[type=checkbox]').forEach(function(cb) { cb.checked = false; });
+        });
+        ctrlRow.appendChild(btnSelAll);
+        ctrlRow.appendChild(btnDeselAll);
+        rowsEl.appendChild(ctrlRow);
+
         TTS_LANGS.forEach(function(l) {
             var row = document.createElement('div');
             row.className = 'tbs-row';
@@ -3475,6 +3523,86 @@ var ytEmbedAPIReady = false;
 function onYouTubeIframeAPIReady() {
     ytEmbedAPIReady = true;
 }
+
+// --- Writing panel ---
+(function() {
+    var panel = document.getElementById('writingPanel');
+    var textarea = document.getElementById('writingTextarea');
+    var fontSizeLabel = document.getElementById('writeFontSizeLabel');
+    var marginLabel = document.getElementById('writeMarginLabel');
+    var writeFontSize = 15;
+    var writeMargin = 0;
+    var writeOpen = false;
+
+    try { writeFontSize = parseFloat(localStorage.getItem('write-font-size')) || 15; } catch(e) {}
+    try { writeMargin = parseFloat(localStorage.getItem('write-margin')) || 0; } catch(e) {}
+    try { textarea.value = localStorage.getItem('write-text') || ''; } catch(e) {}
+
+    function applyWriteStyles() {
+        var isDark = document.body.classList.contains('dark');
+        panel.style.background = isDark ? '#1a1a2e' : '#ffffff';
+        panel.style.borderTopColor = isDark ? '#4f46e5' : '#6366f1';
+        textarea.style.background = isDark ? '#111827' : '#f9fafb';
+        textarea.style.color = isDark ? '#e5e7eb' : '#111827';
+        textarea.style.fontSize = writeFontSize + 'px';
+        textarea.style.paddingLeft = 'calc(' + writeMargin + '% + 14px)';
+        fontSizeLabel.textContent = writeFontSize;
+        marginLabel.textContent = writeMargin + '%';
+    }
+    applyWriteStyles();
+
+    textarea.addEventListener('input', function() {
+        try { localStorage.setItem('write-text', textarea.value); } catch(e) {}
+    });
+
+    textarea.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            var pane = document.getElementById('contentArea');
+            if (pane) pane.scrollBy({ top: pane.clientHeight * 0.15, behavior: 'smooth' });
+        }
+    });
+
+    window.toggleWritePanel = function() {
+        writeOpen = !writeOpen;
+        panel.style.display = writeOpen ? 'block' : 'none';
+        applyWriteStyles();
+        var btn = document.getElementById('writeBtn');
+        if (btn) {
+            btn.textContent = writeOpen ? 'Write:ON' : 'Write';
+            btn.style.background = writeOpen ? '#4338ca' : '#4f46e5';
+        }
+        if (writeOpen) setTimeout(function() { textarea.focus(); }, 60);
+    };
+
+    window.writeAdjFont = function(dir) {
+        writeFontSize = Math.min(32, Math.max(10, writeFontSize + dir));
+        try { localStorage.setItem('write-font-size', writeFontSize); } catch(e) {}
+        applyWriteStyles();
+    };
+
+    window.writeAdjMargin = function(dir) {
+        writeMargin = Math.min(70, Math.max(0, writeMargin + dir));
+        try { localStorage.setItem('write-margin', writeMargin); } catch(e) {}
+        applyWriteStyles();
+    };
+
+    window.writeCopy = function() {
+        try { navigator.clipboard.writeText(textarea.value); } catch(e) {}
+    };
+
+    window.writeClear = function() {
+        textarea.value = '';
+        try { localStorage.removeItem('write-text'); } catch(e) {}
+    };
+
+    // Re-apply colours on dark mode toggle
+    var origToggleDark = window.toggleDarkMode;
+    window.toggleDarkMode = function() {
+        if (origToggleDark) origToggleDark();
+        applyWriteStyles();
+    };
+})();
 
 function toggleYtEmbedModal() {
     var open = ytEmbedModal.classList.toggle('open');

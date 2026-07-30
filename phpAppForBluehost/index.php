@@ -806,11 +806,12 @@ body.dark .stacked-images .p1-item .caption { color: #aaa; }
 .pgn-controls button:disabled { opacity: 0.4; cursor: default; }
 .pgn-comment { margin-top: 10px; max-width: 400px; min-height: 1.4em; font-size: 14px; font-style: italic; color: #b8860b; text-align: center; }
 body.dark .pgn-comment { color: #ffd700; }
-.pgn-moves { flex: 1; min-width: 280px; max-width: 450px; max-height: 80vh; overflow-y: auto; background: #fff; color: #333; padding: 16px 20px; border-radius: 4px; font-size: 15px; line-height: 2; user-select: none; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.pgn-moves { flex: 1; min-width: 280px; max-width: 450px; height: 242px; overflow-y: auto; background: #fff; color: #333; padding: 16px 20px; border-radius: 4px; font-size: 15px; line-height: 2; user-select: none; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
 .pgn-moves .move-number { color: #888; }
 .pgn-moves .move-san, .pgn-moves .variation-move { cursor: pointer; padding: 2px 4px; border-radius: 3px; margin-right: 4px; font-weight: 600; }
 .pgn-moves .move-san:hover, .pgn-moves .variation-move:hover { background: #e6f2ff; }
 .pgn-moves .current { background: #ffe58a; }
+.pgn-moves .variation-move.current { background: #8b5cf6; color: #fff; }
 .pgn-moves .variation-container { color: #888; }
 .pgn-file-nav { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
 .pgn-file-nav button { padding: 4px 14px; border-radius: 6px; border: 1px solid #555; background: #333; color: #ccc; font-size: 18px; cursor: pointer; }
@@ -820,6 +821,7 @@ body.dark .pgn-inline-caption { color: #aaa; }
 body.dark .pgn-moves { background: #2a2a2a; color: #ddd; }
 body.dark .pgn-moves .move-san:hover, body.dark .pgn-moves .variation-move:hover { background: #3a4a5a; }
 body.dark .pgn-moves .current { background: #8a6d1a; color: #fff; }
+body.dark .pgn-moves .variation-move.current { background: #6d28d9; color: #fff; }
 
 /* Shortcuts modal */
 #shortcutsModal {
@@ -2592,7 +2594,14 @@ function pgnJumpToNode(nodeId) {
     var el = document.querySelector('#pgnMoves [data-node-id="' + nodeId + '"]');
     if (el) {
         el.classList.add('current');
-        el.scrollIntoView({ block: 'nearest' });
+        // Scroll only within the moves panel — never scroll the page (board stays visible)
+        var movesEl = document.getElementById('pgnMoves');
+        if (movesEl) {
+            var er = el.getBoundingClientRect(), cr = movesEl.getBoundingClientRect();
+            var relTop = er.top - cr.top, relBot = er.bottom - cr.top;
+            if (relTop < 0) movesEl.scrollTop += relTop - 4;
+            else if (relBot > movesEl.clientHeight) movesEl.scrollTop += relBot - movesEl.clientHeight + 4;
+        }
     }
     document.getElementById('pgnComment').textContent = node.comment || '';
     var evEl = document.getElementById('pgnEval');
@@ -2623,6 +2632,57 @@ function pgnUpdateNavButtons() {
     document.getElementById('pgnStartBtn').disabled = !hasParent;
     document.getElementById('pgnNextBtn').disabled = !hasChild;
     document.getElementById('pgnEndBtn').disabled = !hasChild;
+}
+
+// --- Tab key: enter / exit variations ---
+function pgnIsInVariation() {
+    var n = pgnCurrent;
+    while (n && n.parent) {
+        if (n.parent.children[0] !== n) return true;
+        n = n.parent;
+    }
+    return false;
+}
+// Find the outermost parent node where the variation chain departs from main line.
+function pgnOutermostBranchParent() {
+    var n = pgnCurrent, out = null;
+    while (n && n.parent) {
+        if (n.parent.children[0] !== n) out = n.parent;
+        n = n.parent;
+    }
+    return out;
+}
+// Tab: if on main line with a variation available, enter it; otherwise no-op.
+function pgnEnterVariation() {
+    if (!pgnCurrent || !pgnCurrent.parent) return false;
+    var p = pgnCurrent.parent;
+    if (p.children[0] === pgnCurrent && p.children.length > 1) {
+        pgnJumpToNode(p.children[1].nodeId);
+        return true;
+    }
+    return false;
+}
+// Tab (when in variation): exit to the main-line move AFTER the variation ends.
+function pgnExitVariationToNext() {
+    if (!pgnIsInVariation()) return false;
+    var bp = pgnOutermostBranchParent();
+    if (!bp) return false;
+    var mainMove = bp.children[0];
+    if (mainMove && mainMove.children.length) {
+        pgnJumpToNode(mainMove.children[0].nodeId);
+    } else if (mainMove) {
+        pgnJumpToNode(mainMove.nodeId);
+    }
+    return true;
+}
+// Shift+Tab: exit to the main-line branch-point move itself.
+function pgnExitVariationToBranch() {
+    if (!pgnIsInVariation()) return false;
+    var bp = pgnOutermostBranchParent();
+    if (!bp) return false;
+    var mainMove = bp.children[0];
+    if (mainMove) pgnJumpToNode(mainMove.nodeId);
+    return true;
 }
 
 // Boot inline viewer on ?file=....pgn pages (PHP embedded the PGN text)
@@ -2828,6 +2888,11 @@ document.addEventListener('keydown', function(e) {
     } else if (pgnInlineActive) {
         if (e.key === 'ArrowLeft') { e.preventDefault(); pgnGoPrev(); }
         else if (e.key === 'ArrowRight') { e.preventDefault(); pgnGoNext(); }
+        else if (e.key === 'Tab') {
+            e.preventDefault();
+            if (e.shiftKey) { pgnExitVariationToNext(); }
+            else { if (!pgnEnterVariation()) pgnExitVariationToBranch(); }
+        }
     } else if (modal.classList.contains('open')) {
         if (e.key === 'Escape') closeModal();
         else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') textFileNav(e.key, e);

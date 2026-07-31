@@ -213,7 +213,7 @@ if ($currentFile && in_array(strtolower(pathinfo($currentFile, PATHINFO_EXTENSIO
     $redir = $_GET;
     unset($redir['file']);
     $redir['p2'] = $currentFile;
-    header('Location: ?' . http_build_query($redir));
+    header('Location: ?' . http_build_query($redir, '', '&', PHP_QUERY_RFC3986));
     exit;
 }
 
@@ -308,14 +308,14 @@ function getFolderThumb($dir, $folder) {
 function sortUrl($sort) {
     $params = $_GET;
     $params['sort'] = $sort;
-    return '?' . http_build_query($params);
+    return '?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
 }
 
 function itemUrl($params) {
     global $sortBy, $p2File;
     $params['sort'] = $sortBy;
     if (!empty($p2File) && !isset($params['p2'])) $params['p2'] = $p2File;
-    return '?' . http_build_query($params);
+    return '?' . http_build_query($params, '', '&', PHP_QUERY_RFC3986);
 }
 
 // --- Data ---
@@ -370,7 +370,7 @@ if ($p2File) {
     }
 }
 $p2CloseParams = $_GET; unset($p2CloseParams['p2']);
-$p2CloseUrl = $p2CloseParams ? '?' . http_build_query($p2CloseParams) : '?';
+$p2CloseUrl = $p2CloseParams ? '?' . http_build_query($p2CloseParams, '', '&', PHP_QUERY_RFC3986) : '?';
 
 // File list (files-only, used for prev/next arrows, image modal)
 $fileList = $currentFolder
@@ -2844,13 +2844,9 @@ document.addEventListener('keydown', function(e) {
                         e.preventDefault();
                         // Text files always route to the right pane, even when P2 is off
                         var destHref = fileNavBtn.getAttribute('href');
-                        var destQs = destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '';
-                        var destParams = {};
-                        destQs.split('&').forEach(function(pair) {
-                            var idx = pair.indexOf('=');
-                            if (idx > 0) destParams[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
-                        });
-                        var destFile = destParams['file'];
+                        // Use URLSearchParams so + is decoded as space (decodeURIComponent does not do this)
+                        var destParams = new URLSearchParams(destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '');
+                        var destFile = destParams.get('file');
                         var textExts = ['txt','csv','json','log','md','docx'];
                         if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
                             var p = new URLSearchParams(window.location.search);
@@ -2918,14 +2914,22 @@ document.addEventListener('keydown', function(e) {
 
     // TTS — works anywhere (not editing, no modifier keys)
     if (!e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (e.key === 'a' || e.key === 'm' || e.key === 'h' || e.key === 'k' || e.key === 'f' || e.key === 'r') {
+        if (e.key === 'a' || e.key === 'm' || e.key === 'h' || e.key === 'k' || e.key === 'f' || e.key === 'r' || e.key === 'g' || e.key === 'b') {
             var ttsSel = window.getSelection();
             var ttsText = ttsSel ? ttsSel.toString().trim() : '';
             if (ttsText) {
                 e.preventDefault();
-                var ttsLangMap = { a: 'zh-HK', m: 'zh-CN', h: 'es-ES', k: 'ko-KR', f: 'fr-FR', r: 'en-US' };
+                var ttsLangMap = { a: 'zh-HK', m: 'zh-CN', h: 'es-ES', k: 'ko-KR', f: 'fr-FR', r: 'en-US', g: 'el-GR', b: 'he-IL' };
                 speakSelection(ttsText, ttsLangMap[e.key]);
             }
+        }
+
+        // j — CSV drill: speak first column (foreign) then last column (English)
+        // Language for first column = first non-English visible in TTS settings
+        if (e.key === 'j') {
+            var jSel = window.getSelection();
+            var jLine = jSel ? jSel.toString().trim() : '';
+            if (jLine && speakCSVLine(jLine)) e.preventDefault();
         }
 
         // o — page up, p — page down; TTS Spanish still fires when text is selected (handled above)
@@ -3205,6 +3209,11 @@ var shortcutsContent = `
 - **k** — Read selection in Korean (ko-KR)
 - **f** — Read selection in French (fr-FR)
 - **r** — Read selection in English (en-US)
+- **g** — Read selection in Greek (el-GR)
+- **b** — Read selection in Hebrew (he-IL)
+
+## CSV / Vocabulary Drill  *(navigate rows with  ,  /  .  then press)*
+- **j** — Suggestopedia drill: speaks first CSV column in foreign language → 1.5 s pause → last column in English → 2.5 s pause. Language follows TTS settings (first non-English visible language)
 
 ## General
 - **☽ / ☀** — Toggle dark / light mode
@@ -3396,6 +3405,75 @@ function speakSelection(text, lang) {
     speechSynthesis.speak(utt);
 }
 
+// Parse a single CSV line respecting double-quoted fields (handles commas and
+// semicolons inside quotes correctly).
+// e.g. '"¿Hola, cómo estás?",Hello' → ['¿Hola, cómo estás?', 'Hello']
+function parseCSVLine(line) {
+    var fields = [];
+    var i = 0;
+    while (i <= line.length) {
+        if (i === line.length) { break; } // no trailing empty field after closing quote
+        if (line[i] === '"') {
+            i++; // skip opening quote
+            var field = '';
+            while (i < line.length) {
+                if (line[i] === '"' && line[i + 1] === '"') { field += '"'; i += 2; }
+                else if (line[i] === '"') { i++; break; }
+                else { field += line[i++]; }
+            }
+            fields.push(field.trim());
+            if (line[i] === ',') i++;
+        } else {
+            var end = line.indexOf(',', i);
+            if (end === -1) end = line.length;
+            fields.push(line.substring(i, end).trim());
+            i = end + 1;
+        }
+    }
+    return fields;
+}
+
+// j — speak first CSV column in foreign language, last column in English.
+// Foreign language = first non-English visible language in TTS settings.
+function speakCSVLine(line) {
+    var fields = parseCSVLine(line);
+    if (fields.length < 2) return false;
+    var foreign = fields[0];
+    var english = fields[fields.length - 1];
+    if (!foreign || !english || foreign === english) return false;
+
+    // Determine foreign language from TTS settings (first non-English visible)
+    var visMap = {};
+    try { visMap = JSON.parse(localStorage.getItem('tts-visible-btns')) || {}; } catch(ex) {}
+    // key → lang ordered by priority
+    var candidates = [
+        { key: 'M', lang: 'zh-CN' }, { key: 'A', lang: 'zh-HK' },
+        { key: 'P', lang: 'es-ES' }, { key: 'K', lang: 'ko-KR' },
+        { key: 'F', lang: 'fr-FR' },
+    ];
+    var foreignLang = 'zh-CN'; // fallback
+    for (var ci = 0; ci < candidates.length; ci++) {
+        var c = candidates[ci];
+        if (!(c.key in visMap) || visMap[c.key]) { foreignLang = c.lang; break; }
+    }
+
+    speechSynthesis.cancel();
+    var u1 = new SpeechSynthesisUtterance(foreign);
+    u1.lang = foreignLang;
+    var v1 = ttsBestVoice(foreignLang); if (v1) u1.voice = v1;
+    var u2 = new SpeechSynthesisUtterance(english);
+    u2.lang = 'en-US';
+    var v2 = ttsBestVoice('en-US'); if (v2) u2.voice = v2;
+    // Suggestopedia cadence: foreign → 1.5s gap → English → 2.5s gap
+    u1.onend = function() {
+        setTimeout(function() {
+            speechSynthesis.speak(u2);
+        }, 1500);
+    };
+    speechSynthesis.speak(u1);
+    return true;
+}
+
 // --- TTS selection tooltip ---
 (function() {
     var TTS_LANGS = [
@@ -3405,6 +3483,8 @@ function speakSelection(text, lang) {
         { key: 'P', label: 'P Es', lang: 'es-ES', title: 'Spanish'   },
         { key: 'K', label: 'K 한', lang: 'ko-KR', title: 'Korean'    },
         { key: 'F', label: 'F Fr', lang: 'fr-FR', title: 'French'    },
+        { key: 'G', label: 'G Ελ', lang: 'el-GR', title: 'Greek'     },
+        { key: 'B', label: 'B עב', lang: 'he-IL', title: 'Hebrew'    },
     ];
     var STORAGE_KEY = 'tts-visible-btns';
 

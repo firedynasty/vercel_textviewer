@@ -1303,6 +1303,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <?php endif; ?>
         <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             <button title="New file (from clipboard)" onclick="createNewFile()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:#10b981;color:#fff">+</button>
+            <button title="Paste clipboard to P2 (no save)" onclick="pasteClipboardToP2()" style="height:28px;font-size:12px;font-weight:700;padding:0 8px;border:none;border-radius:8px;cursor:pointer;background:#10b981;color:#fff">&#128203;Paste</button>
             <button title="Decrease font size" onclick="adjustFontSize(-1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">-</button>
             <button title="Increase font size" onclick="adjustFontSize(1)" style="width:32px;height:32px;font-size:18px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">+</button>
             <button id="ttsSettingsBtn" title="Choose text-to-speech languages for the highlight tooltip" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:#7ec8e3;color:#1a1a2e">TTS</button>
@@ -1311,7 +1312,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <button id="shortcutsBtn" title="Keyboard shortcuts" onclick="openShortcuts()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(102,126,234);color:#fff">Shortcuts</button>
             <button id="servePanelBtn" title="cd command to current folder" onclick="openServePanel()" style="height:28px;font-size:11px;font-weight:700;padding:0 10px;border:none;border-radius:6px;cursor:pointer;background:rgb(52,168,83);color:#fff">CD</button>
             <?php if ($p2DisplayType === 'text' || $p2DisplayType === 'markdown'): ?>
-                <button id="copyBtn" title="Copy content" onclick="copyContent()" style="width:32px;height:32px;font-size:16px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;</button>
+                <button id="copyBtn" title="Copy content" onclick="copyContent()" style="height:28px;font-size:12px;font-weight:700;padding:0 8px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;Copy</button>
                 <button id="p2TxtMdBtn" onclick="toggleRightTxtMd()" title="Toggle markdown/text view (right pane)" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $p2DisplayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
                 <button id="p2EditBtn" onclick="toggleP2Edit()" title="Edit and save back to local file" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
             <?php endif; ?>
@@ -3745,7 +3746,7 @@ function copyContent() {
         btn.style.background = '#4caf50';
         btn.style.color = '#fff';
         setTimeout(function() {
-            btn.innerHTML = '&#128203;';
+            btn.innerHTML = '&#128203;Copy';
             btn.style.background = 'rgb(224,224,224)';
             btn.style.color = 'rgb(51,51,51)';
             if (document.body.classList.contains('dark')) {
@@ -4005,6 +4006,47 @@ function p2SaveAndExit(editBtn) {
 
 // --- New File ---
 var currentFolderPath = <?= $currentFolder ? json_encode($currentFolder, JSON_HEX_TAG | JSON_HEX_AMP) : "''" ?>;
+function pasteClipboardToP2() {
+    navigator.clipboard.readText().then(function(clipText) {
+        if (!clipText) { alert('Clipboard is empty.'); return; }
+        var paneRight = document.getElementById('paneRight');
+
+        // Remove any existing content div(s) inside paneRight (keep the pane-right-bar and page-down button)
+        paneRight.querySelectorAll('.text-content, .markdown-content, .docx-content').forEach(function(el) { el.remove(); });
+        // Also remove the empty-state placeholder if present
+        paneRight.querySelectorAll('div[style*="pointer-events:none"]').forEach(function(el) { el.remove(); });
+
+        // Remove existing pane-right-bar (we'll insert our own label)
+        var existingBar = paneRight.querySelector('.pane-right-bar');
+        if (existingBar) existingBar.remove();
+
+        // Insert a minimal bar showing "(clipboard)"
+        var bar = document.createElement('div');
+        bar.className = 'pane-right-bar';
+        bar.innerHTML = '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:6px;opacity:0.7">(clipboard)</span>';
+        paneRight.insertBefore(bar, paneRight.firstChild);
+
+        // Insert text content div
+        var textDiv = document.createElement('div');
+        textDiv.className = 'text-content';
+        textDiv.textContent = clipText;
+        paneRight.appendChild(textDiv);
+
+        // Apply current font size
+        var fs = paneRight.style.fontSize;
+        if (!fs) { try { fs = localStorage.getItem('fontSize'); } catch(e) {} }
+        if (fs) textDiv.style.fontSize = fs;
+
+        // Update JS state so scroll/TTS/line-nav work on the new content
+        p2DisplayType = 'text';
+
+        // Open P2 if not already open
+        if (!splitMode) toggleSplit();
+    }).catch(function() {
+        alert('Clipboard access denied. Please allow clipboard permissions.');
+    });
+}
+
 function createNewFile() {
     navigator.clipboard.readText().then(function(clipText) {
         var fileName = prompt('New file name:', 'new_file.md');

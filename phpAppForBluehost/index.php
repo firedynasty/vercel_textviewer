@@ -619,8 +619,14 @@ body {
 
 /* Dual-pane layout */
 .panes-container { flex: 1; display: flex; overflow: hidden; }
-.pane-divider { width: 3px; background: #ccc; flex-shrink: 0; }
+.pane-divider {
+    width: 6px; background: #ccc; flex-shrink: 0;
+    cursor: col-resize; user-select: none;
+    transition: background 0.15s;
+}
+.pane-divider:hover, .pane-divider.dragging { background: #888; }
 body.dark .pane-divider { background: #444; }
+body.dark .pane-divider:hover, body.dark .pane-divider.dragging { background: #888; }
 .pane-right {
     flex: 5; overflow-y: auto; padding: 20px;
     background: #fafafa; position: relative;
@@ -1334,7 +1340,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     <div class="content-area" id="contentArea">
         <button title="Page up" onclick="contentPageUp()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 44 L32 20 L56 44" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
-        <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:90%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Next file (→)" onclick="textFileNav('ArrowRight')" style="position:sticky;top:90%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M20 8 L44 32 L20 56" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
 
         <?php if ($currentFolder && !$currentFile && isset($_GET['view']) && $_GET['view'] === 'all'): ?>
             <!-- Stacked view -->
@@ -4201,13 +4207,11 @@ window.addEventListener('beforeunload', function() {
     });
 });
 
-// --- Preserve pane-1 grid scroll position across page loads ---
-// (clicking a text file reloads the page with ?p2=...; keep the grid where it was)
+// --- Preserve pane-1 scroll position across page loads ---
+// (clicking a text file, sidebar item, or using arrow nav reloads with ?p2=...; keep pane 1 where it was)
 (function() {
     var area = document.getElementById('contentArea');
     if (!area) return;
-    var isGridView = <?= ($currentFolder && !$currentFile) ? 'true' : 'false' ?>;
-    if (!isGridView) return;
     var key = 'gridScrollTop:' + <?= json_encode(($currentFolder ?: '') . '|' . $sortBy . '|' . (isset($_GET['view']) ? $_GET['view'] : '')) ?>;
     var saved = sessionStorage.getItem(key);
     if (saved !== null) {
@@ -4268,6 +4272,68 @@ function toggleSplit() {
         }
     }
 }
+// --- Pane divider drag-to-resize ---
+(function() {
+    var divider = document.getElementById('paneDivider');
+    var leftPane = document.getElementById('contentArea');
+    var rightPane = document.getElementById('paneRight');
+    var container = document.getElementById('panesContainer');
+    if (!divider) return;
+
+    // Restore saved ratio
+    try {
+        var saved = localStorage.getItem('paneSplitRatio');
+        if (saved) {
+            var ratio = parseFloat(saved);
+            if (ratio > 0.1 && ratio < 0.9) {
+                leftPane.style.flex = 'none';
+                rightPane.style.flex = 'none';
+                leftPane.style.width = (ratio * 100) + '%';
+                rightPane.style.width = ((1 - ratio) * 100) + '%';
+            }
+        }
+    } catch(e) {}
+
+    divider.addEventListener('mousedown', function(e) {
+        e.preventDefault();
+        divider.classList.add('dragging');
+        var startX = e.clientX;
+        var containerW = container.offsetWidth - divider.offsetWidth;
+        var startLeftW = leftPane.offsetWidth;
+
+        function onMove(e) {
+            var dx = e.clientX - startX;
+            var newLeft = Math.min(Math.max(startLeftW + dx, containerW * 0.1), containerW * 0.9);
+            var newRight = containerW - newLeft;
+            leftPane.style.flex = 'none';
+            rightPane.style.flex = 'none';
+            leftPane.style.width = newLeft + 'px';
+            rightPane.style.width = newRight + 'px';
+        }
+        function onUp() {
+            divider.classList.remove('dragging');
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('mouseup', onUp);
+            // Save ratio
+            try {
+                var ratio = leftPane.offsetWidth / (leftPane.offsetWidth + rightPane.offsetWidth);
+                localStorage.setItem('paneSplitRatio', ratio);
+            } catch(e) {}
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+    });
+
+    // Double-click resets to default 3:5 ratio
+    divider.addEventListener('dblclick', function() {
+        leftPane.style.flex = '3';
+        leftPane.style.width = '';
+        rightPane.style.flex = '5';
+        rightPane.style.width = '';
+        try { localStorage.removeItem('paneSplitRatio'); } catch(e) {}
+    });
+})();
+
 function rightPanePageDown() {
     var el = document.getElementById('paneRight');
     el.scrollBy({ top: el.clientHeight * 0.9, behavior: 'smooth' });

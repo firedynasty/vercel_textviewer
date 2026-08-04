@@ -480,7 +480,14 @@ body {
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
+    position: fixed;
+    left: -220px;
+    top: 0;
+    z-index: 999;
+    transition: left 0.25s ease;
 }
+.sidebar.open { left: 0; }
+.main { margin-left: 0; }
 .sidebar-header {
     padding: 12px 15px;
     font-size: 14px;
@@ -580,20 +587,38 @@ body {
 .file-ext { font-size: 10px; color: #888; margin-left: 4px; }
 .file-date { font-size: 10px; color: #666; display: block; margin-top: 2px; }
 
-/* Mobile toggle */
-.sidebar-toggle {
-    display: none;
-    position: fixed;
-    top: 10px; left: 10px;
-    z-index: 1000;
-    background: #1a1a2e;
-    color: #fff;
+/* Sidebar toggle (legacy mobile button, kept hidden) */
+.sidebar-toggle { display: none; }
+
+/* Hamburger open button in main-header */
+.sidebar-open-btn {
+    background: none;
     border: none;
-    padding: 8px 12px;
-    font-size: 18px;
-    border-radius: 4px;
+    padding: 5px;
+    border-radius: 6px;
     cursor: pointer;
+    color: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
+.sidebar-open-btn:hover { background: #e8e8e8; }
+body.dark .sidebar-open-btn { color: #ccc; }
+body.dark .sidebar-open-btn:hover { background: #333; }
+
+/* Sidebar close (X) button */
+.sidebar-close-btn {
+    background: none;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    padding: 0 2px;
+    flex-shrink: 0;
+}
+.sidebar-close-btn:hover { color: #fff; }
 
 /* Main */
 .main {
@@ -1012,13 +1037,10 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 
 /* Mobile */
 @media (max-width: 768px) {
-    .sidebar { position: fixed; left: -250px; z-index: 999; width: 250px; transition: left 0.3s; }
-    .sidebar.open { left: 0; }
-    .sidebar-toggle { display: block; }
     .main { width: 100%; }
     .folder-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
     .gallery { grid-template-columns: 1fr; }
-    .content-area { padding: 10px; padding-top: 50px; }
+    .content-area { padding: 10px; }
     .modal-arrow { padding: 10px 14px; font-size: 24px; }
     .modal-arrow.left { left: 5px; }
     .modal-arrow.right { right: 5px; }
@@ -1028,7 +1050,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 /* YouTube modal */
 .yt-modal {
     display: none;
-    position: fixed; top: 0; left: 220px; right: 0;
+    position: fixed; top: 0; left: 0; right: 0;
     background: #1a1a2e;
     z-index: 1400;
     flex-direction: column;
@@ -1076,7 +1098,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 /* YouTube Embed (paste-any-URL) footer modal */
 .yt-embed-modal {
     display: none;
-    position: fixed; bottom: 0; left: 220px; right: 0;
+    position: fixed; bottom: 0; left: 0; right: 0;
     height: 70vh;
     background: #0f0f0f;
     z-index: 1490;
@@ -1122,7 +1144,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 /* PGN paste modal */
 .pgn-paste-modal {
     display: none;
-    position: fixed; bottom: 0; left: 220px; right: 0;
+    position: fixed; bottom: 0; left: 0; right: 0;
     height: 38vh;
     background: #0f0f0f;
     z-index: 1490;
@@ -1174,20 +1196,24 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 </head>
 <body>
 
-<button class="sidebar-toggle" onclick="toggleSidebar()">&#9776;</button>
-
 <nav class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <?php if ($currentFolder): ?>
-            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap"><?= htmlspecialchars(basename($currentFolder)) ?></span>
-            <?php if ($parentFolder !== null): ?>
-                <a href="<?= itemUrl(['folder'=>$parentFolder]) ?>">Back</a>
-            <?php else: ?>
-                <a href="<?= itemUrl([]) ?>">Back</a>
-            <?php endif; ?>
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"><?= htmlspecialchars(basename($currentFolder)) ?></span>
+            <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">
+                <?php if ($parentFolder !== null): ?>
+                    <a href="<?= itemUrl(['folder'=>$parentFolder]) ?>">Back</a>
+                <?php else: ?>
+                    <a href="<?= itemUrl([]) ?>">Back</a>
+                <?php endif; ?>
+                <button class="sidebar-close-btn" onclick="toggleSidebar()" title="Close sidebar">&times;</button>
+            </div>
         <?php else: ?>
-            <span>Content</span>
-            <span style="font-size:11px;color:#888"><?= count($items) ?> items</span>
+            <span style="flex:1">Content</span>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+                <span style="font-size:11px;color:#888"><?= count($items) ?> items</span>
+                <button class="sidebar-close-btn" onclick="toggleSidebar()" title="Close sidebar">&times;</button>
+            </div>
         <?php endif; ?>
     </div>
 
@@ -1283,6 +1309,11 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 
 <div class="main">
     <div class="main-header">
+        <button class="sidebar-open-btn" onclick="toggleSidebar()" title="Toggle sidebar">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+        </button>
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:10px">
             <?php if ($currentFolder && !$currentFile):
                 // Breadcrumb navigation for folder path
@@ -1341,6 +1372,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <button title="Page up" onclick="contentPageUp()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 44 L32 20 L56 44" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <button title="Page down (pane 1)" onclick="pane1PageDown()" style="position:sticky;top:90%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Prev file" onclick="textFileNav('ArrowLeft')" style="position:sticky;top:50%;right:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:right;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M44 8 L20 32 L44 56" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
 
         <?php if ($currentFolder && !$currentFile && isset($_GET['view']) && $_GET['view'] === 'all'): ?>
             <!-- Stacked view -->
@@ -1670,7 +1702,8 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             <a href="<?= htmlspecialchars($p2CloseUrl) ?>" class="pr-close" title="Close right pane">&times;</a>
         </div>
         <?php endif; ?>
-        <button title="Page down" onclick="rightPanePageDown()" style="position:sticky;top:6px;left:6px;z-index:10;width:40px;height:40px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgba(0,0,0,0.3);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-40px;float:left;"><svg width="40" height="40" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page down" onclick="rightPanePageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Next file" onclick="textFileNav('ArrowRight')" style="position:sticky;top:6px;left:6px;z-index:10;width:40px;height:40px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgba(0,0,0,0.3);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-40px;float:left;"><svg width="40" height="40" viewBox="0 0 64 64"><path d="M20 8 L44 32 L20 56" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <?php if ($p2DisplayType === 'text'): ?>
             <div class="text-content"><?= htmlspecialchars($p2DisplayContent) ?></div>
         <?php elseif ($p2DisplayType === 'markdown'): ?>
@@ -4344,6 +4377,7 @@ function rightPanePageDown() {
     var el = document.getElementById('paneRight');
     el.scrollBy({ top: el.clientHeight * 0.9, behavior: 'smooth' });
 }
+
 
 // --- TXT>MD toggle helpers (cookie persists across ports on localhost) ---
 function _getTxtMdCookie(pane) {

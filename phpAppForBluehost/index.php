@@ -760,7 +760,7 @@ body.dark .gallery-item.kb-focus {
 }
 
 /* Gallery grid (inside folder) */
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 15px; }
+.gallery { display: grid; grid-template-columns: 1fr; gap: 15px; }
 .gallery-item { text-align: center; }
 .gallery-item img { width: 100%; cursor: pointer; border-radius: 4px; transition: transform 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
 .gallery-item img:hover { transform: scale(1.02); }
@@ -1017,7 +1017,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     .sidebar-toggle { display: block; }
     .main { width: 100%; }
     .folder-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
-    .gallery { grid-template-columns: 1fr 1fr; }
+    .gallery { grid-template-columns: 1fr; }
     .content-area { padding: 10px; padding-top: 50px; }
     .modal-arrow { padding: 10px 14px; font-size: 24px; }
     .modal-arrow.left { left: 5px; }
@@ -1340,7 +1340,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
     <div class="content-area" id="contentArea">
         <button title="Page up" onclick="contentPageUp()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 44 L32 20 L56 44" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
-        <button title="Next file (→)" onclick="textFileNav('ArrowRight')" style="position:sticky;top:90%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M20 8 L44 32 L20 56" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page down (pane 1)" onclick="pane1PageDown()" style="position:sticky;top:90%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
 
         <?php if ($currentFolder && !$currentFile && isset($_GET['view']) && $_GET['view'] === 'all'): ?>
             <!-- Stacked view -->
@@ -1943,6 +1943,10 @@ function contentPageDown() {
 function contentPageUp() {
     var el = contentPageTarget();
     el.scrollBy({ top: -el.clientHeight * 0.9, behavior: 'smooth' });
+}
+function pane1PageDown() {
+    var el = document.getElementById('contentArea');
+    el.scrollBy({ top: el.clientHeight * 0.9, behavior: 'smooth' });
 }
 
 
@@ -4209,12 +4213,14 @@ window.addEventListener('beforeunload', function() {
 
 // --- Preserve pane-1 scroll position across page loads ---
 // (clicking a text file, sidebar item, or using arrow nav reloads with ?p2=...; keep pane 1 where it was)
+// When an image is the active file, skip restoration so scrollIntoView can scroll pane 1 to that image.
 (function() {
     var area = document.getElementById('contentArea');
     if (!area) return;
     var key = 'gridScrollTop:' + <?= json_encode(($currentFolder ?: '') . '|' . $sortBy . '|' . (isset($_GET['view']) ? $_GET['view'] : '')) ?>;
     var saved = sessionStorage.getItem(key);
-    if (saved !== null) {
+    var hasActiveImage = !!document.querySelector('#p1ImageList .p1-item.current');
+    if (saved !== null && !hasActiveImage) {
         var target = parseInt(saved, 10);
         var restore = function() { area.scrollTop = target; };
         restore();

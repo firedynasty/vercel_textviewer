@@ -1372,7 +1372,9 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <button title="Page up" onclick="contentPageUp()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 44 L32 20 L56 44" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <button title="Page down" onclick="contentPageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <button title="Page down (pane 1)" onclick="pane1PageDown()" style="position:sticky;top:90%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
-        <button title="Prev file" onclick="textFileNav('ArrowLeft')" style="position:sticky;top:50%;right:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:right;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M44 8 L20 32 L44 56" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Next file" onclick="textFileNav('ArrowRight')" style="position:sticky;top:50%;right:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:right;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M20 8 L44 32 L20 56" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Prev file" onclick="textFileNav('ArrowLeft')" style="position:sticky;top:6px;right:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:right;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M44 8 L20 32 L44 56" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page down (pane 1)" onclick="pane1PageDown()" style="position:sticky;top:90%;right:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:right;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
 
         <?php if ($currentFolder && !$currentFile && isset($_GET['view']) && $_GET['view'] === 'all'): ?>
             <!-- Stacked view -->
@@ -1437,7 +1439,50 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 <?php endforeach; ?>
             </div>
             <?php if ($gridImgCount === 0): ?>
-                <div style="color:#999;text-align:center;padding:40px 20px;font-size:13px">No images in this folder — open other files from the sidebar.</div>
+                <?php
+                // No images — populate pane 1 with the folder's other files instead of a bare notice
+                $niVideoExts   = ['mp4','webm','ogg','mov','avi','mkv','m4v'];
+                $niAudioExts   = ['mp3','m4a'];
+                $nonImageFiles = array_values(array_filter($folderFiles, function($f) use ($imageExts) {
+                    return !in_array($f['ext'], $imageExts);
+                }));
+                ?>
+                <?php if (empty($nonImageFiles)): ?>
+                    <div style="color:#999;text-align:center;padding:40px 20px;font-size:13px">No images in this folder — open other files from the sidebar.</div>
+                <?php else: ?>
+                    <div class="gallery">
+                        <?php foreach ($nonImageFiles as $nf):
+                            $nfEnc = implode('/', array_map('rawurlencode', explode('/', $nf['path'])));
+                            $nfUrl = itemUrl(['folder'=>$currentFolder,'file'=>$nf['path']]);
+                            if (in_array($nf['ext'], $niVideoExts)):
+                        ?>
+                            <div class="gallery-item">
+                                <a href="<?= $nfUrl ?>">
+                                    <video style="width:100%;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.1)" muted preload="metadata">
+                                        <source src="<?= $contentDir . '/' . htmlspecialchars($nfEnc) ?>" type="video/mp4">
+                                    </video>
+                                </a>
+                                <div class="caption"><?= htmlspecialchars($nf['name']) ?></div>
+                            </div>
+                        <?php elseif (in_array($nf['ext'], $niAudioExts)): ?>
+                            <div class="gallery-item">
+                                <a href="<?= $nfUrl ?>"
+                                   style="display:block;padding:20px;background:#1a1a2e;border-radius:4px;text-decoration:none;color:#eee;box-shadow:0 2px 8px rgba(0,0,0,0.08);text-align:center">
+                                    <div style="font-size:28px;margin-bottom:8px">&#9835;</div>
+                                    <?= htmlspecialchars($nf['name']) ?>
+                                </a>
+                                <div class="caption"><?= htmlspecialchars($nf['name']) ?></div>
+                            </div>
+                        <?php else: ?>
+                            <div class="gallery-item">
+                                <a href="<?= $nfUrl ?>"
+                                   style="display:block;padding:20px;background:#fff;border-radius:4px;text-decoration:none;color:#333;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
+                                    <?= htmlspecialchars($nf['name']) ?>
+                                </a>
+                            </div>
+                        <?php endif; endforeach; ?>
+                    </div>
+                <?php endif; ?>
             <?php endif; ?>
 
         <?php elseif ($displayType === 'image'):
@@ -1703,7 +1748,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         </div>
         <?php endif; ?>
         <button title="Page down" onclick="rightPanePageDown()" style="position:sticky;top:50%;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.12);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;transform:scale(1.1);"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 20 L32 44 L56 20" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
-        <button title="Next file" onclick="textFileNav('ArrowRight')" style="position:sticky;top:6px;left:6px;z-index:10;width:40px;height:40px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgba(0,0,0,0.3);opacity:0.2;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-40px;float:left;"><svg width="40" height="40" viewBox="0 0 64 64"><path d="M20 8 L44 32 L20 56" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
+        <button title="Page up" onclick="contentPageUp()" style="position:sticky;top:6px;left:6px;z-index:10;width:48px;height:48px;background:rgba(0,0,0,0.08);border-radius:50%;border:1.5px solid rgb(0,0,0);opacity:0.15;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:0.2s;margin-bottom:-48px;float:left;"><svg width="48" height="48" viewBox="0 0 64 64"><path d="M8 44 L32 20 L56 44" stroke="rgba(0,0,0,0.7)" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"></path></svg></button>
         <?php if ($p2DisplayType === 'text'): ?>
             <div class="text-content"><?= htmlspecialchars($p2DisplayContent) ?></div>
         <?php elseif ($p2DisplayType === 'markdown'): ?>

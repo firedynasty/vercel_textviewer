@@ -165,6 +165,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['rename'])) {
     exit;
 }
 
+// --- Duplicate file endpoint (copy so the original stays intact while you parse down) ---
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['duplicate'])) {
+    header('Content-Type: application/json');
+    $srcRelPath = $_GET['duplicate'];
+    $allowedExts = ['txt','csv','json','log','md'];
+    $srcExt = strtolower(pathinfo($srcRelPath, PATHINFO_EXTENSION));
+    if (!in_array($srcExt, $allowedExts)) {
+        echo json_encode(['ok' => false, 'error' => 'File type not allowed (txt, csv, json, log, md)']);
+        exit;
+    }
+    $srcFullPath = $contentDir . '/' . $srcRelPath;
+    $realContent = realpath($contentDir);
+    $realSrcDir = realpath(dirname($srcFullPath));
+    if ($realSrcDir === false || strpos($realSrcDir, $realContent) !== 0) {
+        echo json_encode(['ok' => false, 'error' => 'Invalid path']);
+        exit;
+    }
+    if (!is_file($srcFullPath)) {
+        echo json_encode(['ok' => false, 'error' => 'File not found']);
+        exit;
+    }
+    $base = pathinfo($srcRelPath, PATHINFO_FILENAME);
+    $dir  = dirname($srcRelPath);
+    $dirPrefix = ($dir && $dir !== '.') ? $dir . '/' : '';
+    // Find a free name: name-copy.ext, name-copy2.ext, name-copy3.ext, ...
+    $n = 0;
+    do {
+        $suffix = ($n === 0) ? '-copy' : '-copy' . ($n + 1);
+        $newName = $base . $suffix . '.' . $srcExt;
+        $n++;
+    } while (file_exists($contentDir . '/' . $dirPrefix . $newName));
+    if (!copy($srcFullPath, $contentDir . '/' . $dirPrefix . $newName)) {
+        echo json_encode(['ok' => false, 'error' => 'Copy failed']);
+        exit;
+    }
+    echo json_encode(['ok' => true, 'newPath' => $dirPrefix . $newName, 'newName' => $newName]);
+    exit;
+}
+
 // --- Search endpoint (recursive file/folder search) ---
 if (isset($_GET['search']) && $_GET['search'] !== '') {
     header('Content-Type: application/json');
@@ -1352,6 +1391,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="height:28px;font-size:12px;font-weight:700;padding:0 8px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;Copy</button>
                 <button id="p2TxtMdBtn" onclick="toggleRightTxtMd()" title="Toggle markdown/text view (right pane)" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $p2DisplayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
                 <button id="p2EditBtn" onclick="toggleP2Edit()" title="Edit and save back to local file" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
+                <button id="p2DupBtn" title="Duplicate file — opens a copy you can edit down, original stays intact" onclick="duplicateFile()" style="height:28px;font-size:12px;font-weight:700;padding:0 8px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">dupl</button>
             <?php endif; ?>
             <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
                 <button id="txtMdBtn" onclick="toggleLeftTxtMd()" title="Toggle markdown/text view" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $displayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
@@ -2849,6 +2889,45 @@ if (window._pgnInlineBoot) {
     });
 })();
 
+// Char offset of a (node, offset) point within root's text — shared by , / . line nav and \ line delete
+function lnGetOffset(root, targetNode, targetOff) {
+    var pos = 0;
+    function walk(n) {
+        if (n === targetNode) { pos += targetOff; return true; }
+        if (n.nodeType === 3) { pos += n.textContent.length; return false; }
+        for (var i = 0; i < n.childNodes.length; i++) { if (walk(n.childNodes[i])) return true; }
+        return false;
+    }
+    walk(root);
+    return pos;
+}
+
+// DOM range spanning [startChar, endChar] within root's text
+function lnMakeRange(root, startChar, endChar) {
+    var pos = 0, sNode = null, sOff = 0, eNode = null, eOff = 0;
+    function walk(n) {
+        if (sNode && eNode) return;
+        if (n.nodeType === 3) {
+            var len = n.textContent.length;
+            if (!sNode && pos + len > startChar) { sNode = n; sOff = startChar - pos; }
+            if (!eNode && pos + len >= endChar)  { eNode = n; eOff = endChar - pos; }
+            pos += len;
+        } else {
+            for (var i = 0; i < n.childNodes.length; i++) {
+                walk(n.childNodes[i]);
+                if (sNode && eNode) return;
+            }
+        }
+    }
+    walk(root);
+    if (!sNode) return null;
+    if (!eNode) { eNode = sNode; eOff = sNode.textContent.length; }
+    var r = document.createRange();
+    r.setStart(sNode, sOff);
+    r.setEnd(eNode, eOff);
+    return r;
+}
+
 document.addEventListener('keydown', function(e) {
     // Never hijack keys while editing or typing in any input/textarea
     if (isEditing || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -3079,18 +3158,7 @@ document.addEventListener('keydown', function(e) {
             lnHasSelection = false; // force start at line 0
         }
 
-        // Calculate char offset of selection start within lnTextEl
-        function lnGetOffset(root, targetNode, targetOff) {
-            var pos = 0;
-            function walk(n) {
-                if (n === targetNode) { pos += targetOff; return true; }
-                if (n.nodeType === 3) { pos += n.textContent.length; return false; }
-                for (var i = 0; i < n.childNodes.length; i++) { if (walk(n.childNodes[i])) return true; }
-                return false;
-            }
-            walk(root);
-            return pos;
-        }
+        // Calculate char offset of selection start within lnTextEl (uses shared lnGetOffset)
 
         var lnFullText = lnTextEl.textContent;
         var lnLines = lnFullText.split('\n');
@@ -3119,31 +3187,7 @@ document.addEventListener('keydown', function(e) {
         for (var li2 = 0; li2 < lnTarget; li2++) lnTargetStart += lnLines[li2].length + 1;
         var lnTargetEnd = lnTargetStart + lnLines[lnTarget].length;
 
-        // Build a DOM range spanning the target line
-        function lnMakeRange(root, startChar, endChar) {
-            var pos = 0, sNode = null, sOff = 0, eNode = null, eOff = 0;
-            function walk(n) {
-                if (sNode && eNode) return;
-                if (n.nodeType === 3) {
-                    var len = n.textContent.length;
-                    if (!sNode && pos + len > startChar) { sNode = n; sOff = startChar - pos; }
-                    if (!eNode && pos + len >= endChar)  { eNode = n; eOff = endChar - pos; }
-                    pos += len;
-                } else {
-                    for (var i = 0; i < n.childNodes.length; i++) {
-                        walk(n.childNodes[i]);
-                        if (sNode && eNode) return;
-                    }
-                }
-            }
-            walk(root);
-            if (!sNode) return null;
-            if (!eNode) { eNode = sNode; eOff = sNode.textContent.length; }
-            var r = document.createRange();
-            r.setStart(sNode, sOff);
-            r.setEnd(eNode, eOff);
-            return r;
-        }
+        // Build a DOM range spanning the target line (uses shared lnMakeRange)
 
         var lnNewRange = lnMakeRange(lnTextEl, lnTargetStart, lnTargetEnd);
         if (!lnNewRange) return;
@@ -3155,6 +3199,63 @@ document.addEventListener('keydown', function(e) {
         lnNewRange.insertNode(lnSpan);
         lnSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
         lnSpan.parentNode.removeChild(lnSpan);
+    }
+
+    // \ — delete highlighted line, save file, and highlight the next line (suggestopedia parse-down)
+    if (e.key === '\\' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (typeof p2FilePath === 'undefined' || !p2FilePath) return;
+        var dlSel = window.getSelection();
+        if (!dlSel || !dlSel.rangeCount || !dlSel.toString().length) return;
+
+        // Walk up from selection to the P2 text container (plain text only — rendered markdown must not be saved back)
+        var dlRange = dlSel.getRangeAt(0);
+        var dlNode = dlRange.startContainer.nodeType === 3 ? dlRange.startContainer.parentElement : dlRange.startContainer;
+        var dlTextEl = null;
+        while (dlNode) {
+            if (dlNode.classList && dlNode.classList.contains('text-content')) { dlTextEl = dlNode; break; }
+            dlNode = dlNode.parentElement;
+        }
+        if (!dlTextEl || !dlTextEl.closest('.pane-right')) return;
+
+        e.preventDefault();
+
+        // Which line is the selection start on?
+        var dlOff = lnGetOffset(dlTextEl, dlRange.startContainer, dlRange.startOffset);
+        var dlLines = dlTextEl.textContent.split('\n');
+        var dlCur = 0, dlAcc = 0;
+        for (var di = 0; di < dlLines.length; di++) {
+            if (dlOff < dlAcc + dlLines[di].length + 1) { dlCur = di; break; }
+            dlAcc += dlLines[di].length + 1;
+            dlCur = di;
+        }
+
+        dlLines.splice(dlCur, 1);
+        var dlNewText = dlLines.join('\n');
+        dlTextEl.textContent = dlNewText;
+        if (typeof p2RawContent !== 'undefined') p2RawContent = dlNewText;
+
+        fetch('?save=' + encodeURIComponent(p2FilePath), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: dlNewText })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) { if (!data.ok) alert('Save failed: ' + (data.error || 'Unknown error')); })
+        .catch(function(err) { alert('Save error: ' + err.message); });
+
+        // Highlight the line that shifted into the deleted slot (or the new last line)
+        if (!dlLines.length) { dlSel.removeAllRanges(); return; }
+        var dlNext = Math.min(dlCur, dlLines.length - 1);
+        var dlStart = 0;
+        for (var di2 = 0; di2 < dlNext; di2++) dlStart += dlLines[di2].length + 1;
+        var dlNewRange = lnMakeRange(dlTextEl, dlStart, dlStart + dlLines[dlNext].length);
+        if (!dlNewRange) return;
+        dlSel.removeAllRanges();
+        dlSel.addRange(dlNewRange);
+        var dlSpan = document.createElement('span');
+        dlNewRange.insertNode(dlSpan);
+        dlSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        dlSpan.parentNode.removeChild(dlSpan);
     }
 });
 
@@ -3302,6 +3403,7 @@ var shortcutsContent = `
 
 ## CSV / Vocabulary Drill  *(navigate rows with  ,  /  .  then press)*
 - **j** — Suggestopedia drill: speaks first CSV column in foreign language → 1.5 s pause → last column in English → 2.5 s pause. Language follows TTS settings (first non-English visible language)
+- \`\\\` — Delete the highlighted row (saves the file) and highlight the next row — parse down a duplicated CSV as you master rows
 
 ## General
 - **☽ / ☀** — Toggle dark / light mode
@@ -4045,6 +4147,25 @@ function renameFile() {
     })
     .catch(function(err) {
         alert('Rename error: ' + err.message);
+    });
+}
+
+// --- Duplicate (P2 text/csv file — copy opens in P2 so you can edit it down) ---
+function duplicateFile() {
+    if (!p2FilePath) return;
+    fetch('?duplicate=' + encodeURIComponent(p2FilePath), { method: 'POST' })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.ok) {
+            var params = new URLSearchParams(window.location.search);
+            params.set('p2', data.newPath);
+            window.location.search = params.toString();
+        } else {
+            alert('Duplicate failed: ' + (data.error || 'Unknown error'));
+        }
+    })
+    .catch(function(err) {
+        alert('Duplicate error: ' + err.message);
     });
 }
 

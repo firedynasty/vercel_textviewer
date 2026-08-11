@@ -165,45 +165,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['rename'])) {
     exit;
 }
 
-// --- Duplicate file endpoint (copy so the original stays intact while you parse down) ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['duplicate'])) {
-    header('Content-Type: application/json');
-    $srcRelPath = $_GET['duplicate'];
-    $allowedExts = ['txt','csv','json','log','md'];
-    $srcExt = strtolower(pathinfo($srcRelPath, PATHINFO_EXTENSION));
-    if (!in_array($srcExt, $allowedExts)) {
-        echo json_encode(['ok' => false, 'error' => 'File type not allowed (txt, csv, json, log, md)']);
-        exit;
-    }
-    $srcFullPath = $contentDir . '/' . $srcRelPath;
-    $realContent = realpath($contentDir);
-    $realSrcDir = realpath(dirname($srcFullPath));
-    if ($realSrcDir === false || strpos($realSrcDir, $realContent) !== 0) {
-        echo json_encode(['ok' => false, 'error' => 'Invalid path']);
-        exit;
-    }
-    if (!is_file($srcFullPath)) {
-        echo json_encode(['ok' => false, 'error' => 'File not found']);
-        exit;
-    }
-    $base = pathinfo($srcRelPath, PATHINFO_FILENAME);
-    $dir  = dirname($srcRelPath);
-    $dirPrefix = ($dir && $dir !== '.') ? $dir . '/' : '';
-    // Find a free name: name-copy.ext, name-copy2.ext, name-copy3.ext, ...
-    $n = 0;
-    do {
-        $suffix = ($n === 0) ? '-copy' : '-copy' . ($n + 1);
-        $newName = $base . $suffix . '.' . $srcExt;
-        $n++;
-    } while (file_exists($contentDir . '/' . $dirPrefix . $newName));
-    if (!copy($srcFullPath, $contentDir . '/' . $dirPrefix . $newName)) {
-        echo json_encode(['ok' => false, 'error' => 'Copy failed']);
-        exit;
-    }
-    echo json_encode(['ok' => true, 'newPath' => $dirPrefix . $newName, 'newName' => $newName]);
-    exit;
-}
-
 // --- Search endpoint (recursive file/folder search) ---
 if (isset($_GET['search']) && $_GET['search'] !== '') {
     header('Content-Type: application/json');
@@ -246,7 +207,7 @@ $sortBy        = isset($_GET['sort'])   ? $_GET['sort']   : 'type';
 
 // Text/markdown/docx files only ever render in the right pane (P2).
 // Redirect any ?file=<text> deep link to ?p2=<text> (pane 1 keeps its context).
-$p2Exts = ['txt','csv','json','log','md','docx'];
+$p2Exts = ['txt','csv','json','log','md','docx','py'];
 if ($currentFile && in_array(strtolower(pathinfo($currentFile, PATHINFO_EXTENSION)), $p2Exts)
     && file_exists($contentDir . '/' . $currentFile)) {
     $redir = $_GET;
@@ -276,7 +237,7 @@ function scanContent($dir, $sortBy) {
         if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
         if ($sortBy === 'modified') return $b['mtime'] - $a['mtime'];
         if ($sortBy === 'type') {
-            $priority = ['txt'=>0,'md'=>1,'docx'=>2];
+            $priority = ['txt'=>0,'md'=>1,'docx'=>2,'py'=>3];
             $ea = isset($a['ext']) ? strtolower($a['ext']) : '';
             $eb = isset($b['ext']) ? strtolower($b['ext']) : '';
             $pa = isset($priority[$ea]) ? $priority[$ea] : 99;
@@ -308,7 +269,7 @@ function scanSubfolder($dir, $folder, $sortBy) {
         if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
         if ($sortBy === 'modified') return $b['mtime'] - $a['mtime'];
         if ($sortBy === 'type') {
-            $priority = ['txt'=>0,'md'=>1,'docx'=>2];
+            $priority = ['txt'=>0,'md'=>1,'docx'=>2,'py'=>3];
             $ea = isset($a['ext']) ? strtolower($a['ext']) : '';
             $eb = isset($b['ext']) ? strtolower($b['ext']) : '';
             $pa = isset($priority[$ea]) ? $priority[$ea] : 99;
@@ -403,7 +364,8 @@ if ($p2File) {
     if (file_exists($p2FilePath)) {
         $p2Ext    = strtolower(pathinfo($p2File, PATHINFO_EXTENSION));
         $p2TextExts = ['txt','csv','json','log'];
-        if ($p2Ext === 'md')                    { $p2DisplayType = 'markdown'; $p2DisplayContent = file_get_contents($p2FilePath); }
+        if ($p2Ext === 'py')                    { $p2DisplayType = 'code';     $p2DisplayContent = file_get_contents($p2FilePath); }
+        elseif ($p2Ext === 'md')                { $p2DisplayType = 'markdown'; $p2DisplayContent = file_get_contents($p2FilePath); }
         elseif ($p2Ext === 'docx')              { $p2DisplayType = 'docx';     $p2DisplayContent = $p2FilePath; }
         elseif (in_array($p2Ext, $p2TextExts))  { $p2DisplayType = 'text';     $p2DisplayContent = file_get_contents($p2FilePath); }
     }
@@ -461,7 +423,7 @@ foreach ($fileList as $f) {
 
 // Text list (txt/md/docx) for ← → arrow-key navigation through prose files
 $textList    = [];
-$textNavExts = ['txt','md','docx'];
+$textNavExts = ['txt','md','docx','py'];
 foreach ($fileList as $f) {
     $fext = $f['ext'] ?? '';
     if (in_array($fext, $textNavExts)) {
@@ -715,6 +677,8 @@ body.dark #splitBtn { background: #555; color: #ffdd57; }
     white-space: pre-wrap; font-family: 'Courier New', monospace;
     font-size: 14px; line-height: 1.6; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
+.code-content pre { margin: 0; overflow-x: auto; }
+.code-content code.hljs { background: transparent; padding: 0; display: block; }
 .markdown-content {
     background: #fff; padding: 20px 30px; border-radius: 4px;
     font-size: 15px; line-height: 1.7; box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -1345,6 +1309,20 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
         <?php endif; ?>
     </div>
 </nav>
+<script>
+// Restore sidebar open state across page loads (file clicks reload the page).
+// Added before first paint with transition disabled so it doesn't slide in.
+(function() {
+    try {
+        if (localStorage.getItem('sidebarOpen') !== '1') return;
+        var sb = document.getElementById('sidebar');
+        sb.style.transition = 'none';
+        sb.classList.add('open');
+        void sb.offsetWidth;
+        sb.style.transition = '';
+    } catch(e) {}
+})();
+</script>
 
 <div class="main">
     <div class="main-header">
@@ -1391,7 +1369,6 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 <button id="copyBtn" title="Copy content" onclick="copyContent()" style="height:28px;font-size:12px;font-weight:700;padding:0 8px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#128203;Copy</button>
                 <button id="p2TxtMdBtn" onclick="toggleRightTxtMd()" title="Toggle markdown/text view (right pane)" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $p2DisplayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
                 <button id="p2EditBtn" onclick="toggleP2Edit()" title="Edit and save back to local file" style="width:32px;height:32px;font-size:14px;font-weight:700;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">&#9998;</button>
-                <button id="p2DupBtn" title="Duplicate file — opens a copy you can edit down, original stays intact" onclick="duplicateFile()" style="height:28px;font-size:12px;font-weight:700;padding:0 8px;border:none;border-radius:8px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)">dupl</button>
             <?php endif; ?>
             <?php if ($displayType === 'text' || $displayType === 'markdown'): ?>
                 <button id="txtMdBtn" onclick="toggleLeftTxtMd()" title="Toggle markdown/text view" style="height:28px;font-size:11px;font-weight:700;padding:0 8px;border:none;border-radius:6px;cursor:pointer;background:rgb(224,224,224);color:rgb(51,51,51)"><?= $displayType === 'markdown' ? 'MD&gt;TXT' : 'TXT&gt;MD' ?></button>
@@ -1704,7 +1681,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             $rootImageExts = ['png','jpg','jpeg','gif','webp','bmp','svg'];
             $rootVideoExts = ['mp4','webm','ogg','mov','avi','mkv','m4v'];
             $rootAudioExts = ['mp3','m4a'];
-            $rootTextExts  = ['txt','csv','json','log','md','html','htm','docx','rtf','pdf','pgn'];
+            $rootTextExts  = ['txt','csv','json','log','md','html','htm','docx','rtf','pdf','pgn','py'];
             $rootFiles     = array_values(array_filter($items, function($i) { return $i['type'] === 'file'; }));
             $hasAnything   = !empty($folderCards) || !empty($rootFiles);
             ?>
@@ -1801,6 +1778,9 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 document.querySelectorAll('#p2-md-render pre code').forEach(function(b) { hljs.highlightElement(b); });
             })();
             </script>
+        <?php elseif ($p2DisplayType === 'code'): ?>
+            <div class="text-content code-content"><pre><code class="language-python" id="p2-code-render"><?= htmlspecialchars($p2DisplayContent) ?></code></pre></div>
+            <script>hljs.highlightElement(document.getElementById('p2-code-render'));</script>
         <?php elseif ($p2DisplayType === 'docx'): ?>
             <div class="docx-content" id="p2-docx-render">Loading document...</div>
             <script>
@@ -1818,7 +1798,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
             </script>
         <?php else: ?>
             <div style="display:flex;align-items:center;justify-content:center;height:70%;color:#aaa;font-size:13px;text-align:center;pointer-events:none">
-                <div><div style="font-size:36px;margin-bottom:10px">&#128196;</div><p>Click a .txt, .md or .docx file<br>to open it here</p></div>
+                <div><div style="font-size:36px;margin-bottom:10px">&#128196;</div><p>Click a .txt, .md, .py or .docx file<br>to open it here</p></div>
             </div>
         <?php endif; ?>
     </div>
@@ -2046,7 +2026,9 @@ var modalCaption = document.getElementById('modalCaption');
 var modalCounter = document.getElementById('modalCounter');
 
 function toggleSidebar() {
-    document.getElementById('sidebar').classList.toggle('open');
+    var sb = document.getElementById('sidebar');
+    sb.classList.toggle('open');
+    try { localStorage.setItem('sidebarOpen', sb.classList.contains('open') ? '1' : '0'); } catch(e) {}
 }
 
 function contentPageTarget() {
@@ -2870,7 +2852,7 @@ if (window._pgnInlineBoot) {
             if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
         });
         var fp = hp['file'];
-        var textExts = ['txt','csv','json','log','md','docx'];
+        var textExts = ['txt','csv','json','log','md','docx','py'];
         if (fp && textExts.indexOf(fp.split('.').pop().toLowerCase()) !== -1) {
             var p = new URLSearchParams(window.location.search);
             p.set('p2', fp);
@@ -2888,45 +2870,6 @@ if (window._pgnInlineBoot) {
         }
     });
 })();
-
-// Char offset of a (node, offset) point within root's text — shared by , / . line nav and \ line delete
-function lnGetOffset(root, targetNode, targetOff) {
-    var pos = 0;
-    function walk(n) {
-        if (n === targetNode) { pos += targetOff; return true; }
-        if (n.nodeType === 3) { pos += n.textContent.length; return false; }
-        for (var i = 0; i < n.childNodes.length; i++) { if (walk(n.childNodes[i])) return true; }
-        return false;
-    }
-    walk(root);
-    return pos;
-}
-
-// DOM range spanning [startChar, endChar] within root's text
-function lnMakeRange(root, startChar, endChar) {
-    var pos = 0, sNode = null, sOff = 0, eNode = null, eOff = 0;
-    function walk(n) {
-        if (sNode && eNode) return;
-        if (n.nodeType === 3) {
-            var len = n.textContent.length;
-            if (!sNode && pos + len > startChar) { sNode = n; sOff = startChar - pos; }
-            if (!eNode && pos + len >= endChar)  { eNode = n; eOff = endChar - pos; }
-            pos += len;
-        } else {
-            for (var i = 0; i < n.childNodes.length; i++) {
-                walk(n.childNodes[i]);
-                if (sNode && eNode) return;
-            }
-        }
-    }
-    walk(root);
-    if (!sNode) return null;
-    if (!eNode) { eNode = sNode; eOff = sNode.textContent.length; }
-    var r = document.createRange();
-    r.setStart(sNode, sOff);
-    r.setEnd(eNode, eOff);
-    return r;
-}
 
 document.addEventListener('keydown', function(e) {
     // Never hijack keys while editing or typing in any input/textarea
@@ -3014,7 +2957,7 @@ document.addEventListener('keydown', function(e) {
                         // Use URLSearchParams so + is decoded as space (decodeURIComponent does not do this)
                         var destParams = new URLSearchParams(destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '');
                         var destFile = destParams.get('file');
-                        var textExts = ['txt','csv','json','log','md','docx'];
+                        var textExts = ['txt','csv','json','log','md','docx','py'];
                         if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
                             var p = new URLSearchParams(window.location.search);
                             if (p.get('p2') === destFile) {
@@ -3158,7 +3101,18 @@ document.addEventListener('keydown', function(e) {
             lnHasSelection = false; // force start at line 0
         }
 
-        // Calculate char offset of selection start within lnTextEl (uses shared lnGetOffset)
+        // Calculate char offset of selection start within lnTextEl
+        function lnGetOffset(root, targetNode, targetOff) {
+            var pos = 0;
+            function walk(n) {
+                if (n === targetNode) { pos += targetOff; return true; }
+                if (n.nodeType === 3) { pos += n.textContent.length; return false; }
+                for (var i = 0; i < n.childNodes.length; i++) { if (walk(n.childNodes[i])) return true; }
+                return false;
+            }
+            walk(root);
+            return pos;
+        }
 
         var lnFullText = lnTextEl.textContent;
         var lnLines = lnFullText.split('\n');
@@ -3187,7 +3141,31 @@ document.addEventListener('keydown', function(e) {
         for (var li2 = 0; li2 < lnTarget; li2++) lnTargetStart += lnLines[li2].length + 1;
         var lnTargetEnd = lnTargetStart + lnLines[lnTarget].length;
 
-        // Build a DOM range spanning the target line (uses shared lnMakeRange)
+        // Build a DOM range spanning the target line
+        function lnMakeRange(root, startChar, endChar) {
+            var pos = 0, sNode = null, sOff = 0, eNode = null, eOff = 0;
+            function walk(n) {
+                if (sNode && eNode) return;
+                if (n.nodeType === 3) {
+                    var len = n.textContent.length;
+                    if (!sNode && pos + len > startChar) { sNode = n; sOff = startChar - pos; }
+                    if (!eNode && pos + len >= endChar)  { eNode = n; eOff = endChar - pos; }
+                    pos += len;
+                } else {
+                    for (var i = 0; i < n.childNodes.length; i++) {
+                        walk(n.childNodes[i]);
+                        if (sNode && eNode) return;
+                    }
+                }
+            }
+            walk(root);
+            if (!sNode) return null;
+            if (!eNode) { eNode = sNode; eOff = sNode.textContent.length; }
+            var r = document.createRange();
+            r.setStart(sNode, sOff);
+            r.setEnd(eNode, eOff);
+            return r;
+        }
 
         var lnNewRange = lnMakeRange(lnTextEl, lnTargetStart, lnTargetEnd);
         if (!lnNewRange) return;
@@ -3199,63 +3177,6 @@ document.addEventListener('keydown', function(e) {
         lnNewRange.insertNode(lnSpan);
         lnSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
         lnSpan.parentNode.removeChild(lnSpan);
-    }
-
-    // \ — delete highlighted line, save file, and highlight the next line (suggestopedia parse-down)
-    if (e.key === '\\' && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        if (typeof p2FilePath === 'undefined' || !p2FilePath) return;
-        var dlSel = window.getSelection();
-        if (!dlSel || !dlSel.rangeCount || !dlSel.toString().length) return;
-
-        // Walk up from selection to the P2 text container (plain text only — rendered markdown must not be saved back)
-        var dlRange = dlSel.getRangeAt(0);
-        var dlNode = dlRange.startContainer.nodeType === 3 ? dlRange.startContainer.parentElement : dlRange.startContainer;
-        var dlTextEl = null;
-        while (dlNode) {
-            if (dlNode.classList && dlNode.classList.contains('text-content')) { dlTextEl = dlNode; break; }
-            dlNode = dlNode.parentElement;
-        }
-        if (!dlTextEl || !dlTextEl.closest('.pane-right')) return;
-
-        e.preventDefault();
-
-        // Which line is the selection start on?
-        var dlOff = lnGetOffset(dlTextEl, dlRange.startContainer, dlRange.startOffset);
-        var dlLines = dlTextEl.textContent.split('\n');
-        var dlCur = 0, dlAcc = 0;
-        for (var di = 0; di < dlLines.length; di++) {
-            if (dlOff < dlAcc + dlLines[di].length + 1) { dlCur = di; break; }
-            dlAcc += dlLines[di].length + 1;
-            dlCur = di;
-        }
-
-        dlLines.splice(dlCur, 1);
-        var dlNewText = dlLines.join('\n');
-        dlTextEl.textContent = dlNewText;
-        if (typeof p2RawContent !== 'undefined') p2RawContent = dlNewText;
-
-        fetch('?save=' + encodeURIComponent(p2FilePath), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: dlNewText })
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) { if (!data.ok) alert('Save failed: ' + (data.error || 'Unknown error')); })
-        .catch(function(err) { alert('Save error: ' + err.message); });
-
-        // Highlight the line that shifted into the deleted slot (or the new last line)
-        if (!dlLines.length) { dlSel.removeAllRanges(); return; }
-        var dlNext = Math.min(dlCur, dlLines.length - 1);
-        var dlStart = 0;
-        for (var di2 = 0; di2 < dlNext; di2++) dlStart += dlLines[di2].length + 1;
-        var dlNewRange = lnMakeRange(dlTextEl, dlStart, dlStart + dlLines[dlNext].length);
-        if (!dlNewRange) return;
-        dlSel.removeAllRanges();
-        dlSel.addRange(dlNewRange);
-        var dlSpan = document.createElement('span');
-        dlNewRange.insertNode(dlSpan);
-        dlSpan.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        dlSpan.parentNode.removeChild(dlSpan);
     }
 });
 
@@ -3282,6 +3203,7 @@ document.querySelectorAll('.sidebar-item').forEach(function(item) {
     item.addEventListener('click', function() {
         if (window.innerWidth <= 768) {
             document.getElementById('sidebar').classList.remove('open');
+            try { localStorage.setItem('sidebarOpen', '0'); } catch(e) {}
         }
     });
 });
@@ -3403,7 +3325,6 @@ var shortcutsContent = `
 
 ## CSV / Vocabulary Drill  *(navigate rows with  ,  /  .  then press)*
 - **j** — Suggestopedia drill: speaks first CSV column in foreign language → 1.5 s pause → last column in English → 2.5 s pause. Language follows TTS settings (first non-English visible language)
-- \`\\\` — Delete the highlighted row (saves the file) and highlight the next row — parse down a duplicated CSV as you master rows
 
 ## General
 - **☽ / ☀** — Toggle dark / light mode
@@ -4150,25 +4071,6 @@ function renameFile() {
     });
 }
 
-// --- Duplicate (P2 text/csv file — copy opens in P2 so you can edit it down) ---
-function duplicateFile() {
-    if (!p2FilePath) return;
-    fetch('?duplicate=' + encodeURIComponent(p2FilePath), { method: 'POST' })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-        if (data.ok) {
-            var params = new URLSearchParams(window.location.search);
-            params.set('p2', data.newPath);
-            window.location.search = params.toString();
-        } else {
-            alert('Duplicate failed: ' + (data.error || 'Unknown error'));
-        }
-    })
-    .catch(function(err) {
-        alert('Duplicate error: ' + err.message);
-    });
-}
-
 // --- Edit & Save (right pane — text/md files always open in P2) ---
 var isEditing = false;
 var editTextarea = null;
@@ -4700,7 +4602,7 @@ document.addEventListener('click', function(e) {
         if (i > 0 && decodeURIComponent(pair.substring(0, i)) === 'file') fp = decodeURIComponent(pair.substring(i + 1));
     });
     if (!fp) return;
-    var textExts = ['txt','csv','json','log','md','docx'];
+    var textExts = ['txt','csv','json','log','md','docx','py'];
     if (textExts.indexOf(fp.split('.').pop().toLowerCase()) === -1) return;
     e.preventDefault();
     var p = new URLSearchParams(window.location.search);

@@ -237,7 +237,7 @@ function scanContent($dir, $sortBy) {
         if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
         if ($sortBy === 'modified') return $b['mtime'] - $a['mtime'];
         if ($sortBy === 'type') {
-            $priority = ['txt'=>0,'md'=>1,'docx'=>2,'py'=>3];
+            $priority = ['txt'=>0,'md'=>1,'docx'=>2,'html'=>3,'htm'=>4,'py'=>5];
             $ea = isset($a['ext']) ? strtolower($a['ext']) : '';
             $eb = isset($b['ext']) ? strtolower($b['ext']) : '';
             $pa = isset($priority[$ea]) ? $priority[$ea] : 99;
@@ -269,7 +269,7 @@ function scanSubfolder($dir, $folder, $sortBy) {
         if ($a['type'] !== $b['type']) return $a['type'] === 'folder' ? -1 : 1;
         if ($sortBy === 'modified') return $b['mtime'] - $a['mtime'];
         if ($sortBy === 'type') {
-            $priority = ['txt'=>0,'md'=>1,'docx'=>2,'py'=>3];
+            $priority = ['txt'=>0,'md'=>1,'docx'=>2,'html'=>3,'htm'=>4,'py'=>5];
             $ea = isset($a['ext']) ? strtolower($a['ext']) : '';
             $eb = isset($b['ext']) ? strtolower($b['ext']) : '';
             $pa = isset($priority[$ea]) ? $priority[$ea] : 99;
@@ -1336,7 +1336,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 // Breadcrumb navigation for folder path
                 $parts = explode('/', $currentFolder);
                 $crumbPath = '';
-                echo '<a href="' . itemUrl([]) . '" style="color:#7ec8e3;text-decoration:none">Home</a>';
+                echo '<a href="' . itemUrl([]) . '" class="home-link" style="color:#7ec8e3;text-decoration:none">Home</a>';
                 foreach ($parts as $pi => $part):
                     $crumbPath .= ($pi > 0 ? '/' : '') . $part;
                     echo ' / ';
@@ -1347,9 +1347,14 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                     endif;
                 endforeach;
             elseif ($currentFile):
-                echo htmlspecialchars($currentFile);
+                echo '<a href="' . itemUrl([]) . '" class="home-link" style="color:#7ec8e3;text-decoration:none">Home</a>';
+                if ($currentFolder) {
+                    echo ' / ';
+                    echo '<a href="' . itemUrl(['folder'=>$currentFolder]) . '" style="color:#7ec8e3;text-decoration:none">' . htmlspecialchars(basename($currentFolder)) . '</a>';
+                }
+                echo ' / ' . htmlspecialchars($currentFile);
             else:
-                echo '<a href="' . itemUrl([]) . '" style="color:#7ec8e3;text-decoration:none">Home</a>';
+                echo '<a href="' . itemUrl([]) . '" class="home-link" style="color:#7ec8e3;text-decoration:none">Home</a>';
             endif; ?>
         </span>
         <?php if ($currentFile): ?>
@@ -4312,6 +4317,14 @@ window.addEventListener('beforeunload', function() {
     });
 });
 
+// Clicking a "Home" link asks for a fresh landing page: skip pane-1 scroll
+// restoration on the next load so it opens at the top.
+document.querySelectorAll('a.home-link').forEach(function(a) {
+    a.addEventListener('click', function() {
+        try { sessionStorage.setItem('homeScrollReset', '1'); } catch(e) {}
+    });
+});
+
 // --- Preserve pane-1 scroll position across page loads ---
 // (clicking a text file, sidebar item, or using arrow nav reloads with ?p2=...; keep pane 1 where it was)
 // When an image is the active file, skip restoration so scrollIntoView can scroll pane 1 to that image.
@@ -4319,9 +4332,14 @@ window.addEventListener('beforeunload', function() {
     var area = document.getElementById('contentArea');
     if (!area) return;
     var key = 'gridScrollTop:' + <?= json_encode(($currentFolder ?: '') . '|' . $sortBy . '|' . (isset($_GET['view']) ? $_GET['view'] : '')) ?>;
+    var homeReset = false;
+    try {
+        homeReset = sessionStorage.getItem('homeScrollReset') === '1';
+        sessionStorage.removeItem('homeScrollReset');
+    } catch(e) {}
     var saved = sessionStorage.getItem(key);
     var hasActiveImage = !!document.querySelector('#p1ImageList .p1-item.current');
-    if (saved !== null && !hasActiveImage) {
+    if (saved !== null && !hasActiveImage && !homeReset) {
         var target = parseInt(saved, 10);
         var restore = function() { area.scrollTop = target; };
         restore();
@@ -4621,23 +4639,27 @@ document.addEventListener('click', function(e) {
 
 applySplitMode();
 
-// Highlight the P2 sidebar item (txt in right pane) with a distinct orange accent
+// Highlight the P2 sidebar item (txt in right pane) with a distinct orange accent.
+// Sidebar scrolls to the active pane-1 file (e.g. the image being viewed) when
+// there is one — it wins over the P2 text item; otherwise falls back to P2.
 (function() {
     var p2File = new URLSearchParams(window.location.search).get('p2');
-    if (!p2File) return;
-    document.querySelectorAll('.sidebar-item').forEach(function(item) {
-        var href = item.getAttribute('href');
-        if (!href) return;
-        var hp = {};
-        (href.indexOf('?') >= 0 ? href.substring(href.indexOf('?') + 1) : '').split('&').forEach(function(pair) {
-            var idx = pair.indexOf('=');
-            if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+    if (p2File) {
+        document.querySelectorAll('.sidebar-item').forEach(function(item) {
+            var href = item.getAttribute('href');
+            if (!href) return;
+            var hp = {};
+            (href.indexOf('?') >= 0 ? href.substring(href.indexOf('?') + 1) : '').split('&').forEach(function(pair) {
+                var idx = pair.indexOf('=');
+                if (idx > 0) hp[decodeURIComponent(pair.substring(0, idx))] = decodeURIComponent(pair.substring(idx + 1));
+            });
+            if (hp['file'] === p2File) {
+                item.classList.add('p2-active');
+            }
         });
-        if (hp['file'] === p2File) {
-            item.classList.add('p2-active');
-            item.scrollIntoView({ block: 'nearest' });
-        }
-    });
+    }
+    var target = document.querySelector('.sidebar-item.active') || document.querySelector('.sidebar-item.p2-active');
+    if (target) target.scrollIntoView({ block: 'nearest' });
 })();
 </script>
 <script src="https://www.youtube.com/iframe_api"></script>

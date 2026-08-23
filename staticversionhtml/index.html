@@ -602,8 +602,6 @@
                             <div class="nav-prompt-label">Next is a TXT file</div>
                             <div class="nav-prompt-btns">
                                 <button class="nav-prompt-btn" id="promptLoadTxt" style="background:#10b981;color:white">▼ TXT</button>
-                                <button class="nav-prompt-btn" id="promptSkipImg" style="background:#f59e0b;color:white">→ IMG</button>
-                                <button class="nav-prompt-btn" id="promptDismiss" style="background:#334155;color:#94a3b8">✕</button>
                             </div>
                         </div>
                         <button class="pane-nav-btn btn-media" id="nextMediaBtn" title="Next image/video">▼</button>
@@ -1244,19 +1242,6 @@
                 exitYouTubeView(); displayText(i); selectItem(i); scrollSidebarSelected();
             }
         });
-
-        // Prompt: skip the TXT, jump to next image/video after it
-        document.getElementById('promptSkipImg').addEventListener('click', function() {
-            if (promptPendingIndex >= 0) {
-                const skipFrom = promptPendingIndex + 1;
-                hideNavPrompt();
-                const idx = findNextMedia(skipFrom);
-                if (idx >= 0) { displayMedia(idx); selectItem(idx); scrollSidebarSelected(); }
-            }
-        });
-
-        // X button: dismiss without doing anything
-        document.getElementById('promptDismiss').addEventListener('click', hideNavPrompt);
 
         // Clicking anywhere else dismisses the prompt
         document.addEventListener('click', function(e) {

@@ -1,0 +1,51 @@
+HOW TO SET UP THE "CONVERT FOLDER TO HTML VIEWER" RIGHT-CLICK ACTION
+=====================================================================
+
+STEP 1 — Open Automator
+  - Open Spotlight (Cmd+Space), type "Automator", press Enter
+
+STEP 2 — Create a new Quick Action
+  - File → New
+  - Choose "Quick Action" → Click Choose
+
+STEP 3 — Configure the top settings
+  - "Workflow receives current" → change to: folders
+  - "in" → Finder.app
+  - (Leave "Image" and "Color" as default)
+
+STEP 4 — Add a "Run Shell Script" action
+  - In the search box on the left, type: run shell script
+  - Double-click "Run Shell Script" to add it
+
+STEP 5 — Configure the shell script action
+  - Shell: /bin/zsh
+  - Pass input: as arguments
+  - Paste the following into the script box:
+
+----------------------------------------
+for f in "$@"; do
+    /bin/zsh "/Users/stanleytan/Documents/technical/github/vercel_textviewer/staticversionhtml/folder_to_html.sh" "$f"
+done
+----------------------------------------
+
+STEP 6 — Save
+  - File → Save
+  - Name it: Convert Folder to HTML Viewer
+
+STEP 7 — Use it
+  - Right-click any folder in Finder
+  - → Quick Actions → Convert Folder to HTML Viewer
+  - It will generate index.html + content_data.js inside the folder
+    and open the result in your browser automatically.
+
+NOTES
+-----
+- The script handles two folder layouts:
+    Layout A: right-click the PARENT folder that contains a "content_folder/" subfolder
+    Layout B: right-click the folder that directly contains your .txt/.md/.docx files
+- .docx files will have their text and images extracted automatically
+- Extracted docx images are saved to: <folder>/docx_images/<filename>/
+
+TO UNINSTALL
+  - Open Automator → File → Open → ~/Library/Services/
+  - Delete "Convert Folder to HTML Viewer.workflow"

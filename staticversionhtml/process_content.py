@@ -5,7 +5,9 @@ Process content files from folder_w_text/ and generate content_data.js
 Supports:
 - .txt files (plain text)
 - .md files (markdown)
-- .mp3, .m4a, .wav, .ogg, .flac files (audio)
+- .docx files (Word documents, converted to markdown with images extracted)
+- .mp3, .m4a, .wav, .ogg, .flac, .aac files (audio)
+- .mp4, .webm, .mov, .avi, .mkv, .m4v files (video)
 - .png, .jpg, .jpeg, .gif, .webp, .svg files (image)
 
 Usage: python process_content.py [-i INPUT_DIR] [-o OUTPUT_FILE]
@@ -24,6 +26,25 @@ def natural_sort_key(s):
             for text in re.split(r'(\d+)', s)]
 
 
+def sort_key_text_first(filename):
+    """Sort by leading number group, with text/md/docx files first within each group.
+
+    Files sharing the same leading number string (e.g. '001', '01', '02') are
+    grouped together. Within each group, text-type files sort before media files.
+    Leading zeros are preserved so '001' and '01' stay in separate groups.
+    Files with no leading number go to the end.
+    """
+    parts = natural_sort_key(filename)
+    ext = os.path.splitext(filename)[1].lower()
+    # 0 = text types (float to top), 1 = everything else
+    type_priority = 0 if ext in ('.txt', '.md', '.docx') else 1
+    # Extract leading digit string, preserving leading zeros for grouping
+    m = re.match(r'^(\d+)', filename)
+    leading_str = m.group(1) if m else ''
+    leading_int = int(leading_str) if leading_str else 99999
+    return (leading_int, leading_str, type_priority) + tuple(parts)
+
+
 def get_file_type(filename):
     """Determine file type from extension."""
     ext = os.path.splitext(filename)[1].lower()
@@ -32,12 +53,103 @@ def get_file_type(filename):
         return 'markdown'
     elif ext == '.txt':
         return 'text'
-    elif ext in ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.aac', '.webm']:
+    elif ext == '.docx':
+        return 'docx'
+    elif ext in ['.mp3', '.m4a', '.wav', '.ogg', '.flac', '.aac']:
         return 'audio'
+    elif ext in ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.m4v']:
+        return 'video'
     elif ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp']:
         return 'image'
     else:
         return None
+
+
+def extract_docx_images(doc, input_dir, docx_name):
+    """Extract embedded images from a docx and save to disk.
+
+    Returns a dict of rId -> relative path (relative to input_dir).
+    """
+    images_dir = os.path.join(input_dir, 'docx_images', docx_name)
+    os.makedirs(images_dir, exist_ok=True)
+
+    ext_map = {
+        'image/jpeg': 'jpg',
+        'image/png': 'png',
+        'image/gif': 'gif',
+        'image/webp': 'webp',
+        'image/bmp': 'bmp',
+        'image/svg+xml': 'svg',
+        'image/tiff': 'tif',
+        'image/wmf': 'wmf',
+        'image/emf': 'emf',
+    }
+
+    image_map = {}
+    for rId, rel in doc.part.rels.items():
+        if 'image' not in rel.reltype:
+            continue
+        try:
+            img_data = rel.target_part.blob
+            content_type = rel.target_part.content_type
+            ext = ext_map.get(content_type, 'png')
+            img_filename = f"{rId}.{ext}"
+            img_path = os.path.join(images_dir, img_filename)
+            with open(img_path, 'wb') as f:
+                f.write(img_data)
+            # Path relative to input_dir so rewrite_image_paths() can adjust it
+            image_map[rId] = f'./docx_images/{docx_name}/{img_filename}'
+        except Exception as e:
+            print(f"  [WARN] Could not extract image {rId}: {e}")
+
+    return image_map
+
+
+def process_docx_file(file_path, input_dir):
+    """Convert a .docx file to a markdown string, extracting images to disk."""
+    try:
+        from docx import Document
+    except ImportError:
+        return '*python-docx not installed. Run: pip install python-docx*'
+
+    docx_name = os.path.splitext(os.path.basename(file_path))[0]
+    # Sanitise name for use as a directory name
+    docx_name = re.sub(r'[^\w\-]', '_', docx_name)
+
+    doc = Document(file_path)
+    image_map = extract_docx_images(doc, input_dir, docx_name)
+
+    # Namespaces needed to find image references inside paragraph XML
+    A_NS = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+    R_NS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+
+    def para_images(para):
+        blips = para._element.findall('.//{%s}blip' % A_NS)
+        return [image_map[b.get('{%s}embed' % R_NS)]
+                for b in blips
+                if b.get('{%s}embed' % R_NS) in image_map]
+
+    lines = []
+    for para in doc.paragraphs:
+        style = para.style.name if para.style else ''
+        text = para.text.strip()
+        imgs = para_images(para)
+
+        if style.startswith('Heading 1') and text:
+            lines.append(f'# {text}')
+        elif style.startswith('Heading 2') and text:
+            lines.append(f'## {text}')
+        elif style.startswith('Heading 3') and text:
+            lines.append(f'### {text}')
+        elif style.startswith('Heading 4') and text:
+            lines.append(f'#### {text}')
+        elif text:
+            lines.append(text)
+
+        for img_path in imgs:
+            lines.append(f'![image]({img_path})')
+
+    return '\n\n'.join(lines)
 
 
 def filename_to_title(filename):
@@ -173,7 +285,7 @@ def process_content_folder(input_dir, output_file):
             supported_files.append(f)
 
     # Sort naturally
-    supported_files.sort(key=natural_sort_key)
+    supported_files.sort(key=sort_key_text_first)
 
     print(f"Found {len(supported_files)} supported files:")
 
@@ -204,8 +316,21 @@ def process_content_folder(input_dir, output_file):
             except Exception as e:
                 print(f"  [ERROR] {filename}: {e}")
                 file_entry['content'] = f"Error reading file: {e}"
+        elif file_type == 'docx':
+            try:
+                content = process_docx_file(filepath, input_dir)
+                # Rewrite image paths so they resolve from the HTML page
+                file_entry['content'] = rewrite_image_paths(content, input_dir)
+                # Render as markdown in the viewer
+                file_entry['type'] = 'markdown'
+                print(f"  [DOCX] {filename}")
+            except Exception as e:
+                print(f"  [ERROR] {filename}: {e}")
+                file_entry['content'] = f"Error reading file: {e}"
         elif file_type == 'audio':
             print(f"  [AUDIO] {filename}")
+        elif file_type == 'video':
+            print(f"  [VIDEO] {filename}")
         elif file_type == 'image':
             print(f"  [IMAGE] {filename}")
 

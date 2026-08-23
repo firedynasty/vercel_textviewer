@@ -1,0 +1,14 @@
+Title: Large Whole Numbers: Place Values and Estimating
+Channel: Professor Dave Explains
+Upload Date: 2017-08-09
+Duration: 4:29
+View Count: 247138
+URL: https://www.youtube.com/watch?v=AkWtUOwlUgs
+
+NA
+So there are a lot of numbers. An infinite number, in fact. So how can we possibly have a symbol for every single possible amount of objects? Well we don't need to, because of place values. With these, we can use just ten symbols and represent every number imaginable. Check it out!
+
+
+Notes:
+[02:56] this is a good estimate
+[03:17] count in groups of 10, then estimate the number

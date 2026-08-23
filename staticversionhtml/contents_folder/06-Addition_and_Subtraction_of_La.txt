@@ -1,0 +1,37 @@
+Title: Addition and Subtraction of Large Numbers
+Channel: Professor Dave Explains
+Upload Date: 2017-08-13
+Duration: 5:56
+View Count: 358825
+URL: https://www.youtube.com/watch?v=YFyOsvnr9ig
+
+NA
+We know how to add and subtract small numbers, but what about big numbers? Is it complicated? No, not really, but there is a bit of an algorithm to learn. Check this out!
+
+Watch the whole Mathematics playlist: http://bit.ly/ProfDaveMath
+
+Classical Physics Tutorials: http://bit.ly/ProfDavePhysics1
+Modern Physics Tutorials: http://bit.ly/ProfDavePhysics2
+General Chemistry Tutorials: http://bit.ly/ProfDaveGenChem
+Organic Chemistry Tutorials: http://bit.ly/ProfDaveOrgChem
+Biochemistry Tutorials: http://bit.ly/ProfDaveBiochem
+Biology Tutorials: http://bit.ly/ProfDaveBio
+
+EMAIL► ProfessorDaveExplains@gmail.com
+PATREON► http://patreon.com/ProfessorDaveExplains
+
+Check out "Is This Wi-Fi Organic?", my book on disarming pseudoscience!
+Amazon: https://amzn.to/2HtNpVH
+Bookshop: https://bit.ly/39cKADM
+Barnes and Noble: https://bit.ly/3pUjmrn 
+Book Depository: http://bit.ly/3aOVDlT
+
+
+Notes:
+[no] What if the numbers are too big to count?
+[1] rely on computations
+[no] instead of counting, then calculate the sum
+[2] changing the units place
+[3] +
+[4] impractical
+[5] +

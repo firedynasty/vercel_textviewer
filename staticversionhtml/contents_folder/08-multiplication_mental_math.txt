@@ -1,0 +1,15 @@
+tricks that will help us do this in our heads much more efficiently.
+
+![Screenshot_2026-08-15_at_1.05.50 PM](Screenshot_2026-08-15_at_1.05.50 PM.png)
+
+Let’s split one of these numbers up into a sum that contains numbers that are a little
+
+Maybe we can split eleven up into ten and one.
+
+![Screenshot_2026-08-15_at_2.30.37 PM](Screenshot_2026-08-15_at_2.30.37 PM.png)
+
+Let’s try another one, four hundred twenty-five times twelve.
+
+![Screenshot_2026-08-15_at_2.41.12 PM](Screenshot_2026-08-15_at_2.41.12 PM.png)
+
+But while the first method requires many small computations, the second method requires comparatively

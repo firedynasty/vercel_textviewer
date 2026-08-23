@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Distributive Property Practice</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  h1 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 40px;
+    color: #111;
+  }
+
+  .problems {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    width: 100%;
+    max-width: 560px;
+  }
+
+  .problem-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .equation {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #111;
+    white-space: nowrap;
+  }
+
+  .answer-input {
+    font-size: 2rem;
+    font-weight: 700;
+    border: none;
+    border-bottom: 3px solid #999;
+    outline: none;
+    width: 160px;
+    text-align: center;
+    color: #111;
+    background: transparent;
+    transition: border-color 0.2s;
+  }
+
+  .answer-input:focus {
+    border-bottom-color: #333;
+  }
+
+  .answer-input.correct {
+    border-bottom-color: #16a34a;
+    color: #16a34a;
+  }
+
+  .answer-input.wrong {
+    border-bottom-color: #dc2626;
+    color: #dc2626;
+  }
+
+  .hint {
+    font-size: 0.85rem;
+    color: #888;
+    margin-top: 4px;
+    min-height: 1.2em;
+    transition: opacity 0.3s;
+  }
+
+  .hint.visible { opacity: 1; }
+  .hint.hidden { opacity: 0; }
+
+  .problem-block {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .buttons {
+    display: flex;
+    gap: 12px;
+    margin-top: 48px;
+  }
+
+  button {
+    padding: 12px 28px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  button:active { transform: scale(0.97); }
+
+  #checkBtn {
+    background: #111;
+    color: #fff;
+  }
+
+  #checkBtn:hover { background: #333; }
+
+  #newBtn {
+    background: #e5e7eb;
+    color: #111;
+  }
+
+  #newBtn:hover { background: #d1d5db; }
+
+  .score-line {
+    margin-top: 20px;
+    font-size: 0.95rem;
+    color: #555;
+    min-height: 1.4em;
+  }
+
+  .distributive-hint {
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<h1>Perform the following operations without a calculator:</h1>
+
+<div class="problems" id="problems"></div>
+
+<div class="buttons">
+  <button id="checkBtn" onclick="checkAnswers()">Check Answers</button>
+  <button id="newBtn" onclick="generate()">New Problems</button>
+</div>
+
+<div class="score-line" id="scoreLine"></div>
+
+<script>
+  // Problem types: [minA, maxA, minB, maxB]
+  const types = [
+    [10, 99,   2,  9],   // 2-digit × 1-digit
+    [10, 99,  10, 19],   // 2-digit × teens
+    [10, 99,  11, 99],   // 2-digit × 2-digit
+    [100, 999, 9,  99],  // 3-digit × 2-digit
+    [1000, 9999, 9, 22], // 4-digit × small
+  ];
+
+  let problems = [];
+
+  function rand(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
+  function distributiveHint(a, b) {
+    // Suggest a decomposition for b
+    // e.g. 13 → (10 + 3), 9 → (10 - 1), 22 → (20 + 2)
+    const tens = Math.round(b / 10) * 10;
+    const diff = b - tens;
+    if (tens === 0) return null;
+    if (diff === 0) return null;
+    const sign = diff > 0 ? '+' : '−';
+    return `Hint: ${a.toLocaleString()} × (${tens} ${sign} ${Math.abs(diff)})`;
+  }
+
+  function generate() {
+    document.getElementById('scoreLine').textContent = '';
+    // Pick 4 random problem types
+    const selected = [...types].sort(() => Math.random() - 0.5).slice(0, 4);
+    problems = selected.map(([minA, maxA, minB, maxB]) => {
+      const a = rand(minA, maxA);
+      const b = rand(minB, maxB);
+      return { a, b, answer: a * b };
+    });
+    render();
+  }
+
+  function render() {
+    const container = document.getElementById('problems');
+    container.innerHTML = '';
+    problems.forEach((p, i) => {
+      const hint = distributiveHint(p.a, p.b);
+      const block = document.createElement('div');
+      block.className = 'problem-block';
+      block.innerHTML = `
+        <div class="problem-row">
+          <span class="equation">${p.a.toLocaleString()} × ${p.b.toLocaleString()} =</span>
+          <input
+            class="answer-input"
+            type="number"
+            id="ans${i}"
+            placeholder="?"
+            autocomplete="off"
+            onkeydown="if(event.key==='Enter') checkAnswers()"
+          />
+        </div>
+        ${hint ? `<div class="hint hidden distributive-hint" id="hint${i}">${hint}</div>` : `<div class="hint hidden" id="hint${i}"></div>`}
+      `;
+      container.appendChild(block);
+    });
+    // Focus first input
+    document.getElementById('ans0')?.focus();
+  }
+
+  function checkAnswers() {
+    let correct = 0;
+    problems.forEach((p, i) => {
+      const input = document.getElementById(`ans${i}`);
+      const hintEl = document.getElementById(`hint${i}`);
+      const val = parseInt(input.value.replace(/,/g, ''), 10);
+      input.classList.remove('correct', 'wrong');
+      if (isNaN(val)) {
+        hintEl.className = 'hint hidden distributive-hint';
+        return;
+      }
+      if (val === p.answer) {
+        input.classList.add('correct');
+        hintEl.textContent = `✓ ${p.answer.toLocaleString()}`;
+        hintEl.className = 'hint visible';
+        hintEl.style.color = '#16a34a';
+        correct++;
+      } else {
+        input.classList.add('wrong');
+        const hint = distributiveHint(p.a, p.b);
+        hintEl.textContent = hint || `Answer: ${p.answer.toLocaleString()}`;
+        hintEl.className = 'hint visible distributive-hint';
+        hintEl.style.color = '#dc2626';
+      }
+    });
+    const attempted = problems.filter((_, i) => {
+      const v = document.getElementById(`ans${i}`).value;
+      return v !== '';
+    }).length;
+    if (attempted > 0) {
+      document.getElementById('scoreLine').textContent =
+        `${correct} / ${attempted} correct`;
+    }
+  }
+
+  // Init
+  generate();
+</script>
+</body>
+</html>

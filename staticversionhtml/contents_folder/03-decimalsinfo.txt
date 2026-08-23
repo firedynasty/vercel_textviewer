@@ -1,0 +1,15 @@
+Title: Decimals: Notation and Operations
+Channel: Professor Dave Explains
+URL: https://www.youtube.com/watch?v=jC4SWFag6Qw
+
+NA
+We just learned that we can use place values to represent any number towards the infinitely large, but what about the infinitely small? What about the teeny tiny fractions of one? For that, we need decimal places. It's pretty simple, so check it out!
+
+
+Notes:
+[01:46] either 10 times larger or 10 times smaller.
+
+The magnitude of a number is its size or distance from zero on a number line, ignoring whether it is positive or negative. In mathematics, it is found using the absolute value (or modulus) and is written using vertical bars: |x|.
+
+
+## hello world

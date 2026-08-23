@@ -4,80 +4,542 @@
 const contentData = {
   files: [
   {
-    "key": "01_introduction",
-    "filename": "01_introduction.md",
-    "title": "01 introduction",
-    "type": "markdown",
-    "path": "./folder_w_text/01_introduction.md",
-    "content": "# Introduction\n\nWelcome to the **Static Content Viewer**!\n\nThis viewer supports:\n\n- **Markdown files** (`.md`) - rendered with full formatting\n- **Text files** (`.txt`) - displayed as plain text\n- **Audio files** (`.mp3`, `.m4a`, `.wav`) - playable from the sidebar\n\n## Features\n\n1. Click on text/markdown files to view their content\n2. Click on audio files to play them\n3. Audio plays independently - you can view other content while listening\n4. Keyboard navigation with arrow keys\n\n## Code Example\n\n```python\ndef hello_world():\n    print(\"Hello, World!\")\n```\n\n## Next Steps\n\nBrowse the sidebar to explore more content!\n"
-  },
-  {
-    "key": "02_getting_started",
-    "filename": "02_getting_started.txt",
-    "title": "02 getting started",
+    "key": "001-additioninfo",
+    "filename": "001-additioninfo.txt",
+    "title": "001 additioninfo",
     "type": "text",
-    "path": "./folder_w_text/02_getting_started.txt",
-    "content": "Getting Started Guide\n=====================\n\nThis is a plain text file demonstrating the text viewer.\n\nUSAGE:\n------\n1. Run: python process_content.py\n2. Start server: python -m http.server 8000\n3. Open: http://localhost:8000\n\nKEYBOARD SHORTCUTS:\n-------------------\n- Up/Down Arrow: Navigate sidebar\n- Enter: Select current item\n- Space: Play/pause audio (when audio is selected)\n\nFILE ORGANIZATION:\n------------------\n- Place .md, .txt, and audio files in folder_w_text/\n- Run process_content.py to regenerate content_data.js\n- Refresh the browser to see changes\n\nSUPPORTED FORMATS:\n------------------\nText:  .txt, .md\nAudio: .mp3, .m4a, .wav, .ogg, .flac\n\n\nJordan is a Smooth Criminal\nhttps://www.youtube.com/watch?v=7G7PDEbND1s?1:00,2:00,3:00"
+    "path": "./contents_folder/001-additioninfo.txt",
+    "content": "Title: Addition and Subtraction of Small Numbers\nChannel: Professor Dave Explains\nUpload Date: 2017-08-03\nDuration: 8:39\nView Count: 605756\nURL: https://www.youtube.com/watch?v=rV7WjNWHOsI\n\nNA\nAlright, so we've decided to learn all of the maths, but where shall we start? Well, let's start at the beginning. The first kind of math we developed was simple arithmetic. We needed this at the dawn of civilization to communicate very simple ideas. Most of us can add small numbers together easily, but is there any more we can say about these operations? Let's find out!\n\nWatch the whole Mathematics playlist: http://bit.ly/ProfDaveMath\n\nClassical Physics Tutorials: http://bit.ly/ProfDavePhysics1\nModern Physics Tutorials: http://bit.ly/ProfDavePhysics2\nGeneral Chemistry Tutorials: http://bit.ly/ProfDaveGenChem\nOrganic Chemistry Tutorials: http://bit.ly/ProfDaveOrgChem\nBiochemistry Tutorials: http://bit.ly/ProfDaveBiochem\nBiology Tutorials: http://bit.ly/ProfDaveBio\n\nEMAIL► ProfessorDaveExplains@gmail.com\nPATREON► http://patreon.com/ProfessorDaveExplains\n\nCheck out \"Is This Wi-Fi Organic?\", my book on disarming pseudoscience!\nAmazon: https://amzn.to/2HtNpVH\nBookshop: https://bit.ly/39cKADM\n\nBarnes and Noble: https://bit.ly/3pUjmrn \nBook Depository: http://bit.ly/3aOVDlT\n\n\nNotes:\nassociative means it doesn't matter the order in which numbers are added \n\ncommutative is order doesn't matter\n"
   },
   {
-    "key": "03_sample_notes",
-    "filename": "03_sample_notes.md",
-    "title": "03 sample notes",
-    "type": "markdown",
-    "path": "./folder_w_text/03_sample_notes.md",
-    "content": "# Sample Notes\n\n## Meeting Notes - Project Review\n\n### Attendees\n- Alice\n- Bob\n- Charlie\n\n### Discussion Points\n\n1. **Timeline Review**\n   - Phase 1 complete\n   - Phase 2 in progress\n   - Phase 3 scheduled for next month\n\n2. **Technical Updates**\n   - New API endpoints deployed\n   - Performance improvements: 40% faster load times\n   - Bug fixes in authentication module\n\n### Action Items\n\n| Task | Owner | Due Date |\n|------|-------|----------|\n| Update documentation | Alice | Friday |\n| Review PR #123 | Bob | Tomorrow |\n| Deploy to staging | Charlie | EOD |\n\n### Notes\n\n> \"The best code is no code at all.\" - Someone wise\n\nRemember to:\n- [ ] Update the changelog\n- [ ] Notify stakeholders\n- [x] Complete code review\n"
-  },
-  {
-    "key": "birds_chriping",
-    "filename": "birds_chriping.mp3",
-    "title": "birds chriping",
-    "type": "audio",
-    "path": "./folder_w_text/birds_chriping.mp3",
-    "content": null
-  },
-  {
-    "key": "recording-2026-01-28-01-13-17",
-    "filename": "recording-2026-01-28-01-13-17.mp3",
-    "title": "recording 2026 01 28 01 13 17",
-    "type": "audio",
-    "path": "./folder_w_text/recording-2026-01-28-01-13-17.mp3",
-    "content": null
-  },
-  {
-    "key": "screenshot_2026-01-24_at_10_18_14_pm",
-    "filename": "Screenshot 2026-01-24 at 10.18.14 PM.png",
-    "title": "Screenshot 2026 01 24 at 10.18.14 PM",
+    "key": "001-additionframe_1",
+    "filename": "001-additionframe_1.jpg",
+    "title": "001 additionframe 1",
     "type": "image",
-    "path": "./folder_w_text/Screenshot 2026-01-24 at 10.18.14 PM.png",
+    "path": "./contents_folder/001-additionframe_1.jpg",
     "content": null
   },
   {
-    "key": "screenshot_2026-01-28_at_11_46_44_pm",
-    "filename": "Screenshot 2026-01-28 at 11.46.44 PM.png",
-    "title": "Screenshot 2026 01 28 at 11.46.44 PM",
+    "key": "001-additionframe_2",
+    "filename": "001-additionframe_2.jpg",
+    "title": "001 additionframe 2",
     "type": "image",
-    "path": "./folder_w_text/Screenshot 2026-01-28 at 11.46.44 PM.png",
+    "path": "./contents_folder/001-additionframe_2.jpg",
     "content": null
   },
   {
-    "key": "screenshot_2026-01-28_at_11_47_21_pm",
-    "filename": "Screenshot 2026-01-28 at 11.47.21 PM.png",
-    "title": "Screenshot 2026 01 28 at 11.47.21 PM",
+    "key": "001-additionframe_3",
+    "filename": "001-additionframe_3.jpg",
+    "title": "001 additionframe 3",
     "type": "image",
-    "path": "./folder_w_text/Screenshot 2026-01-28 at 11.47.21 PM.png",
+    "path": "./contents_folder/001-additionframe_3.jpg",
+    "content": null
+  },
+  {
+    "key": "001-additionframe_4",
+    "filename": "001-additionframe_4.jpg",
+    "title": "001 additionframe 4",
+    "type": "image",
+    "path": "./contents_folder/001-additionframe_4.jpg",
+    "content": null
+  },
+  {
+    "key": "001-additionframe_5",
+    "filename": "001-additionframe_5.jpg",
+    "title": "001 additionframe 5",
+    "type": "image",
+    "path": "./contents_folder/001-additionframe_5.jpg",
+    "content": null
+  },
+  {
+    "key": "001-additionframe_6",
+    "filename": "001-additionframe_6.jpg",
+    "title": "001 additionframe 6",
+    "type": "image",
+    "path": "./contents_folder/001-additionframe_6.jpg",
+    "content": null
+  },
+  {
+    "key": "01-fractionsinfo",
+    "filename": "01-fractionsinfo.txt",
+    "title": "01 fractionsinfo",
+    "type": "text",
+    "path": "./contents_folder/01-fractionsinfo.txt",
+    "content": "Title: Understanding Fractions, Improper Fractions, and Mixed Numbers\nChannel: Professor Dave Explains\nUpload Date: 2017-08-08\nDuration: 6:13\nView Count: 485894\nURL: https://www.youtube.com/watch?v=qyW2mWvvtZ8\n\nNA\nOnce we know how to divide, we must learn about fractions, because not all divisions will lead to whole number quotients. But there are proper fractions, improper fractions, mixed numbers... what are all these things? Just check this out!\n\nWatch the whole Mathematics playlist: http://bit.ly/ProfDaveMath\n\nClassical Physics Tutorials: http://bit.ly/ProfDavePhysics1\nModern Physics Tutorials: http://bit.ly/ProfDavePhysics2\nGeneral Chemistry Tutorials: http://bit.ly/ProfDaveGenChem\nOrganic Chemistry Tutorials: http://bit.ly/ProfDaveOrgChem\nBiochemistry Tutorials: http://bit.ly/ProfDaveBiochem\nBiology Tutorials: http://bit.ly/ProfDaveBio\n\nEMAIL► ProfessorDaveExplains@gmail.com\nPATREON► http://patreon.com/ProfessorDaveExplains\n\nCheck out \"Is This Wi-Fi Organic?\", my book on disarming pseudoscience!\nAmazon: https://amzn.to/2HtNpVH\nBookshop: https://bit.ly/39cKADM\n\nBarnes and Noble: https://bit.ly/3pUjmrn \nBook Depository: http://bit.ly/3aOVDlT\n\n\nNotes:\n[02:39]\n\nbecause they want three slices per pie, the restaunt cuts into 8 pieces\n"
+  },
+  {
+    "key": "01-fractionsframe_1",
+    "filename": "01-fractionsframe_1.jpg",
+    "title": "01 fractionsframe 1",
+    "type": "image",
+    "path": "./contents_folder/01-fractionsframe_1.jpg",
+    "content": null
+  },
+  {
+    "key": "01-fractionsframe_2",
+    "filename": "01-fractionsframe_2.jpg",
+    "title": "01 fractionsframe 2",
+    "type": "image",
+    "path": "./contents_folder/01-fractionsframe_2.jpg",
+    "content": null
+  },
+  {
+    "key": "01-fractionsframe_3",
+    "filename": "01-fractionsframe_3.jpg",
+    "title": "01 fractionsframe 3",
+    "type": "image",
+    "path": "./contents_folder/01-fractionsframe_3.jpg",
+    "content": null
+  },
+  {
+    "key": "01-fractionsframe_4",
+    "filename": "01-fractionsframe_4.jpg",
+    "title": "01 fractionsframe 4",
+    "type": "image",
+    "path": "./contents_folder/01-fractionsframe_4.jpg",
+    "content": null
+  },
+  {
+    "key": "01-fractionsframe_5",
+    "filename": "01-fractionsframe_5.jpg",
+    "title": "01 fractionsframe 5",
+    "type": "image",
+    "path": "./contents_folder/01-fractionsframe_5.jpg",
+    "content": null
+  },
+  {
+    "key": "01-fractionsframe_6",
+    "filename": "01-fractionsframe_6.jpg",
+    "title": "01 fractionsframe 6",
+    "type": "image",
+    "path": "./contents_folder/01-fractionsframe_6.jpg",
+    "content": null
+  },
+  {
+    "key": "02-large_whole_numbersinfo",
+    "filename": "02-large_whole_numbersinfo.txt",
+    "title": "02 large whole numbersinfo",
+    "type": "text",
+    "path": "./contents_folder/02-large_whole_numbersinfo.txt",
+    "content": "Title: Large Whole Numbers: Place Values and Estimating\nChannel: Professor Dave Explains\nUpload Date: 2017-08-09\nDuration: 4:29\nView Count: 247138\nURL: https://www.youtube.com/watch?v=AkWtUOwlUgs\n\nNA\nSo there are a lot of numbers. An infinite number, in fact. So how can we possibly have a symbol for every single possible amount of objects? Well we don't need to, because of place values. With these, we can use just ten symbols and represent every number imaginable. Check it out!\n\n\nNotes:\n[02:56] this is a good estimate\n[03:17] count in groups of 10, then estimate the number\n"
+  },
+  {
+    "key": "02-large_whole_numbersframe_1",
+    "filename": "02-large_whole_numbersframe_1.jpg",
+    "title": "02 large whole numbersframe 1",
+    "type": "image",
+    "path": "./contents_folder/02-large_whole_numbersframe_1.jpg",
+    "content": null
+  },
+  {
+    "key": "02-large_whole_numbersframe_2",
+    "filename": "02-large_whole_numbersframe_2.jpg",
+    "title": "02 large whole numbersframe 2",
+    "type": "image",
+    "path": "./contents_folder/02-large_whole_numbersframe_2.jpg",
+    "content": null
+  },
+  {
+    "key": "02-large_whole_numbersframe_3",
+    "filename": "02-large_whole_numbersframe_3.jpg",
+    "title": "02 large whole numbersframe 3",
+    "type": "image",
+    "path": "./contents_folder/02-large_whole_numbersframe_3.jpg",
+    "content": null
+  },
+  {
+    "key": "02-large_whole_numbersframe_4",
+    "filename": "02-large_whole_numbersframe_4.jpg",
+    "title": "02 large whole numbersframe 4",
+    "type": "image",
+    "path": "./contents_folder/02-large_whole_numbersframe_4.jpg",
+    "content": null
+  },
+  {
+    "key": "02-large_whole_numbersframe_5",
+    "filename": "02-large_whole_numbersframe_5.jpg",
+    "title": "02 large whole numbersframe 5",
+    "type": "image",
+    "path": "./contents_folder/02-large_whole_numbersframe_5.jpg",
+    "content": null
+  },
+  {
+    "key": "03-decimalsinfo",
+    "filename": "03-decimalsinfo.txt",
+    "title": "03 decimalsinfo",
+    "type": "text",
+    "path": "./contents_folder/03-decimalsinfo.txt",
+    "content": "Title: Decimals: Notation and Operations\nChannel: Professor Dave Explains\nURL: https://www.youtube.com/watch?v=jC4SWFag6Qw\n\nNA\nWe just learned that we can use place values to represent any number towards the infinitely large, but what about the infinitely small? What about the teeny tiny fractions of one? For that, we need decimal places. It's pretty simple, so check it out!\n\n\nNotes:\n[01:46] either 10 times larger or 10 times smaller.\n\nThe magnitude of a number is its size or distance from zero on a number line, ignoring whether it is positive or negative. In mathematics, it is found using the absolute value (or modulus) and is written using vertical bars: |x|.\n\n\n## hello world"
+  },
+  {
+    "key": "03-decimalsframe_1",
+    "filename": "03-decimalsframe_1.jpg",
+    "title": "03 decimalsframe 1",
+    "type": "image",
+    "path": "./contents_folder/03-decimalsframe_1.jpg",
+    "content": null
+  },
+  {
+    "key": "03-decimalsframe_2",
+    "filename": "03-decimalsframe_2.jpg",
+    "title": "03 decimalsframe 2",
+    "type": "image",
+    "path": "./contents_folder/03-decimalsframe_2.jpg",
+    "content": null
+  },
+  {
+    "key": "03-decimalsframe_3",
+    "filename": "03-decimalsframe_3.jpg",
+    "title": "03 decimalsframe 3",
+    "type": "image",
+    "path": "./contents_folder/03-decimalsframe_3.jpg",
+    "content": null
+  },
+  {
+    "key": "04-percentagesinfo",
+    "filename": "04-percentagesinfo.txt",
+    "title": "04 percentagesinfo",
+    "type": "text",
+    "path": "./contents_folder/04-percentagesinfo.txt",
+    "content": "Title: Working With Percentages\nChannel: Professor Dave Explains\nUpload Date: 2017-08-11\nDuration: 3:36\nView Count: 260668\nURL: https://www.youtube.com/watch?v=n9fgcm0Pwgs\n\nNA\nOh my! There's a big sale at your favorite store! 30% off, in fact! But wait, what does that mean exactly? Percentages are convenient ways of conveying magnitude by comparing some value to one hundred. Why a hundred? Because it's not too big and not too small. Let's learn how to work with these babies.\n\nWatch the whole Mathematics playlist: http://bit.ly/ProfDaveMath\n\nClassical Physics Tutorials: http://bit.ly/ProfDavePhysics1\nModern Physics Tutorials: http://bit.ly/ProfDavePhysics2\nGeneral Chemistry Tutorials: http://bit.ly/ProfDaveGenChem\nOrganic Chemistry Tutorials: http://bit.ly/ProfDaveOrgChem\nBiochemistry Tutorials: http://bit.ly/ProfDaveBiochem\nBiology Tutorials: http://bit.ly/ProfDaveBio\n\nEMAIL► ProfessorDaveExplains@gmail.com\nPATREON► http://patreon.com/ProfessorDaveExplains\n\nCheck out \"Is This Wi-Fi Organic?\", my book on disarming pseudoscience!\nAmazon: https://amzn.to/2HtNpVH\nBookshop: https://bit.ly/39cKADM\n\nBarnes and Noble: https://bit.ly/3pUjmrn \nBook Depository: http://bit.ly/3aOVDlT\n\n\nNotes:\n80% and 4/5 are equivalent\n"
+  },
+  {
+    "key": "04-percentagesframe_1",
+    "filename": "04-percentagesframe_1.jpg",
+    "title": "04 percentagesframe 1",
+    "type": "image",
+    "path": "./contents_folder/04-percentagesframe_1.jpg",
+    "content": null
+  },
+  {
+    "key": "04-percentagesframe_2",
+    "filename": "04-percentagesframe_2.jpg",
+    "title": "04 percentagesframe 2",
+    "type": "image",
+    "path": "./contents_folder/04-percentagesframe_2.jpg",
+    "content": null
+  },
+  {
+    "key": "04-percentagesframe_3",
+    "filename": "04-percentagesframe_3.jpg",
+    "title": "04 percentagesframe 3",
+    "type": "image",
+    "path": "./contents_folder/04-percentagesframe_3.jpg",
+    "content": null
+  },
+  {
+    "key": "04-percentagesframe_4",
+    "filename": "04-percentagesframe_4.jpg",
+    "title": "04 percentagesframe 4",
+    "type": "image",
+    "path": "./contents_folder/04-percentagesframe_4.jpg",
+    "content": null
+  },
+  {
+    "key": "04-percentagesframe_5",
+    "filename": "04-percentagesframe_5.jpg",
+    "title": "04 percentagesframe 5",
+    "type": "image",
+    "path": "./contents_folder/04-percentagesframe_5.jpg",
+    "content": null
+  },
+  {
+    "key": "04-percentagesframe_6",
+    "filename": "04-percentagesframe_6.jpg",
+    "title": "04 percentagesframe 6",
+    "type": "image",
+    "path": "./contents_folder/04-percentagesframe_6.jpg",
+    "content": null
+  },
+  {
+    "key": "04-percentagesframe_7",
+    "filename": "04-percentagesframe_7.png",
+    "title": "04 percentagesframe 7",
+    "type": "image",
+    "path": "./contents_folder/04-percentagesframe_7.png",
+    "content": null
+  },
+  {
+    "key": "05-converting_between_fractions_d",
+    "filename": "05-Converting_Between_Fractions_D.txt",
+    "title": "05 Converting Between Fractions D",
+    "type": "text",
+    "path": "./contents_folder/05-Converting_Between_Fractions_D.txt",
+    "content": "Title: Converting Between Fractions, Decimals, and Percentages\nChannel: Professor Dave Explains\nUpload Date: 2017-08-12\nDuration: 5:20\nView Count: 1751768\nURL: https://www.youtube.com/watch?v=-Xt4UDk7Kzw\n\nNA\nAlright, so we've mastered fractions, decimals, and percentages, so let's quickly learn how to convert between them. This is important if you want to do calculations where you apply some percentage to a value, or a million other every day scenarios. Don't worry, it's easy!\n\nWatch the whole Mathematics playlist: http://bit.ly/ProfDaveMath\n\nClassical Physics Tutorials: http://bit.ly/ProfDavePhysics1\nModern Physics Tutorials: http://bit.ly/ProfDavePhysics2\nGeneral Chemistry Tutorials: http://bit.ly/ProfDaveGenChem\nOrganic Chemistry Tutorials: http://bit.ly/ProfDaveOrgChem\nBiochemistry Tutorials: http://bit.ly/ProfDaveBiochem\nBiology Tutorials: http://bit.ly/ProfDaveBio\n\nEMAIL► ProfessorDaveExplains@gmail.com\nPATREON► http://patreon.com/ProfessorDaveExplains\n\nCheck out \"Is This Wi-Fi Organic?\", my book on disarming pseudoscience!\nAmazon: https://amzn.to/2HtNpVH\nBookshop: https://bit.ly/39cKADM\n\nBarnes and Noble: https://bit.ly/3pUjmrn \nBook Depository: http://bit.ly/3aOVDlT\n\n\nNotes:\n[01:01] converting from percentage to decimal\n[01:43] what is a decimal\n[02:06] 8.25 percent sales tax then move it over 0.0825 sales tax expressed as a decimal\n[02:18] computation\n[03:39] try to arrange this from least to greatest\n[04:20] answer\n\n\nI would prefer it to be \n\n[1] converting from percentage to decimal\n[2] what is a decimal\n[3] 8.25 percent sales tax then move it over 0.0825 sales tax expressed as a decimal\n[4] computation\n[5] try to arrange this from least to greatest\n[6] answer\n\n\nand squeeze appeneded notes in between so \n\n[1] converting from percentage to decimal\n[2] what is a decimal\n[3] 8.25 percent sales tax then move it over 0.0825 sales tax expressed as a decimal\n[4] computation\n[no] this is another note\n[5] try to arrange this from least to greatest\n[6] answer\n"
+  },
+  {
+    "key": "05-converting_between_fractions_decimals_and_percenta_01m01s",
+    "filename": "05-Converting_Between_Fractions_Decimals_and_Percenta_01m01s.jpg",
+    "title": "05 Converting Between Fractions Decimals and Percenta 01m01s",
+    "type": "image",
+    "path": "./contents_folder/05-Converting_Between_Fractions_Decimals_and_Percenta_01m01s.jpg",
+    "content": null
+  },
+  {
+    "key": "05-converting_between_fractions_decimals_and_percenta_01m43s",
+    "filename": "05-Converting_Between_Fractions_Decimals_and_Percenta_01m43s.jpg",
+    "title": "05 Converting Between Fractions Decimals and Percenta 01m43s",
+    "type": "image",
+    "path": "./contents_folder/05-Converting_Between_Fractions_Decimals_and_Percenta_01m43s.jpg",
+    "content": null
+  },
+  {
+    "key": "05-converting_between_fractions_decimals_and_percenta_02m06s",
+    "filename": "05-Converting_Between_Fractions_Decimals_and_Percenta_02m06s.jpg",
+    "title": "05 Converting Between Fractions Decimals and Percenta 02m06s",
+    "type": "image",
+    "path": "./contents_folder/05-Converting_Between_Fractions_Decimals_and_Percenta_02m06s.jpg",
+    "content": null
+  },
+  {
+    "key": "05-converting_between_fractions_decimals_and_percenta_02m18s",
+    "filename": "05-Converting_Between_Fractions_Decimals_and_Percenta_02m18s.jpg",
+    "title": "05 Converting Between Fractions Decimals and Percenta 02m18s",
+    "type": "image",
+    "path": "./contents_folder/05-Converting_Between_Fractions_Decimals_and_Percenta_02m18s.jpg",
+    "content": null
+  },
+  {
+    "key": "05-converting_between_fractions_decimals_and_percenta_02m52s",
+    "filename": "05-Converting_Between_Fractions_Decimals_and_Percenta_02m52s.jpg",
+    "title": "05 Converting Between Fractions Decimals and Percenta 02m52s",
+    "type": "image",
+    "path": "./contents_folder/05-Converting_Between_Fractions_Decimals_and_Percenta_02m52s.jpg",
+    "content": null
+  },
+  {
+    "key": "05-converting_between_fractions_decimals_and_percenta_03m02s",
+    "filename": "05-Converting_Between_Fractions_Decimals_and_Percenta_03m02s.jpg",
+    "title": "05 Converting Between Fractions Decimals and Percenta 03m02s",
+    "type": "image",
+    "path": "./contents_folder/05-Converting_Between_Fractions_Decimals_and_Percenta_03m02s.jpg",
+    "content": null
+  },
+  {
+    "key": "05-converting_between_fractions_decimals_and_percenta_03m08s",
+    "filename": "05-Converting_Between_Fractions_Decimals_and_Percenta_03m08s.jpg",
+    "title": "05 Converting Between Fractions Decimals and Percenta 03m08s",
+    "type": "image",
+    "path": "./contents_folder/05-Converting_Between_Fractions_Decimals_and_Percenta_03m08s.jpg",
+    "content": null
+  },
+  {
+    "key": "05-converting_between_fractions_decimals_and_percenta_03m39s",
+    "filename": "05-Converting_Between_Fractions_Decimals_and_Percenta_03m39s.jpg",
+    "title": "05 Converting Between Fractions Decimals and Percenta 03m39s",
+    "type": "image",
+    "path": "./contents_folder/05-Converting_Between_Fractions_Decimals_and_Percenta_03m39s.jpg",
+    "content": null
+  },
+  {
+    "key": "05-converting_between_fractions_decimals_and_percenta_04m20s",
+    "filename": "05-Converting_Between_Fractions_Decimals_and_Percenta_04m20s.jpg",
+    "title": "05 Converting Between Fractions Decimals and Percenta 04m20s",
+    "type": "image",
+    "path": "./contents_folder/05-Converting_Between_Fractions_Decimals_and_Percenta_04m20s.jpg",
+    "content": null
+  },
+  {
+    "key": "06-addition_and_subtraction_of_la",
+    "filename": "06-Addition_and_Subtraction_of_La.txt",
+    "title": "06 Addition and Subtraction of La",
+    "type": "text",
+    "path": "./contents_folder/06-Addition_and_Subtraction_of_La.txt",
+    "content": "Title: Addition and Subtraction of Large Numbers\nChannel: Professor Dave Explains\nUpload Date: 2017-08-13\nDuration: 5:56\nView Count: 358825\nURL: https://www.youtube.com/watch?v=YFyOsvnr9ig\n\nNA\nWe know how to add and subtract small numbers, but what about big numbers? Is it complicated? No, not really, but there is a bit of an algorithm to learn. Check this out!\n\nWatch the whole Mathematics playlist: http://bit.ly/ProfDaveMath\n\nClassical Physics Tutorials: http://bit.ly/ProfDavePhysics1\nModern Physics Tutorials: http://bit.ly/ProfDavePhysics2\nGeneral Chemistry Tutorials: http://bit.ly/ProfDaveGenChem\nOrganic Chemistry Tutorials: http://bit.ly/ProfDaveOrgChem\nBiochemistry Tutorials: http://bit.ly/ProfDaveBiochem\nBiology Tutorials: http://bit.ly/ProfDaveBio\n\nEMAIL► ProfessorDaveExplains@gmail.com\nPATREON► http://patreon.com/ProfessorDaveExplains\n\nCheck out \"Is This Wi-Fi Organic?\", my book on disarming pseudoscience!\nAmazon: https://amzn.to/2HtNpVH\nBookshop: https://bit.ly/39cKADM\n\nBarnes and Noble: https://bit.ly/3pUjmrn \nBook Depository: http://bit.ly/3aOVDlT\n\n\nNotes:\n[no] What if the numbers are too big to count?\n[1] rely on computations\n[no] instead of counting, then calculate the sum\n[2] changing the units place\n[3] +\n[4] impractical\n[5] +\n"
+  },
+  {
+    "key": "06-addition_and_subtraction_of_la_00m37s",
+    "filename": "06-Addition_and_Subtraction_of_La_00m37s.jpg",
+    "title": "06 Addition and Subtraction of La 00m37s",
+    "type": "image",
+    "path": "./contents_folder/06-Addition_and_Subtraction_of_La_00m37s.jpg",
+    "content": null
+  },
+  {
+    "key": "06-addition_and_subtraction_of_la_03m12s",
+    "filename": "06-Addition_and_Subtraction_of_La_03m12s.jpg",
+    "title": "06 Addition and Subtraction of La 03m12s",
+    "type": "image",
+    "path": "./contents_folder/06-Addition_and_Subtraction_of_La_03m12s.jpg",
+    "content": null
+  },
+  {
+    "key": "06-addition_and_subtraction_of_la_03m48s",
+    "filename": "06-Addition_and_Subtraction_of_La_03m48s.jpg",
+    "title": "06 Addition and Subtraction of La 03m48s",
+    "type": "image",
+    "path": "./contents_folder/06-Addition_and_Subtraction_of_La_03m48s.jpg",
+    "content": null
+  },
+  {
+    "key": "06-addition_and_subtraction_of_la_04m19s",
+    "filename": "06-Addition_and_Subtraction_of_La_04m19s.jpg",
+    "title": "06 Addition and Subtraction of La 04m19s",
+    "type": "image",
+    "path": "./contents_folder/06-Addition_and_Subtraction_of_La_04m19s.jpg",
+    "content": null
+  },
+  {
+    "key": "06-addition_and_subtraction_of_la_04m24s",
+    "filename": "06-Addition_and_Subtraction_of_La_04m24s.jpg",
+    "title": "06 Addition and Subtraction of La 04m24s",
+    "type": "image",
+    "path": "./contents_folder/06-Addition_and_Subtraction_of_La_04m24s.jpg",
+    "content": null
+  },
+  {
+    "key": "07the_distributive_property_for_",
+    "filename": "07The_Distributive_Property_for_.txt",
+    "title": "07The Distributive Property for ",
+    "type": "text",
+    "path": "./contents_folder/07The_Distributive_Property_for_.txt",
+    "content": "Title: The Distributive Property for Arithmetic\nChannel: Professor Dave Explains\nUpload Date: 2017-08-14\nDuration: 3:19\nView Count: 179873\nURL: https://www.youtube.com/watch?v=LC_R2Zh66fU\n\nNA\nWe know about the commutative property and the associative property, but there are more to learn! This next one, the distributive property, is very important in algebra, so let's introduce it now so that when we get there we already have this covered.\n\nWatch the whole Mathematics playlist: http://bit.ly/ProfDaveMath\n\nClassical Physics Tutorials: http://bit.ly/ProfDavePhysics1\nModern Physics Tutorials: http://bit.ly/ProfDavePhysics2\nGeneral Chemistry Tutorials: http://bit.ly/ProfDaveGenChem\nOrganic Chemistry Tutorials: http://bit.ly/ProfDaveOrgChem\nBiochemistry Tutorials: http://bit.ly/ProfDaveBiochem\nBiology Tutorials: http://bit.ly/ProfDaveBio\n\nEMAIL► ProfessorDaveExplains@gmail.com\nPATREON► http://patreon.com/ProfessorDaveExplains\n\nCheck out \"Is This Wi-Fi Organic?\", my book on disarming pseudoscience!\nAmazon: https://amzn.to/2HtNpVH\nBookshop: https://bit.ly/39cKADM\n\nBarnes and Noble: https://bit.ly/3pUjmrn \nBook Depository: http://bit.ly/3aOVDlT\n\n\nNotes:\n[1] +\n[2]\n[3] great\n[4]\n[5] split up 5 * 17\n"
+  },
+  {
+    "key": "07the_distributive_property_for__00m21s_1",
+    "filename": "07The_Distributive_Property_for__00m21s_1.jpg",
+    "title": "07The Distributive Property for  00m21s 1",
+    "type": "image",
+    "path": "./contents_folder/07The_Distributive_Property_for__00m21s_1.jpg",
+    "content": null
+  },
+  {
+    "key": "07the_distributive_property_for__01m00s_2",
+    "filename": "07The_Distributive_Property_for__01m00s_2.jpg",
+    "title": "07The Distributive Property for  01m00s 2",
+    "type": "image",
+    "path": "./contents_folder/07The_Distributive_Property_for__01m00s_2.jpg",
+    "content": null
+  },
+  {
+    "key": "07the_distributive_property_for__01m13s_3",
+    "filename": "07The_Distributive_Property_for__01m13s_3.jpg",
+    "title": "07The Distributive Property for  01m13s 3",
+    "type": "image",
+    "path": "./contents_folder/07The_Distributive_Property_for__01m13s_3.jpg",
+    "content": null
+  },
+  {
+    "key": "07the_distributive_property_for__01m37s_4",
+    "filename": "07The_Distributive_Property_for__01m37s_4.jpg",
+    "title": "07The Distributive Property for  01m37s 4",
+    "type": "image",
+    "path": "./contents_folder/07The_Distributive_Property_for__01m37s_4.jpg",
+    "content": null
+  },
+  {
+    "key": "07the_distributive_property_for__02m29s_5",
+    "filename": "07The_Distributive_Property_for__02m29s_5.jpg",
+    "title": "07The Distributive Property for  02m29s 5",
+    "type": "image",
+    "path": "./contents_folder/07The_Distributive_Property_for__02m29s_5.jpg",
+    "content": null
+  },
+  {
+    "key": "08-multiplication_mental_math",
+    "filename": "08-multiplication_mental_math.txt",
+    "title": "08 multiplication mental math",
+    "type": "text",
+    "path": "./contents_folder/08-multiplication_mental_math.txt",
+    "content": "tricks that will help us do this in our heads much more efficiently.\n\n![Screenshot_2026-08-15_at_1.05.50 PM](Screenshot_2026-08-15_at_1.05.50 PM.png)\n\nLet’s split one of these numbers up into a sum that contains numbers that are a little\n\nMaybe we can split eleven up into ten and one.\n\n![Screenshot_2026-08-15_at_2.30.37 PM](Screenshot_2026-08-15_at_2.30.37 PM.png)\n\nLet’s try another one, four hundred twenty-five times twelve.\n\n![Screenshot_2026-08-15_at_2.41.12 PM](Screenshot_2026-08-15_at_2.41.12 PM.png)\n\nBut while the first method requires many small computations, the second method requires comparatively\n"
+  },
+  {
+    "key": "sample",
+    "filename": "sample.txt",
+    "title": "sample",
+    "type": "text",
+    "path": "./contents_folder/sample.txt",
+    "content": "![Screenshot_2026-08-15_at_1.05.50 PM](Screenshot_2026-08-15_at_1.05.50 PM.png)\n\n\nthis is really incredible in these notes though \n\n"
+  },
+  {
+    "key": "wheretoget_html",
+    "filename": "wheretoget_html.txt",
+    "title": "wheretoget html",
+    "type": "text",
+    "path": "./contents_folder/wheretoget_html.txt",
+    "content": "/Users/stanleytan/Documents/technical/claude-codepens/mental_math/distributive_practice.html\n\nfrom mental_math\n"
+  },
+  {
+    "key": "screenshot_2026-08-15_at_1_05_50_pm",
+    "filename": "Screenshot_2026-08-15_at_1.05.50 PM.png",
+    "title": "Screenshot 2026 08 15 at 1.05.50 PM",
+    "type": "image",
+    "path": "./contents_folder/Screenshot_2026-08-15_at_1.05.50 PM.png",
+    "content": null
+  },
+  {
+    "key": "screenshot_2026-08-15_at_2_30_37_pm",
+    "filename": "Screenshot_2026-08-15_at_2.30.37 PM.png",
+    "title": "Screenshot 2026 08 15 at 2.30.37 PM",
+    "type": "image",
+    "path": "./contents_folder/Screenshot_2026-08-15_at_2.30.37 PM.png",
+    "content": null
+  },
+  {
+    "key": "screenshot_2026-08-15_at_2_41_12_pm",
+    "filename": "Screenshot_2026-08-15_at_2.41.12 PM.png",
+    "title": "Screenshot 2026 08 15 at 2.41.12 PM",
+    "type": "image",
+    "path": "./contents_folder/Screenshot_2026-08-15_at_2.41.12 PM.png",
     "content": null
   }
 ],
   youtube_links: [
   {
-    "url": "https://www.youtube.com/watch?v=7G7PDEbND1s?1:00",
-    "video_id": "7G7PDEbND1s",
-    "hint": "Jordan is a Smooth Criminal",
-    "source_file": "02_getting_started.txt",
-    "times": [
-      "2:00",
-      "3:00"
-    ]
+    "url": "https://www.youtube.com/watch?v=rV7WjNWHOsI",
+    "video_id": "rV7WjNWHOsI",
+    "hint": "View Count: 605756",
+    "source_file": "001-additioninfo.txt",
+    "times": []
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=qyW2mWvvtZ8",
+    "video_id": "qyW2mWvvtZ8",
+    "hint": "View Count: 485894",
+    "source_file": "01-fractionsinfo.txt",
+    "times": []
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=AkWtUOwlUgs",
+    "video_id": "AkWtUOwlUgs",
+    "hint": "View Count: 247138",
+    "source_file": "02-large_whole_numbersinfo.txt",
+    "times": []
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=jC4SWFag6Qw",
+    "video_id": "jC4SWFag6Qw",
+    "hint": "Channel: Professor Dave Explains",
+    "source_file": "03-decimalsinfo.txt",
+    "times": []
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=n9fgcm0Pwgs",
+    "video_id": "n9fgcm0Pwgs",
+    "hint": "View Count: 260668",
+    "source_file": "04-percentagesinfo.txt",
+    "times": []
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=-Xt4UDk7Kzw",
+    "video_id": "-Xt4UDk7Kzw",
+    "hint": "View Count: 1751768",
+    "source_file": "05-Converting_Between_Fractions_D.txt",
+    "times": []
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=YFyOsvnr9ig",
+    "video_id": "YFyOsvnr9ig",
+    "hint": "View Count: 358825",
+    "source_file": "06-Addition_and_Subtraction_of_La.txt",
+    "times": []
+  },
+  {
+    "url": "https://www.youtube.com/watch?v=LC_R2Zh66fU",
+    "video_id": "LC_R2Zh66fU",
+    "hint": "View Count: 179873",
+    "source_file": "07The_Distributive_Property_for_.txt",
+    "times": []
   }
 ]
 };

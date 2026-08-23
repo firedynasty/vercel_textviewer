@@ -184,7 +184,32 @@
             overflow: hidden;
             border-left: 1px solid #0f3460;
             min-width: 60px;
+            position: relative;
         }
+
+        /* Scroll-up button floating in pane 2 */
+        .pane2-up-btn {
+            position: absolute;
+            bottom: 14px;
+            left: 10px;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 1.5px solid rgba(59, 130, 246, 0.35);
+            cursor: pointer;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            backdrop-filter: blur(4px);
+            opacity: 0.75;
+            z-index: 10;
+            background: rgba(59, 130, 246, 0.18);
+            color: #60a5fa;
+        }
+        .pane2-up-btn:hover { opacity: 1; transform: scale(1.1); background: #3b82f6; color: white; border-color: #3b82f6; }
+        body.light-mode .pane2-up-btn { background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.25); }
 
         /* Pane headers */
         .pane-header {
@@ -619,6 +644,7 @@
                             <div class="yt-links-list" id="ytLinksList"></div>
                         </div>
                     </div>
+                    <button class="pane2-up-btn" id="pane2UpBtn" title="Scroll up">≡↑</button>
                 </div>
 
             </div><!-- end panes-wrapper -->
@@ -1069,10 +1095,18 @@
                 return;
             }
 
-            if (e.key === 'ArrowDown' || e.key === 'j') {
+            if (e.key === 'ArrowDown') {
+                // Arrow down → scroll pane 2 down
+                e.preventDefault();
+                paneRightContent.scrollBy({ top: paneRightContent.clientHeight * 0.85, behavior: 'smooth' });
+            } else if (e.key === 'ArrowUp') {
+                // Arrow up → scroll pane 2 up
+                e.preventDefault();
+                paneRightContent.scrollBy({ top: -PANE2_UP_AMT(), behavior: 'smooth' });
+            } else if (e.key === 'j') {
                 e.preventDefault();
                 if (selectedIndex < files.length - 1) { selectItem(selectedIndex + 1); scrollSidebarSelected(); }
-            } else if (e.key === 'ArrowUp' || e.key === 'k') {
+            } else if (e.key === 'k') {
                 e.preventDefault();
                 if (selectedIndex > 0) { selectItem(selectedIndex - 1); scrollSidebarSelected(); }
             } else if (e.key === 'Enter' || e.key === 'ArrowRight') {
@@ -1087,6 +1121,12 @@
                 }
             } else if (e.key === 'Escape' && playingIndex >= 0) {
                 stopAudio();
+            } else if (e.key === 'PageDown') {
+                e.preventDefault();
+                paneRightContent.scrollBy({ top: paneRightContent.clientHeight * 0.85, behavior: 'smooth' });
+            } else if (e.key === 'PageUp') {
+                e.preventDefault();
+                paneRightContent.scrollBy({ top: -PANE2_UP_AMT(), behavior: 'smooth' });
             }
         });
 
@@ -1228,6 +1268,12 @@
         // Button 2: page down the right (text) pane
         document.getElementById('pane2DownBtn').addEventListener('click', function() {
             paneRightContent.scrollBy({ top: paneRightContent.clientHeight * 0.85, behavior: 'smooth' });
+        });
+
+        // Pane 2 scroll-up button (partial scroll, ~35% of pane height)
+        const PANE2_UP_AMT = () => paneRightContent.clientHeight * 0.35;
+        document.getElementById('pane2UpBtn').addEventListener('click', function() {
+            paneRightContent.scrollBy({ top: -PANE2_UP_AMT(), behavior: 'smooth' });
         });
 
         // Button 3: previous text/markdown file

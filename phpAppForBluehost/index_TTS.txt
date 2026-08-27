@@ -1,0 +1,20 @@
+
+index0803.php, before this I am trying to get the pane divider to be able to move ?
+
+because  looking at the
+
+08-26
+
+index.php update
+
+sidebar highlight + scroll fixes:
+
+1. only ONE highlight in the sidebar now — when a text file is open in pane 2 (p2= in the url), the pane-1 file (xmind etc.) no longer gets the blue active highlight; the orange p2 item is the single highlight
+2. sidebar auto-scrolls to the p2 item ONLY when the p2 selection actually changed (floating ► button, ←/→ arrow keys, or clicking a text file) — clicking an xmind / image / any non-p2 item keeps the scrollbar where you left it
+3. removed the « 29 / 33 » prev/next bar at the top of the sidebar, and the 9 / 0 prev/next-file keys that depended on it (folder-grid 9/0/7/8 still work)
+
+git commmit on that
+
+so it is more consitent because the scroll left and right buttons in pane 1 only can move doc files
+
+because when I select an image that it would scroll back to the text file in the sidebar

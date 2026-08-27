@@ -373,23 +373,10 @@ if ($p2File) {
 $p2CloseParams = $_GET; unset($p2CloseParams['p2']);
 $p2CloseUrl = $p2CloseParams ? '?' . http_build_query($p2CloseParams, '', '&', PHP_QUERY_RFC3986) : '?';
 
-// File list (files-only, used for prev/next arrows, image modal)
+// File list (files-only, used for image modal, PGN list, text-nav list)
 $fileList = $currentFolder
     ? $folderFiles
     : array_values(array_filter($items, function($i) { return $i['type'] === 'file'; }));
-
-// Prev / next (files only — arrows never land on folders)
-$prevFile = null;
-$nextFile = null;
-if ($currentFile && count($fileList) > 1) {
-    foreach ($fileList as $idx => $f) {
-        if ($f['path'] === $currentFile) {
-            if ($idx > 0)                    $prevFile = $fileList[$idx - 1];
-            if ($idx < count($fileList) - 1) $nextFile = $fileList[$idx + 1];
-            break;
-        }
-    }
-}
 
 // Image list for modal (URL-encoded src)
 $imageList    = [];
@@ -539,33 +526,6 @@ body {
 .search-bar input::placeholder { color: #666; }
 .search-bar input:focus { border-color: #7ec8e3; }
 .search-result-parent { font-size: 10px; color: #666; display: block; margin-top: 2px; }
-
-/* Sidebar prev/next nav */
-.sidebar-nav {
-    display: flex;
-    border-bottom: 1px solid #333;
-}
-.sidebar-nav-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    color: #7ec8e3;
-    font-size: 16px;
-    padding: 8px 0;
-    cursor: pointer;
-    text-decoration: none;
-    text-align: center;
-}
-.sidebar-nav-btn:hover { background: #16213e; }
-.sidebar-nav-btn:disabled { color: #444; cursor: default; }
-.sidebar-nav-btn:disabled:hover { background: none; }
-.sidebar-nav-label {
-    flex: 2;
-    text-align: center;
-    font-size: 11px;
-    color: #888;
-    align-self: center;
-}
 
 /* Sidebar list */
 .sidebar-list { flex: 1; overflow-y: auto; padding: 5px 0; }
@@ -1233,28 +1193,6 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
 
     <div id="searchResults" class="sidebar-list" style="display:none"></div>
 
-    <?php if ($currentFile): ?>
-    <div class="sidebar-nav">
-        <?php if ($prevFile): ?>
-            <a class="sidebar-nav-btn" href="<?= $currentFolder ? itemUrl(['folder'=>$currentFolder,'file'=>$prevFile['path']]) : itemUrl(['file'=>$prevFile['path']]) ?>">&laquo;</a>
-        <?php else: ?>
-            <button class="sidebar-nav-btn" disabled>&laquo;</button>
-        <?php endif; ?>
-        <span class="sidebar-nav-label">
-            <?php
-            $curIdx = 0;
-            foreach ($fileList as $i => $f) { if ($f['path'] === $currentFile) { $curIdx = $i + 1; break; } }
-            echo $curIdx . ' / ' . count($fileList);
-            ?>
-        </span>
-        <?php if ($nextFile): ?>
-            <a class="sidebar-nav-btn" href="<?= $currentFolder ? itemUrl(['folder'=>$currentFolder,'file'=>$nextFile['path']]) : itemUrl(['file'=>$nextFile['path']]) ?>">&raquo;</a>
-        <?php else: ?>
-            <button class="sidebar-nav-btn" disabled>&raquo;</button>
-        <?php endif; ?>
-    </div>
-    <?php endif; ?>
-
     <div class="sidebar-list" id="sidebarList">
         <?php if ($currentFolder): ?>
             <?php if ($parentFolder !== null): ?>
@@ -1277,7 +1215,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 </a>
             <?php endforeach; ?>
             <?php foreach ($folderFiles as $f): ?>
-                <a class="sidebar-item <?= ($currentFile === $f['path'] ? 'active' : '') ?>"
+                <a class="sidebar-item <?= ($currentFile === $f['path'] && empty($p2File) ? 'active' : '') ?>"
                    href="<?= itemUrl(['folder'=>$currentFolder,'file'=>$f['path']]) ?>">
                     <?= htmlspecialchars($f['name']) ?>
                     <span class="file-ext"><?= $f['ext'] ?></span>
@@ -1296,7 +1234,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                         <?php endif; ?>
                     </a>
                 <?php else: ?>
-                    <a class="sidebar-item <?= ($currentFile === $item['path'] ? 'active' : '') ?>"
+                    <a class="sidebar-item <?= ($currentFile === $item['path'] && empty($p2File) ? 'active' : '') ?>"
                        href="<?= itemUrl(['file'=>$item['path']]) ?>">
                         <?= htmlspecialchars($item['name']) ?>
                         <span class="file-ext"><?= $item['ext'] ?? '' ?></span>
@@ -2949,47 +2887,6 @@ document.addEventListener('keydown', function(e) {
             if (e.key === '8') { if (window.folderGridNav(5)) { e.preventDefault(); return; } }
             if (e.key === '7') { if (window.folderGridNav(-5)) { e.preventDefault(); return; } }
             if ((e.key === 'Enter' || e.key === '-') && window.folderGridOpen()) { e.preventDefault(); return; }
-        } else {
-            // No grid — file is open: 9/0 act as prev/next file
-            if ((e.key === '9' || e.key === '0')) {
-                var fileNavBtns = document.querySelectorAll('.sidebar-nav .sidebar-nav-btn');
-                if (fileNavBtns.length) {
-                    var fileNavBtn = e.key === '9' ? fileNavBtns[0] : fileNavBtns[fileNavBtns.length - 1];
-                    if (fileNavBtn && fileNavBtn.tagName === 'A' && fileNavBtn.getAttribute('href')) {
-                        e.preventDefault();
-                        // Text files always route to the right pane, even when P2 is off
-                        var destHref = fileNavBtn.getAttribute('href');
-                        // Use URLSearchParams so + is decoded as space (decodeURIComponent does not do this)
-                        var destParams = new URLSearchParams(destHref.indexOf('?') >= 0 ? destHref.substring(destHref.indexOf('?') + 1) : '');
-                        var destFile = destParams.get('file');
-                        var textExts = ['txt','csv','json','log','md','docx','py'];
-                        if (destFile && textExts.indexOf(destFile.split('.').pop().toLowerCase()) !== -1) {
-                            var p = new URLSearchParams(window.location.search);
-                            if (p.get('p2') === destFile) {
-                                // Txt already in right pane — advance left pane to next/prev image
-                                var curFile = p.get('file') || '';
-                                var curImgIdx = -1;
-                                for (var ii = 0; ii < imageList.length; ii++) {
-                                    var iuParams = new URLSearchParams((imageList[ii].url.split('?')[1]) || '');
-                                    if (iuParams.get('file') === curFile) { curImgIdx = ii; break; }
-                                }
-                                var nextImgIdx = curImgIdx + (e.key === '0' ? 1 : -1);
-                                if (nextImgIdx >= 0 && nextImgIdx < imageList.length) {
-                                    window.location.href = imageList[nextImgIdx].url;
-                                }
-                                return;
-                            }
-                            // Text file → load into right pane, keep current left pane file
-                            p.set('p2', destFile);
-                            window.location.href = '?' + p.toString();
-                            return;
-                        }
-                        // Media file → normal left-pane navigation
-                        window.location.href = fileNavBtn.href;
-                        return;
-                    }
-                }
-            }
         }
     }
 
@@ -4640,8 +4537,11 @@ document.addEventListener('click', function(e) {
 applySplitMode();
 
 // Highlight the P2 sidebar item (txt in right pane) with a distinct orange accent.
-// Sidebar scrolls to the active pane-1 file (e.g. the image being viewed) when
-// there is one — it wins over the P2 text item; otherwise falls back to P2.
+// When p2 is present, PHP suppresses the pane-1 'active' class, so the P2 item is
+// the only highlight in the sidebar. The sidebar auto-scrolls to it ONLY when the
+// p2 selection changed (floating button, arrow keys, clicking a text file) — any
+// other navigation (pane-1 clicks like xmind/images) leaves the scrollbar where
+// the user left it (sidebarScrollTop restore handles that).
 (function() {
     var p2File = new URLSearchParams(window.location.search).get('p2');
     if (p2File) {
@@ -4658,8 +4558,13 @@ applySplitMode();
             }
         });
     }
-    var target = document.querySelector('.sidebar-item.active') || document.querySelector('.sidebar-item.p2-active');
-    if (target) target.scrollIntoView({ block: 'nearest' });
+    var prevP2 = null;
+    try { prevP2 = sessionStorage.getItem('sidebarLastP2'); } catch(e) {}
+    if (p2File && p2File !== prevP2) {
+        var target = document.querySelector('.sidebar-item.p2-active');
+        if (target) target.scrollIntoView({ block: 'center' });
+    }
+    try { sessionStorage.setItem('sidebarLastP2', p2File || ''); } catch(e) {}
 })();
 </script>
 <script src="https://www.youtube.com/iframe_api"></script>

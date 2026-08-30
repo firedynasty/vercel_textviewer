@@ -1571,6 +1571,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 var raw = <?= json_encode($displayContent, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
                 marked.setOptions({ breaks: true, gfm: true });
                 document.getElementById('markdown-render').innerHTML = marked.parse(raw);
+                document.querySelectorAll('#markdown-render a').forEach(function(a) { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
                 document.querySelectorAll('#markdown-render pre code').forEach(function(block) {
                     hljs.highlightElement(block);
                 });
@@ -1718,6 +1719,7 @@ body.dark #copyBtn { background: #555; color: #ffdd57; }
                 var raw = <?= json_encode($p2DisplayContent, JSON_HEX_TAG | JSON_HEX_AMP) ?>;
                 marked.setOptions({ breaks: true, gfm: true });
                 document.getElementById('p2-md-render').innerHTML = marked.parse(raw);
+                document.querySelectorAll('#p2-md-render a').forEach(function(a) { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
                 document.querySelectorAll('#p2-md-render pre code').forEach(function(b) { hljs.highlightElement(b); });
             })();
             </script>
@@ -4049,11 +4051,12 @@ function p2SaveAndExit(editBtn) {
         if (data.ok) {
             p2RawContent = newContent;
             var textEl = document.querySelector('#paneRight .text-content');
-            if (textEl) textEl.textContent = newContent;
-            if (rightTxtEl) rightTxtEl.textContent = newContent;
+            if (textEl) { textEl.textContent = newContent; linkifyText(textEl); }
+            if (rightTxtEl) { rightTxtEl.textContent = newContent; linkifyText(rightTxtEl); }
             var mdEl = document.getElementById('p2-md-render');
             if (mdEl) {
                 mdEl.innerHTML = marked.parse(newContent);
+                fixMdLinks(mdEl);
                 mdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
             }
             editTextarea.remove();
@@ -4123,6 +4126,7 @@ function pasteClipboardToP2() {
         var textDiv = document.createElement('div');
         textDiv.className = 'text-content';
         textDiv.textContent = clipText;
+        linkifyText(textDiv);
         paneRight.appendChild(textDiv);
 
         // Apply current font size
@@ -4361,6 +4365,40 @@ function rightPanePageDown() {
     el.scrollBy({ top: el.clientHeight * 0.9, behavior: 'smooth' });
 }
 
+// --- Auto-link bare URLs in plain-text views (open in new window) ---
+function linkifyText(el) {
+    var urlRe = /(https?:\/\/[^\s<]+[^\s<.,;:!?"')\]])/g;
+    var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    var nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    nodes.forEach(function(node) {
+        if (node.parentNode && node.parentNode.closest('a')) return;
+        var text = node.nodeValue;
+        urlRe.lastIndex = 0;
+        if (!urlRe.test(text)) return;
+        urlRe.lastIndex = 0;
+        var frag = document.createDocumentFragment();
+        var last = 0, m;
+        while ((m = urlRe.exec(text)) !== null) {
+            if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+            var a = document.createElement('a');
+            a.href = m[0];
+            a.target = '_blank';
+            a.rel = 'noopener noreferrer';
+            a.textContent = m[0];
+            frag.appendChild(a);
+            last = m.index + m[0].length;
+        }
+        frag.appendChild(document.createTextNode(text.slice(last)));
+        node.parentNode.replaceChild(frag, node);
+    });
+}
+function fixMdLinks(el) {
+    el.querySelectorAll('a').forEach(function(a) { a.target = '_blank'; a.rel = 'noopener noreferrer'; });
+}
+// Linkify server-rendered plain-text views on load
+document.querySelectorAll('.text-content:not(.code-content)').forEach(linkifyText);
+
 
 // --- TXT>MD toggle helpers (cookie persists across ports on localhost) ---
 function _getTxtMdCookie(pane) {
@@ -4391,6 +4429,7 @@ function applyLeftTxtMd(showMd) {
                 textEl.parentNode.insertBefore(leftMdEl, textEl.nextSibling);
             }
             leftMdEl.innerHTML = marked.parse(rawContent);
+            fixMdLinks(leftMdEl);
             leftMdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
             leftMdEl.style.fontSize = document.getElementById('contentArea').style.fontSize || '';
             leftMdEl.style.display = '';
@@ -4407,6 +4446,7 @@ function applyLeftTxtMd(showMd) {
                 leftTxtEl = document.createElement('div');
                 leftTxtEl.className = 'text-content';
                 leftTxtEl.textContent = rawContent;
+                linkifyText(leftTxtEl);
                 mdEl.parentNode.insertBefore(leftTxtEl, mdEl);
             }
             leftTxtEl.style.fontSize = document.getElementById('contentArea').style.fontSize || '';
@@ -4458,6 +4498,7 @@ function applyRightTxtMd(showMd) {
                 textEl.parentNode.insertBefore(rightMdEl, textEl.nextSibling);
             }
             rightMdEl.innerHTML = marked.parse(p2RawContent);
+            fixMdLinks(rightMdEl);
             rightMdEl.querySelectorAll('pre code').forEach(function(b) { hljs.highlightElement(b); });
             rightMdEl.style.fontSize = document.getElementById('paneRight').style.fontSize || '';
             rightMdEl.style.display = '';
@@ -4474,6 +4515,7 @@ function applyRightTxtMd(showMd) {
                 rightTxtEl = document.createElement('div');
                 rightTxtEl.className = 'text-content';
                 rightTxtEl.textContent = p2RawContent;
+                linkifyText(rightTxtEl);
                 mdEl.parentNode.insertBefore(rightTxtEl, mdEl);
             }
             rightTxtEl.style.fontSize = document.getElementById('paneRight').style.fontSize || '';

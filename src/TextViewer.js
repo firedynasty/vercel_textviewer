@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import ContentViewer from './components/ContentViewer';
 import ControlBar from './components/ControlBar';
 import DropboxBrowser from './components/DropboxBrowser';
+import SongMemorizeModal, { parseSongTxt } from './components/SongMemorizeModal';
 import { processFiles, processDropboxFolder, extractHashtags, isTextFile, isMarkdownFile, isImageFile } from './utils/fileUtils';
 import { useDropbox } from './hooks/useDropbox';
 
@@ -59,6 +60,9 @@ function TextViewer() {
 
   // Raw text content of the currently displayed text/markdown file
   const [currentTextContent, setCurrentTextContent] = useState('');
+
+  // Song memorize modal state
+  const [songMemorizeData, setSongMemorizeData] = useState(null); // { sections, songTitle }
 
   // Markdown TOC / heading navigation
   const [mdHeadings, setMdHeadings] = useState([]);
@@ -454,26 +458,8 @@ function TextViewer() {
   }, [currentTextContent, currentPdfPageText]);
 
   const handleWrapContent = useCallback(() => {
-    if (!currentTextContent || !displayedFile) return;
-
-    const blob = new Blob([currentTextContent], { type: 'text/markdown' });
-    const url = URL.createObjectURL(blob);
-    const wrappedFile = {
-      key: displayedFile.key || 'Wrapped',
-      originalName: (displayedFile.originalName || 'file').replace(/\.[^.]+$/, '') + '.md',
-      type: 'markdown',
-      url,
-    };
-
-    setFiles(prev => {
-      const newFiles = [...prev];
-      newFiles[currentIndex] = wrappedFile;
-      return newFiles;
-    });
-    setIsEditing(false);
-    setEditContent('');
-    setPdfState(null);
-  }, [currentTextContent, displayedFile, currentIndex]);
+    setWrapText(prev => !prev);
+  }, []);
 
   const handlePasteContent = useCallback(async () => {
     try {
@@ -668,17 +654,6 @@ function TextViewer() {
   }, [currentPdfPageText, pdfDocument, pdfState]);
 
 
-  // Auto-wrap: trigger wrap 500ms after changing file (skip audio files)
-  const autoWrapIndexRef = useRef(null);
-  useEffect(() => {
-    if (autoWrapIndexRef.current === currentIndex) return;
-    if (files[currentIndex]?.type === 'audio') return;
-    const timer = setTimeout(() => {
-      autoWrapIndexRef.current = currentIndex;
-      handleWrapContent();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [currentIndex, handleWrapContent, files]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -901,6 +876,10 @@ function TextViewer() {
           onMouseLeaveBar={startHideTimer}
           persistentAudio={persistentAudio}
           onClearAudio={() => setPersistentAudio(null)}
+          onMemorize={() => {
+            const title = displayedFile?.originalName?.replace(/\.txt$/i, '') || 'Song';
+            setSongMemorizeData({ sections: parseSongTxt(currentTextContent), songTitle: title });
+          }}
         />}
 
         <ContentViewer
@@ -949,6 +928,14 @@ function TextViewer() {
         onFolderSelected={(entries, folderPath) => handleDropboxFolderSelected(entries, folderPath, false)}
         dropbox={dropbox}
         recursive
+      />
+
+      <SongMemorizeModal
+        open={!!songMemorizeData}
+        onClose={() => setSongMemorizeData(null)}
+        sections={songMemorizeData?.sections || []}
+        songTitle={songMemorizeData?.songTitle || ''}
+        darkMode={darkMode}
       />
 
     </div>

@@ -67,6 +67,8 @@ function ControlBar({
   // Persistent audio player
   persistentAudio,
   onClearAudio,
+  // Song memorize
+  onMemorize,
 }) {
   const folderInputRef = useRef(null);
   const shallowFolderInputRef = useRef(null);
@@ -809,6 +811,26 @@ function ControlBar({
             🔄
           </button>
         </div>
+      )}
+
+      {/* Song Memorize button — shown when a text file is loaded */}
+      {onMemorize && currentFile && currentFile.type === 'text' && (
+        <button
+          onClick={onMemorize}
+          style={{
+            background: '#7c3aed',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '4px 8px',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+          title="Memorize current song/text by section"
+        >
+          Memorize
+        </button>
       )}
 
       {/* Word Wrap toggle */}

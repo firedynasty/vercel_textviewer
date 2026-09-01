@@ -63,6 +63,14 @@ export default function SongMemorizeModal({
   const activeBg  = darkMode ? '#1e3a5f' : '#dbeafe';
 
   const selectedSection = sections.find(s => s.id === selectedId) || null;
+  const selectedIdx = sections.findIndex(s => s.id === selectedId);
+
+  const goToPrev = () => {
+    if (selectedIdx > 0) { setSelectedId(sections[selectedIdx - 1].id); }
+  };
+  const goToNext = () => {
+    if (selectedIdx < sections.length - 1) { setSelectedId(sections[selectedIdx + 1].id); }
+  };
 
   useEffect(() => {
     if (open) { setSelectedId(null); setActiveLine(null); }
@@ -78,18 +86,22 @@ export default function SongMemorizeModal({
         if (selectedId) setSelectedId(null); else onClose();
         return;
       }
-      if (selectedSection && /^[1-9]$/.test(e.key)) {
-        const idx = parseInt(e.key) - 1;
-        if (selectedSection.lines[idx] !== undefined) {
-          e.preventDefault();
-          setActiveLine(idx);
-          speakText(selectedSection.lines[idx]);
+      if (selectedSection) {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); if (selectedIdx > 0) setSelectedId(sections[selectedIdx - 1].id); return; }
+        if (e.key === 'ArrowRight') { e.preventDefault(); if (selectedIdx < sections.length - 1) setSelectedId(sections[selectedIdx + 1].id); return; }
+        if (/^[1-9]$/.test(e.key)) {
+          const idx = parseInt(e.key) - 1;
+          if (selectedSection.lines[idx] !== undefined) {
+            e.preventDefault();
+            setActiveLine(idx);
+            speakText(selectedSection.lines[idx]);
+          }
         }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, selectedId, selectedSection, onClose]);
+  }, [open, selectedId, selectedSection, onClose, selectedIdx, sections]);
 
   if (!open) return null;
 
@@ -122,15 +134,17 @@ export default function SongMemorizeModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
             {selectedId && (
               <button
-                onClick={() => setSelectedId(null)}
+                onClick={goToPrev}
+                disabled={selectedIdx <= 0}
                 style={{
-                  padding: '3px 8px', fontSize: '0.78rem', fontWeight: 600,
+                  padding: '3px 8px', fontSize: '0.82rem', fontWeight: 700,
                   border: `1px solid ${border}`, borderRadius: 6,
-                  background: hoverBg, color: textColor, cursor: 'pointer', flexShrink: 0,
+                  background: hoverBg, color: selectedIdx <= 0 ? subText : textColor,
+                  cursor: selectedIdx <= 0 ? 'default' : 'pointer', flexShrink: 0,
+                  opacity: selectedIdx <= 0 ? 0.4 : 1,
                 }}
-              >
-                ← Back
-              </button>
+                aria-label="Previous section"
+              >←</button>
             )}
             <h2 style={{
               margin: 0, fontSize: '0.98rem', fontWeight: 700,
@@ -138,6 +152,20 @@ export default function SongMemorizeModal({
             }}>
               {selectedId ? sectionLabel(selectedId) : songTitle}
             </h2>
+            {selectedId && (
+              <button
+                onClick={goToNext}
+                disabled={selectedIdx >= sections.length - 1}
+                style={{
+                  padding: '3px 8px', fontSize: '0.82rem', fontWeight: 700,
+                  border: `1px solid ${border}`, borderRadius: 6,
+                  background: hoverBg, color: selectedIdx >= sections.length - 1 ? subText : textColor,
+                  cursor: selectedIdx >= sections.length - 1 ? 'default' : 'pointer', flexShrink: 0,
+                  opacity: selectedIdx >= sections.length - 1 ? 0.4 : 1,
+                }}
+                aria-label="Next section"
+              >→</button>
+            )}
           </div>
           <button
             onClick={onClose}

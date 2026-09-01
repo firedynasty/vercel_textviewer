@@ -254,6 +254,17 @@ function TextViewer() {
     setFileHandles({});
   }, []);
 
+  // After OAuth redirect completes, auto-load the default images folder
+  useEffect(() => {
+    if (!dropbox.isAuthenticated) return;
+    const pending = sessionStorage.getItem('dropbox_pending_browse');
+    if (pending !== 'nonrecursive') return;
+    sessionStorage.removeItem('dropbox_pending_browse');
+    dropbox.listFolder('/notes/basketball').then(entries => {
+      handleDropboxFolderSelected(entries, '/notes/basketball', true);
+    });
+  }, [dropbox.isAuthenticated, dropbox.listFolder, handleDropboxFolderSelected]);
+
   // Lazy-download a Dropbox file if it hasn't been fetched yet
   const ensureFileDownloaded = useCallback(async (index) => {
     const file = files[index];

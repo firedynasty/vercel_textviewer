@@ -167,15 +167,28 @@ export default function SongMemorizeModal({
               >→</button>
             )}
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              width: 28, height: 28, border: 'none', borderRadius: 6,
-              cursor: 'pointer', background: closeBg, color: textColor,
-              fontWeight: 700, fontSize: 14, flexShrink: 0,
-            }}
-            aria-label="Close"
-          >✕</button>
+          {selectedId ? (
+            <button
+              onClick={() => speakText(selectedSection?.lines.join('. '))}
+              style={{
+                padding: '3px 10px', fontSize: '0.82rem', fontWeight: 700,
+                border: `1px solid ${border}`, borderRadius: 6,
+                background: hoverBg, color: accent,
+                cursor: 'pointer', flexShrink: 0,
+              }}
+              aria-label="Read all lines"
+            >▶ All</button>
+          ) : (
+            <button
+              onClick={onClose}
+              style={{
+                width: 28, height: 28, border: 'none', borderRadius: 6,
+                cursor: 'pointer', background: closeBg, color: textColor,
+                fontWeight: 700, fontSize: 14, flexShrink: 0,
+              }}
+              aria-label="Close"
+            >✕</button>
+          )}
         </div>
 
         {/* Body */}

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Transcript Player</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, sans-serif;
+    background: #111; color: #eee;
+    display: flex; flex-direction: column;
+    height: 100vh; overflow: hidden;
+  }
+
+  /* ── Toolbar ── */
+  #toolbar {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; background: #1a1a1a;
+    border-bottom: 1px solid #2a2a2a; flex-shrink: 0; flex-wrap: wrap;
+  }
+  #toolbar h1 { font-size: 0.9rem; font-weight: 600; color: #fff; }
+  .btn {
+    padding: 5px 12px; border: 1px solid #444; border-radius: 5px;
+    background: #222; color: #ccc; cursor: pointer; font-size: 0.82rem;
+  }
+  .btn:hover { background: #333; }
+  #statusMsg { font-size: 0.78rem; color: #4ade80; }
+  input[type="file"] { display: none; }
+
+  /* ── Main split ── */
+  #main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
+
+  /* Left: video */
+  #videoPane {
+    flex: 1; display: flex; flex-direction: column;
+    background: #000; min-width: 0; overflow: hidden;
+  }
+  #videoWrapper {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    overflow: hidden; position: relative;
+  }
+  video {
+    max-width: 100%; max-height: 100%;
+    width: 100%; height: 100%;
+    object-fit: contain;
+    cursor: pointer;
+  }
+  #videoPlaceholder {
+    position: absolute; color: #444; font-size: 0.9rem;
+    text-align: center; pointer-events: none; line-height: 2;
+  }
+  #controlsBar {
+    padding: 6px 12px; background: #161616;
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+  }
+  #seekBar { flex: 1; accent-color: #2563eb; cursor: pointer; height: 4px; }
+  #timeDisplay { font-size: 0.75rem; color: #666; white-space: nowrap; }
+  .ctrlBtn {
+    background: none; border: none; color: #aaa; cursor: pointer;
+    font-size: 1rem; padding: 2px 6px; border-radius: 4px;
+  }
+  .ctrlBtn:hover { color: #fff; background: #2a2a2a; }
+
+  /* Divider */
+  #divider {
+    width: 4px; background: #222; cursor: col-resize; flex-shrink: 0;
+  }
+  #divider:hover { background: #2563eb; }
+
+  /* Right: transcript */
+  #transcriptPane {
+    width: 380px; display: flex; flex-direction: column;
+    background: #161616; flex-shrink: 0; overflow: hidden;
+  }
+  #transcriptHeader {
+    padding: 8px 12px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a;
+    display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+  }
+  #cueCountLabel { font-size: 0.75rem; color: #555; }
+  #headerBtns { display: flex; gap: 4px; align-items: center; }
+  .hBtn {
+    padding: 2px 8px; border: 1px solid #333; border-radius: 4px;
+    background: #222; color: #888; cursor: pointer; font-size: 0.75rem;
+  }
+  .hBtn:hover { background: #2a2a2a; color: #ccc; }
+  #searchInput {
+    padding: 3px 8px; border: 1px solid #333; border-radius: 4px;
+    background: #1e1e1e; color: #ccc; font-size: 0.78rem; width: 130px;
+    outline: none;
+  }
+  #searchInput:focus { border-color: #2563eb; }
+  #searchInput::placeholder { color: #444; }
+
+  #transcriptBody {
+    flex: 1; overflow-y: auto; padding: 4px 0;
+  }
+  #transcriptBody::-webkit-scrollbar { width: 3px; }
+  #transcriptBody::-webkit-scrollbar-thumb { background: #333; }
+
+  .cue {
+    padding: 5px 12px; cursor: pointer;
+    border-left: 2px solid transparent;
+    transition: background 0.08s;
+  }
+  .cue:hover { background: #1e1e1e; }
+  .cue.active { background: #0d1f3c; border-left-color: #2563eb; }
+  .cue .ts { font-size: 0.68rem; color: #555; margin-bottom: 1px; }
+  .cue.active .ts { color: #60a5fa; }
+  .cue .txt { font-size: 0.85rem; color: #bbb; line-height: 1.5; }
+  .cue.active .txt { color: #eee; }
+
+  #transcriptPlaceholder {
+    padding: 40px 20px; color: #444; font-size: 0.85rem;
+    text-align: center; line-height: 2;
+  }
+
+  /* Auto-scroll toggle */
+  #autoScrollBtn.on { background: #1a3a5c; border-color: #2563eb; color: #60a5fa; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <h1>Video Transcript Player</h1>
+  <button class="btn" id="loadVideoBtn">Load Video</button>
+  <button class="btn" id="loadSrtBtn">Load SRT</button>
+  <span id="statusMsg"></span>
+  <input type="file" id="videoFileInput" accept="video/*,.mp4,.mov,.webm,.mkv">
+  <input type="file" id="srtFileInput" accept=".srt,.txt">
+</div>
+
+<div id="main">
+  <!-- Left: video -->
+  <div id="videoPane">
+    <div id="videoWrapper">
+      <div id="videoPlaceholder">Load a video file<br><span style="font-size:0.75rem">MP4, MOV, WebM</span></div>
+      <video id="video" style="display:none"></video>
+    </div>
+    <div id="controlsBar">
+      <button class="ctrlBtn" id="playPauseBtn" title="Play/Pause (Space)">▶</button>
+      <input type="range" id="seekBar" min="0" max="1000" value="0">
+      <span id="timeDisplay">0:00 / 0:00</span>
+    </div>
+  </div>
+
+  <!-- Divider -->
+  <div id="divider"></div>
+
+  <!-- Right: transcript -->
+  <div id="transcriptPane">
+    <div id="transcriptHeader">
+      <span id="cueCountLabel">No SRT loaded</span>
+      <div id="headerBtns">
+        <input type="text" id="searchInput" placeholder="Search…">
+        <button class="hBtn" id="autoScrollBtn" title="Auto-scroll to active cue">Auto</button>
+        <button class="hBtn" id="fontDecBtn" title="Decrease font">A−</button>
+        <button class="hBtn" id="fontIncBtn" title="Increase font">A+</button>
+      </div>
+    </div>
+    <div id="transcriptBody">
+      <div id="transcriptPlaceholder">Load an SRT file<br><span style="font-size:0.75rem">.srt or .txt</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Elements ────────────────────────────────────────────────────────────────
+const video          = document.getElementById('video');
+const videoPlaceholder = document.getElementById('videoPlaceholder');
+const playPauseBtn   = document.getElementById('playPauseBtn');
+const seekBar        = document.getElementById('seekBar');
+const timeDisplay    = document.getElementById('timeDisplay');
+const transcriptBody = document.getElementById('transcriptBody');
+const cueCountLabel  = document.getElementById('cueCountLabel');
+const searchInput    = document.getElementById('searchInput');
+const autoScrollBtn  = document.getElementById('autoScrollBtn');
+const statusMsg      = document.getElementById('statusMsg');
+
+// ── State ───────────────────────────────────────────────────────────────────
+let cues          = [];   // [{start, end, text}]
+let activeIndex   = -1;
+let autoScroll    = true;
+let fontSize      = 0.85; // rem
+let videoBlobUrl  = null;
+
+// ── Utilities ───────────────────────────────────────────────────────────────
+function fmtTime(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  return h > 0
+    ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`
+    : `${m}:${String(sec).padStart(2,'0')}`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setStatus(msg) {
+  statusMsg.textContent = msg;
+  clearTimeout(setStatus._t);
+  setStatus._t = setTimeout(() => statusMsg.textContent = '', 3000);
+}
+
+// ── SRT Parsing ─────────────────────────────────────────────────────────────
+function srtTs(ts) {
+  const m = ts.trim().match(/(\d+):(\d{2}):(\d{2})[,.](\d{1,3})/);
+  if (!m) return 0;
+  return (+m[1])*3600 + (+m[2])*60 + (+m[3]) + (+m[4].padEnd(3,'0'))/1000;
+}
+
+function parseSrt(raw) {
+  const result = [];
+  const blocks = raw.replace(/\r/g,'').split(/\n\s*\n/);
+  for (const block of blocks) {
+    const lines = block.trim().split('\n').map(l=>l.trim()).filter(Boolean);
+    if (!lines.length) continue;
+    const tsIdx = lines.findIndex(l => l.includes('-->'));
+    if (tsIdx === -1) continue;
+    const m = lines[tsIdx].match(/(.+?)\s*-->\s*(.+)/);
+    if (!m) continue;
+    const start = srtTs(m[1]);
+    const end   = srtTs(m[2]);
+    const text  = lines.slice(tsIdx+1).join(' ');
+    if (text) result.push({ start, end, text });
+  }
+  return result;
+}
+
+// ── Render transcript ────────────────────────────────────────────────────────
+function renderTranscript(list) {
+  transcriptBody.innerHTML = '';
+  if (!list.length) {
+    transcriptBody.innerHTML = '<div id="transcriptPlaceholder">No cues found</div>';
+    return;
+  }
+  list.forEach((cue, i) => {
+    const div = document.createElement('div');
+    div.className = 'cue';
+    div.dataset.idx = i;
+    div.innerHTML = `<div class="ts">${fmtTime(cue.start)}</div><div class="txt">${escHtml(cue.text)}</div>`;
+    div.addEventListener('click', () => {
+      video.currentTime = cue.start;
+      if (video.paused) video.play();
+    });
+    transcriptBody.appendChild(div);
+  });
+  applyFont();
+}
+
+// ── Active cue highlighting ──────────────────────────────────────────────────
+function findActiveCue(t) {
+  let lo = 0, hi = cues.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (cues[mid].start <= t && t < cues[mid].end) return mid;
+    if (cues[mid].start > t) hi = mid - 1;
+    else lo = mid + 1;
+  }
+  return -1;
+}
+
+function updateActiveCue() {
+  const t = video.currentTime;
+  const idx = findActiveCue(t);
+  if (idx === activeIndex) return;
+
+  if (activeIndex >= 0) {
+    const old = transcriptBody.querySelector(`[data-idx="${activeIndex}"]`);
+    if (old) old.classList.remove('active');
+  }
+  activeIndex = idx;
+  if (idx >= 0) {
+    const el = transcriptBody.querySelector(`[data-idx="${idx}"]`);
+    if (el) {
+      el.classList.add('active');
+      if (autoScroll) el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+  }
+}
+
+// ── Video events ─────────────────────────────────────────────────────────────
+video.addEventListener('timeupdate', () => {
+  updateActiveCue();
+  if (video.duration) {
+    seekBar.value = Math.round((video.currentTime / video.duration) * 1000);
+    timeDisplay.textContent = `${fmtTime(video.currentTime)} / ${fmtTime(video.duration)}`;
+  }
+});
+
+video.addEventListener('play',  () => playPauseBtn.textContent = '⏸');
+video.addEventListener('pause', () => playPauseBtn.textContent = '▶');
+video.addEventListener('ended', () => playPauseBtn.textContent = '▶');
+video.addEventListener('click', () => video.paused ? video.play() : video.pause());
+
+playPauseBtn.addEventListener('click', () => {
+  video.paused ? video.play() : video.pause();
+});
+
+seekBar.addEventListener('input', () => {
+  if (video.duration) video.currentTime = (seekBar.value / 1000) * video.duration;
+});
+
+// ── File loading ─────────────────────────────────────────────────────────────
+document.getElementById('loadVideoBtn').addEventListener('click', () =>
+  document.getElementById('videoFileInput').click());
+
+document.getElementById('loadSrtBtn').addEventListener('click', () =>
+  document.getElementById('srtFileInput').click());
+
+document.getElementById('videoFileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
+  videoBlobUrl = URL.createObjectURL(file);
+  video.src = videoBlobUrl;
+  video.style.display = 'block';
+  videoPlaceholder.style.display = 'none';
+  setStatus(`Video: ${file.name}`);
+});
+
+document.getElementById('srtFileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    cues = parseSrt(ev.target.result);
+    activeIndex = -1;
+    renderTranscript(cues);
+    cueCountLabel.textContent = `${cues.length} cues`;
+    setStatus(`SRT: ${file.name}`);
+  };
+  reader.readAsText(file, 'utf-8');
+});
+
+// ── Auto-scroll toggle ────────────────────────────────────────────────────────
+autoScrollBtn.classList.add('on');
+autoScrollBtn.addEventListener('click', () => {
+  autoScroll = !autoScroll;
+  autoScrollBtn.classList.toggle('on', autoScroll);
+});
+
+// ── Font size ────────────────────────────────────────────────────────────────
+function applyFont() {
+  document.querySelectorAll('.cue .txt').forEach(el => el.style.fontSize = fontSize + 'rem');
+}
+document.getElementById('fontIncBtn').addEventListener('click', () => {
+  fontSize = Math.min(1.4, +(fontSize + 0.07).toFixed(2)); applyFont();
+});
+document.getElementById('fontDecBtn').addEventListener('click', () => {
+  fontSize = Math.max(0.6, +(fontSize - 0.07).toFixed(2)); applyFont();
+});
+
+// ── Search ───────────────────────────────────────────────────────────────────
+searchInput.addEventListener('input', () => {
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) { renderTranscript(cues); return; }
+  const filtered = cues.filter(c => c.text.toLowerCase().includes(q));
+  if (!filtered.length) {
+    transcriptBody.innerHTML = '<div id="transcriptPlaceholder">No matches</div>';
+    return;
+  }
+  renderTranscript(filtered);
+});
+
+// ── Keyboard shortcuts ────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  switch(e.code) {
+    case 'Space':      e.preventDefault(); video.paused ? video.play() : video.pause(); break;
+    case 'ArrowRight': video.currentTime = Math.min(video.duration||0, video.currentTime + 5);  break;
+    case 'ArrowLeft':  video.currentTime = Math.max(0, video.currentTime - 5);                   break;
+    case 'ArrowUp':    e.preventDefault(); video.currentTime = Math.min(video.duration||0, video.currentTime + 30); break;
+    case 'ArrowDown':  e.preventDefault(); video.currentTime = Math.max(0, video.currentTime - 30); break;
+  }
+});
+
+// ── Draggable divider ─────────────────────────────────────────────────────────
+const divider = document.getElementById('divider');
+const transcriptPane = document.getElementById('transcriptPane');
+let dragging = false;
+
+divider.addEventListener('mousedown', () => {
+  dragging = true;
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  const w = Math.max(200, Math.min(700, window.innerWidth - e.clientX - 2));
+  transcriptPane.style.width = w + 'px';
+});
+document.addEventListener('mouseup', () => {
+  dragging = false;
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+});
+</script>
+</body>
+</html>

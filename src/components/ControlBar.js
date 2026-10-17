@@ -898,6 +898,14 @@ function ControlBar({
         PDF V
       </button>
 
+      <button
+        className="drop-folder-btn"
+        onClick={() => window.open('/video_transcript_player.html', '_blank')}
+        title="Open Video Transcript Player"
+      >
+        Video T
+      </button>
+
       <input
         type="file"
         ref={picsOnlyFolderInputRef}

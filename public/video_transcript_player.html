@@ -25,8 +25,14 @@
     background: #222; color: #ccc; cursor: pointer; font-size: 0.82rem;
   }
   .btn:hover { background: #333; }
+  .btn.on { background: #1a3a5c; border-color: #2563eb; color: #60a5fa; }
   #statusMsg { font-size: 0.78rem; color: #4ade80; }
   input[type="file"] { display: none; }
+  .langSel {
+    padding: 4px 6px; border: 1px solid #444; border-radius: 5px;
+    background: #222; color: #ccc; font-size: 0.78rem;
+  }
+  .langArrow { color: #555; font-size: 0.8rem; }
 
   /* ── Main split ── */
   #main { display: flex; flex: 1; min-height: 0; overflow: hidden; }
@@ -46,6 +52,8 @@
     object-fit: contain;
     cursor: pointer;
   }
+  #ytWrap { display: none; width: 100%; height: 100%; }
+  #ytWrap iframe { width: 100%; height: 100%; border: 0; }
   #videoPlaceholder {
     position: absolute; color: #444; font-size: 0.9rem;
     text-align: center; pointer-events: none; line-height: 2;
@@ -61,6 +69,7 @@
     font-size: 1rem; padding: 2px 6px; border-radius: 4px;
   }
   .ctrlBtn:hover { color: #fff; background: #2a2a2a; }
+  .ctrlBtn.on { color: #60a5fa; background: #1a3a5c; }
 
   /* Divider */
   #divider {
@@ -92,6 +101,18 @@
   #searchInput:focus { border-color: #2563eb; }
   #searchInput::placeholder { color: #444; }
 
+  #trackInfo {
+    display: none; flex-direction: column; gap: 3px; padding: 5px 12px;
+    background: #141414; border-bottom: 1px solid #2a2a2a; flex-shrink: 0;
+  }
+  .chip { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; color: #9aa; min-width: 0; }
+  .chipLabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chipX {
+    background: none; border: 1px solid #333; border-radius: 3px; color: #777;
+    cursor: pointer; font-size: 0.65rem; padding: 0 5px;
+  }
+  .chipX:hover { color: #f87171; border-color: #f87171; }
+
   #transcriptBody {
     flex: 1; overflow-y: auto; padding: 4px 0;
   }
@@ -107,8 +128,26 @@
   .cue.active { background: #0d1f3c; border-left-color: #2563eb; }
   .cue .ts { font-size: 0.68rem; color: #555; margin-bottom: 1px; }
   .cue.active .ts { color: #60a5fa; }
-  .cue .txt { font-size: 0.85rem; color: #bbb; line-height: 1.5; }
+  .cue .txt { font-size: 0.85rem; color: #bbb; line-height: 1.5; white-space: pre-line; }
   .cue.active .txt { color: #eee; }
+  .cue .txt2 { font-size: 0.75rem; color: #8b93a1; line-height: 1.4; white-space: pre-line; margin-top: 2px; }
+  .cue.active .txt2 { color: #c0c6d0; }
+
+  /* Live subtitle strip under the video: primary (clickable) + Subs 2 */
+  #subStrip {
+    min-height: 4.6em; padding: 8px 16px; background: #0b0b0b; text-align: center;
+    border-top: 1px solid #1c1c1c; flex-shrink: 0;
+  }
+  #subStrip .ss1 { font-size: 1.15rem; color: #fff; line-height: 1.5; white-space: pre-line; }
+  #subStrip .ss2 { font-size: 0.95rem; color: #9db4d6; line-height: 1.4; white-space: pre-line; margin-top: 3px; }
+
+  /* Clickable words */
+  .w {
+    cursor: pointer; border-radius: 2px; padding: 0 1px;
+    border-bottom: 1px solid transparent;
+  }
+  .w:hover { background: #1d4ed8; color: #fff; }
+  .w.saved { border-bottom-color: #f59e0b; }
 
   #transcriptPlaceholder {
     padding: 40px 20px; color: #444; font-size: 0.85rem;
@@ -117,6 +156,57 @@
 
   /* Auto-scroll toggle */
   #autoScrollBtn.on { background: #1a3a5c; border-color: #2563eb; color: #60a5fa; }
+
+  /* ── Word popup ── */
+  #wordPopup {
+    position: fixed; display: none; z-index: 100;
+    background: #1e1e1e; border: 1px solid #3a3a3a; border-radius: 8px;
+    padding: 10px 12px; width: 280px; box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+  }
+  #wpWord { font-size: 1.05rem; font-weight: 600; color: #fff; margin-bottom: 4px; }
+  #wpRoman { font-size: 0.82rem; color: #a3a3a3; font-style: italic; margin-bottom: 4px; }
+  #wpRoman:empty { display: none; }
+  #wpTrans { font-size: 0.85rem; color: #93c5fd; min-height: 1.2em; line-height: 1.4; }
+  #wpSentence { font-size: 0.72rem; color: #666; margin-top: 6px; line-height: 1.4;
+    max-height: 60px; overflow: hidden; }
+  #wpBtns { display: flex; gap: 6px; margin-top: 8px; }
+  .wpBtn {
+    padding: 3px 10px; border: 1px solid #444; border-radius: 4px;
+    background: #262626; color: #ccc; cursor: pointer; font-size: 0.72rem;
+  }
+  .wpBtn:hover { background: #333; }
+  .wpBtn.primary { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+  .wpBtn.primary:hover { background: #2563eb; }
+
+  /* ── Vocab panel ── */
+  #vocabPanel {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 340px; z-index: 90;
+    background: #161616; border-left: 1px solid #2a2a2a;
+    display: none; flex-direction: column;
+  }
+  #vocabHeader {
+    padding: 10px 14px; background: #1a1a1a; border-bottom: 1px solid #2a2a2a;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  #vocabHeader span { font-size: 0.85rem; font-weight: 600; }
+  #vocabList { flex: 1; overflow-y: auto; padding: 6px 0; }
+  .vItem {
+    padding: 7px 14px; border-bottom: 1px solid #1e1e1e;
+    display: flex; align-items: flex-start; gap: 8px;
+  }
+  .vItem .vw { flex: 1; min-width: 0; }
+  .vItem .vw .word { font-size: 0.88rem; color: #eee; font-weight: 600; }
+  .vItem .vw .tr { font-size: 0.78rem; color: #93c5fd; }
+  .vItem .vw .sn { font-size: 0.68rem; color: #555; margin-top: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vItem .vdel {
+    background: none; border: none; color: #555; cursor: pointer; font-size: 0.8rem;
+  }
+  .vItem .vdel:hover { color: #f87171; }
+  #vocabFooter {
+    padding: 8px 14px; border-top: 1px solid #2a2a2a; display: flex; gap: 6px;
+  }
+  #vocabEmpty { padding: 30px 20px; color: #444; font-size: 0.82rem; text-align: center; }
 </style>
 </head>
 <body>
@@ -124,21 +214,53 @@
 <div id="toolbar">
   <h1>Video Transcript Player</h1>
   <button class="btn" id="loadVideoBtn">Load Video</button>
-  <button class="btn" id="loadSrtBtn">Load SRT</button>
+  <button class="btn" id="embedBtn">Embed Link</button>
+  <button class="btn" id="loadSrtBtn" title="Main subtitle track (clickable words). Loading again REPLACES it.">Load Subs 1</button>
+  <button class="btn" id="loadSrt2Btn" title="Second track (e.g. English), shown under the main one. Loading again replaces it.">+ Subs 2</button>
+  <label for="srcLang" style="font-size:0.72rem;color:#666">Subs</label>
+  <select class="langSel" id="srcLang" title="Transcript language">
+    <option value="zh-CN">中文</option>
+    <option value="zh-TW">繁體</option>
+    <option value="en" selected>English</option>
+    <option value="es">Español</option>
+    <option value="fr">Français</option>
+    <option value="ja">日本語</option>
+    <option value="ko">한국어</option>
+    <option value="yue">廣東話</option>
+    <option value="tl">Filipino</option>
+    <option value="de">Deutsch</option>
+  </select>
+  <span class="langArrow">→</span>
+  <label for="tgtLang" style="font-size:0.72rem;color:#666">Popup</label>
+  <select class="langSel" id="tgtLang" title="Translate to">
+    <option value="en" selected>English</option>
+    <option value="zh-CN">中文</option>
+    <option value="es">Español</option>
+    <option value="fr">Français</option>
+    <option value="ja">日本語</option>
+    <option value="ko">한국어</option>
+    <option value="tl">Filipino</option>
+  </select>
+  <button class="btn" id="vocabBtn">Vocab</button>
   <span id="statusMsg"></span>
   <input type="file" id="videoFileInput" accept="video/*,.mp4,.mov,.webm,.mkv">
-  <input type="file" id="srtFileInput" accept=".srt,.txt">
+  <input type="file" id="srtFileInput" accept=".srt,.txt,.vtt">
+  <input type="file" id="srt2FileInput" accept=".srt,.txt,.vtt">
 </div>
 
 <div id="main">
   <!-- Left: video -->
   <div id="videoPane">
     <div id="videoWrapper">
-      <div id="videoPlaceholder">Load a video file<br><span style="font-size:0.75rem">MP4, MOV, WebM</span></div>
+      <div id="videoPlaceholder">Load a video file or embed a YouTube link<br><span style="font-size:0.75rem">MP4, MOV, WebM</span></div>
       <video id="video" style="display:none"></video>
+      <div id="ytWrap"><div id="ytPlayer"></div></div>
     </div>
+    <div id="subStrip"></div>
     <div id="controlsBar">
       <button class="ctrlBtn" id="playPauseBtn" title="Play/Pause (Space)">▶</button>
+      <button class="ctrlBtn" id="replayBtn" title="Replay current line (R)">⟲</button>
+      <button class="ctrlBtn" id="loopBtn" title="Loop current line (L)">Loop</button>
       <input type="range" id="seekBar" min="0" max="1000" value="0">
       <span id="timeDisplay">0:00 / 0:00</span>
     </div>
@@ -158,9 +280,38 @@
         <button class="hBtn" id="fontIncBtn" title="Increase font">A+</button>
       </div>
     </div>
+    <div id="trackInfo"></div>
     <div id="transcriptBody">
-      <div id="transcriptPlaceholder">Load an SRT file<br><span style="font-size:0.75rem">.srt or .txt</span></div>
+      <div id="transcriptPlaceholder">Load an SRT file<br><span style="font-size:0.75rem">.srt, .vtt or .txt</span></div>
     </div>
+  </div>
+</div>
+
+<!-- Word popup -->
+<div id="wordPopup">
+  <div id="wpWord"></div>
+  <div id="wpRoman"></div>
+  <div id="wpTrans">…</div>
+  <div id="wpSentence"></div>
+  <div id="wpBtns">
+    <button class="wpBtn primary" id="wpCopy">Copy</button>
+    <button class="wpBtn" id="wpSpeak" title="Speak the word aloud (S)">🔊 Speak (S)</button>
+    <button class="wpBtn" id="wpClose" title="Close (Q or Esc)">✕ (Q)</button>
+  </div>
+  <select class="langSel" id="wpVoice" title="Speech voice (☁ = online voice)" style="display:none;width:100%;margin-top:6px"></select>
+</div>
+
+<!-- Vocab panel -->
+<div id="vocabPanel">
+  <div id="vocabHeader">
+    <span>Saved words</span>
+    <button class="hBtn" id="vocabClose">✕</button>
+  </div>
+  <div id="vocabList"></div>
+  <div id="vocabFooter">
+    <button class="btn" id="vocabCopyAll">Copy all</button>
+    <button class="btn" id="vocabExport">Export</button>
+    <button class="btn" id="vocabClear">Clear all</button>
   </div>
 </div>
 
@@ -169,6 +320,8 @@
 const video          = document.getElementById('video');
 const videoPlaceholder = document.getElementById('videoPlaceholder');
 const playPauseBtn   = document.getElementById('playPauseBtn');
+const replayBtn      = document.getElementById('replayBtn');
+const loopBtn        = document.getElementById('loopBtn');
 const seekBar        = document.getElementById('seekBar');
 const timeDisplay    = document.getElementById('timeDisplay');
 const transcriptBody = document.getElementById('transcriptBody');
@@ -176,13 +329,40 @@ const cueCountLabel  = document.getElementById('cueCountLabel');
 const searchInput    = document.getElementById('searchInput');
 const autoScrollBtn  = document.getElementById('autoScrollBtn');
 const statusMsg      = document.getElementById('statusMsg');
+const subStrip       = document.getElementById('subStrip');
+const srcLangSel     = document.getElementById('srcLang');
+const tgtLangSel     = document.getElementById('tgtLang');
+const wordPopup      = document.getElementById('wordPopup');
+const wpWord         = document.getElementById('wpWord');
+const wpTrans        = document.getElementById('wpTrans');
+const wpRoman        = document.getElementById('wpRoman');
+const wpSentence     = document.getElementById('wpSentence');
+const vocabPanel     = document.getElementById('vocabPanel');
+const vocabList      = document.getElementById('vocabList');
 
 // ── State ───────────────────────────────────────────────────────────────────
-let cues          = [];   // [{start, end, text}]
+let cues          = [];   // primary track [{start, end, text}]
+let cues2         = [];   // secondary track, shown under primary, matched by time
 let activeIndex   = -1;
 let autoScroll    = true;
+let loopLine      = false;
 let fontSize      = 0.85; // rem
 let videoBlobUrl  = null;
+let popupCtx      = null; // {word, cueIdx}
+
+// ── Player adapter (local file or YouTube embed) ─────────────────────────────
+let mode = 'file';        // 'file' | 'yt'
+let yt = null, ytTimer = null, ytPlaying = false;
+const ytWrap = document.getElementById('ytWrap');
+const ctl = {
+  get time()     { return mode === 'yt' ? (yt && yt.getCurrentTime ? yt.getCurrentTime() : 0) : video.currentTime; },
+  set time(t)    { if (mode === 'yt') { if (yt && yt.seekTo) yt.seekTo(t, true); } else video.currentTime = t; },
+  get duration() { return mode === 'yt' ? (yt && yt.getDuration ? yt.getDuration() : 0) : video.duration; },
+  get paused()   { return mode === 'yt' ? !ytPlaying : video.paused; },
+  play()         { mode === 'yt' ? yt && yt.playVideo() : video.play(); },
+  pause()        { mode === 'yt' ? yt && yt.pauseVideo() : video.pause(); },
+  toggle()       { this.paused ? this.play() : this.pause(); }
+};
 
 // ── Utilities ───────────────────────────────────────────────────────────────
 function fmtTime(s) {
@@ -198,17 +378,38 @@ function escHtml(s) {
   return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-function setStatus(msg) {
+// The Subs 1 filename is sticky (shows which of many .vtt variants is loaded);
+// it stays until replaced. Other messages fade after 3s and fall back to it.
+let stickyStatus = '';
+function setStatus(msg, sticky) {
+  if (sticky !== undefined) stickyStatus = sticky ? msg : '';
   statusMsg.textContent = msg;
   clearTimeout(setStatus._t);
-  setStatus._t = setTimeout(() => statusMsg.textContent = '', 3000);
+  if (!sticky) setStatus._t = setTimeout(() => statusMsg.textContent = stickyStatus, 3000);
+}
+
+// ── Word segmentation (Intl.Segmenter handles Chinese/Japanese; fallback = split) ──
+function segmentWords(text, lang) {
+  const out = [];
+  try {
+    const seg = new Intl.Segmenter(lang, { granularity: 'word' });
+    for (const { segment, isWordLike } of seg.segment(text)) {
+      out.push({ text: segment, isWord: isWordLike });
+    }
+  } catch (e) {
+    text.split(/(\s+)/).forEach(part => {
+      if (part) out.push({ text: part, isWord: /\S/.test(part) });
+    });
+  }
+  return out;
 }
 
 // ── SRT Parsing ─────────────────────────────────────────────────────────────
 function srtTs(ts) {
-  const m = ts.trim().match(/(\d+):(\d{2}):(\d{2})[,.](\d{1,3})/);
+  // SRT: HH:MM:SS,mmm   VTT: HH:MM:SS.mmm or MM:SS.mmm (hours optional)
+  const m = ts.trim().match(/(?:(\d+):)?(\d{1,2}):(\d{2})[,.](\d{1,3})/);
   if (!m) return 0;
-  return (+m[1])*3600 + (+m[2])*60 + (+m[3]) + (+m[4].padEnd(3,'0'))/1000;
+  return (+(m[1]||0))*3600 + (+m[2])*60 + (+m[3]) + (+m[4].padEnd(3,'0'))/1000;
 }
 
 function parseSrt(raw) {
@@ -223,27 +424,92 @@ function parseSrt(raw) {
     if (!m) continue;
     const start = srtTs(m[1]);
     const end   = srtTs(m[2]);
-    const text  = lines.slice(tsIdx+1).join(' ');
+    // strip VTT karaoke/style tags like <c>, <00:00:00.480>
+    const text  = lines.slice(tsIdx+1).join('\n').replace(/<[^>]+>/g,'').trim();
     if (text) result.push({ start, end, text });
   }
   return result;
 }
 
-// ── Render transcript ────────────────────────────────────────────────────────
+// Fill el with clickable word spans (shared by the transcript list and the subtitle strip)
+function fillWords(el, text, cueIdx) {
+  for (const tok of segmentWords(text, srcLangSel.value)) {
+    if (tok.isWord) {
+      const span = document.createElement('span');
+      span.className = 'w' + (vocabHas(tok.text) ? ' saved' : '');
+      span.textContent = tok.text;
+      span.addEventListener('click', ev => {
+        ev.stopPropagation();
+        onWordClick(tok.text, cueIdx, ev.clientX, ev.clientY);
+      });
+      // right-click: speak the word (no popup, playback untouched) instead of the browser menu
+      span.addEventListener('contextmenu', ev => {
+        ev.preventDefault();
+        speakWord(tok.text);
+      });
+      el.appendChild(span);
+    } else {
+      el.appendChild(document.createTextNode(tok.text));
+    }
+  }
+}
+
+// Subs 2 text for a primary cue (approximate): every secondary cue overlapping its
+// time window, or the nearest one when nothing overlaps
+function pairedText(cue) {
+  if (!cues2.length) return '';
+  // first cue2 that ends after this cue starts
+  let lo = 0, hi = cues2.length;
+  while (lo < hi) {
+    const m = (lo + hi) >> 1;
+    if (cues2[m].end <= cue.start) lo = m + 1; else hi = m;
+  }
+  const out = [];
+  for (let k = lo; k < cues2.length && cues2[k].start < cue.end; k++) {
+    if (!out.includes(cues2[k].text)) out.push(cues2[k].text);
+  }
+  if (!out.length) {
+    const a = Math.min(lo, cues2.length - 1), b = Math.max(0, lo - 1);
+    const near = Math.abs(cues2[a].start - cue.start) <= Math.abs(cues2[b].start - cue.start) ? a : b;
+    out.push(cues2[near].text);
+  }
+  return out.join(' ');
+}
+
+// ── Render transcript (clickable words) ──────────────────────────────────────
 function renderTranscript(list) {
   transcriptBody.innerHTML = '';
   if (!list.length) {
     transcriptBody.innerHTML = '<div id="transcriptPlaceholder">No cues found</div>';
     return;
   }
-  list.forEach((cue, i) => {
+  list.forEach(cue => {
+    const origIdx = cues.indexOf(cue);
     const div = document.createElement('div');
     div.className = 'cue';
-    div.dataset.idx = i;
-    div.innerHTML = `<div class="ts">${fmtTime(cue.start)}</div><div class="txt">${escHtml(cue.text)}</div>`;
+    div.dataset.idx = origIdx;
+    const tsDiv = document.createElement('div');
+    tsDiv.className = 'ts';
+    tsDiv.textContent = fmtTime(cue.start);
+    const txtDiv = document.createElement('div');
+    txtDiv.className = 'txt';
+    fillWords(txtDiv, cue.text, origIdx);
+
+    div.appendChild(tsDiv);
+    div.appendChild(txtDiv);
+
+    const t2 = pairedText(cue);
+    if (t2) {
+      const sub = document.createElement('div');
+      sub.className = 'txt2';
+      sub.textContent = t2;
+      div.appendChild(sub);
+    }
+
+    // seek only: never changes whether the video is playing or paused
     div.addEventListener('click', () => {
-      video.currentTime = cue.start;
-      if (video.paused) video.play();
+      hidePopup();
+      ctl.time = cue.start;
     });
     transcriptBody.appendChild(div);
   });
@@ -251,19 +517,23 @@ function renderTranscript(list) {
 }
 
 // ── Active cue highlighting ──────────────────────────────────────────────────
-function findActiveCue(t) {
-  let lo = 0, hi = cues.length - 1;
+function findCueAt(list, t) {
+  let lo = 0, hi = list.length - 1;
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (cues[mid].start <= t && t < cues[mid].end) return mid;
-    if (cues[mid].start > t) hi = mid - 1;
+    if (list[mid].start <= t && t < list[mid].end) return mid;
+    if (list[mid].start > t) hi = mid - 1;
     else lo = mid + 1;
   }
   return -1;
 }
 
+function findActiveCue(t) {
+  return findCueAt(cues, t);
+}
+
 function updateActiveCue() {
-  const t = video.currentTime;
+  const t = ctl.time;
   const idx = findActiveCue(t);
   if (idx === activeIndex) return;
 
@@ -272,6 +542,7 @@ function updateActiveCue() {
     if (old) old.classList.remove('active');
   }
   activeIndex = idx;
+  renderStrip(idx);
   if (idx >= 0) {
     const el = transcriptBody.querySelector(`[data-idx="${idx}"]`);
     if (el) {
@@ -281,26 +552,120 @@ function updateActiveCue() {
   }
 }
 
-// ── Video events ─────────────────────────────────────────────────────────────
-video.addEventListener('timeupdate', () => {
-  updateActiveCue();
-  if (video.duration) {
-    seekBar.value = Math.round((video.currentTime / video.duration) * 1000);
-    timeDisplay.textContent = `${fmtTime(video.currentTime)} / ${fmtTime(video.duration)}`;
+// Live subtitle strip under the video: active primary cue (clickable words) + Subs 2 line
+function renderStrip(idx) {
+  subStrip.innerHTML = '';
+  if (idx < 0) return;
+  const cue = cues[idx];
+  const l1 = document.createElement('div');
+  l1.className = 'ss1';
+  fillWords(l1, cue.text, idx);
+  subStrip.appendChild(l1);
+  const t2 = pairedText(cue);
+  if (t2) {
+    const l2 = document.createElement('div');
+    l2.className = 'ss2';
+    l2.textContent = t2;
+    subStrip.appendChild(l2);
   }
-});
+}
+
+// ── Video events ─────────────────────────────────────────────────────────────
+function tick() {
+  updateActiveCue();
+  // Loop the active line: jump back when the cue ends
+  if (loopLine && activeIndex >= 0 && !ctl.paused) {
+    const cue = cues[activeIndex];
+    if (cue && ctl.time >= cue.end - 0.05) ctl.time = cue.start;
+  }
+  const d = ctl.duration;
+  if (d) {
+    seekBar.value = Math.round((ctl.time / d) * 1000);
+    timeDisplay.textContent = `${fmtTime(ctl.time)} / ${fmtTime(d)}`;
+  }
+}
+video.addEventListener('timeupdate', () => { if (mode === 'file') tick(); });
 
 video.addEventListener('play',  () => playPauseBtn.textContent = '⏸');
 video.addEventListener('pause', () => playPauseBtn.textContent = '▶');
 video.addEventListener('ended', () => playPauseBtn.textContent = '▶');
-video.addEventListener('click', () => video.paused ? video.play() : video.pause());
+video.addEventListener('click', () => ctl.toggle());
 
-playPauseBtn.addEventListener('click', () => {
-  video.paused ? video.play() : video.pause();
+playPauseBtn.addEventListener('click', () => ctl.toggle());
+
+replayBtn.addEventListener('click', () => {
+  if (activeIndex < 0) return;
+  ctl.time = cues[activeIndex].start;
+  if (ctl.paused) ctl.play();
+});
+
+loopBtn.addEventListener('click', () => {
+  loopLine = !loopLine;
+  loopBtn.classList.toggle('on', loopLine);
+  setStatus(loopLine ? 'Looping current line' : 'Loop off');
 });
 
 seekBar.addEventListener('input', () => {
-  if (video.duration) video.currentTime = (seekBar.value / 1000) * video.duration;
+  if (ctl.duration) ctl.time = (seekBar.value / 1000) * ctl.duration;
+});
+
+// ── YouTube embed ────────────────────────────────────────────────────────────
+function parseYoutubeId(input) {
+  const s = input.trim();
+  if (/^[\w-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/|v\/))([\w-]{11})/);
+  return m ? m[1] : null;
+}
+
+function loadYtApi() {
+  return new Promise(resolve => {
+    if (window.YT && YT.Player) return resolve();
+    const prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => { if (prev) prev(); resolve(); };
+    if (!document.getElementById('ytApi')) {
+      const s = document.createElement('script');
+      s.id = 'ytApi'; s.src = 'https://www.youtube.com/iframe_api';
+      document.head.appendChild(s);
+    }
+  });
+}
+
+function showFileMode() {
+  if (mode === 'yt' && yt && yt.pauseVideo) yt.pauseVideo();
+  mode = 'file';
+  clearInterval(ytTimer);
+  ytWrap.style.display = 'none';
+}
+
+document.getElementById('embedBtn').addEventListener('click', async () => {
+  const url = prompt('YouTube link (watch, youtu.be, shorts or embed):');
+  if (!url) return;
+  const id = parseYoutubeId(url);
+  if (!id) { setStatus('Not a valid YouTube link'); return; }
+  video.pause();
+  video.style.display = 'none';
+  videoPlaceholder.style.display = 'none';
+  ytWrap.style.display = 'block';
+  mode = 'yt';
+  activeIndex = -1;
+  await loadYtApi();
+  if (yt) {
+    yt.loadVideoById(id);
+  } else {
+    yt = new YT.Player('ytPlayer', {
+      videoId: id,
+      playerVars: { playsinline: 1, rel: 0, cc_load_policy: 0, disablekb: 1 },
+      events: {
+        onStateChange: e => {
+          ytPlaying = e.data === 1;
+          playPauseBtn.textContent = ytPlaying ? '⏸' : '▶';
+        }
+      }
+    });
+  }
+  clearInterval(ytTimer);
+  ytTimer = setInterval(tick, 250);
+  setStatus(`Embedded: ${id}`);
 });
 
 // ── File loading ─────────────────────────────────────────────────────────────
@@ -313,6 +678,7 @@ document.getElementById('loadSrtBtn').addEventListener('click', () =>
 document.getElementById('videoFileInput').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
+  showFileMode();
   if (videoBlobUrl) URL.revokeObjectURL(videoBlobUrl);
   videoBlobUrl = URL.createObjectURL(file);
   video.src = videoBlobUrl;
@@ -321,18 +687,422 @@ document.getElementById('videoFileInput').addEventListener('change', e => {
   setStatus(`Video: ${file.name}`);
 });
 
+// Which file is in which slot, with a ✕ to clear each track
+let name1 = '', name2 = '';
+const trackInfo = document.getElementById('trackInfo');
+
+function renderTrackInfo() {
+  trackInfo.innerHTML = '';
+  trackInfo.style.display = (name1 || name2) ? 'flex' : 'none';
+  [[1, name1, cues, clearTrack1], [2, name2, cues2, clearTrack2]].forEach(([n, name, list, clear]) => {
+    if (!name) return;
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    const label = document.createElement('span');
+    label.className = 'chipLabel';
+    label.textContent = `${n}: ${name} (${list.length})`;
+    label.title = name;
+    const x = document.createElement('button');
+    x.className = 'chipX';
+    x.textContent = '✕';
+    x.title = `Clear subs ${n}`;
+    x.addEventListener('click', clear);
+    chip.appendChild(label);
+    chip.appendChild(x);
+    trackInfo.appendChild(chip);
+  });
+}
+
+// Redraw list, strip, header and chips after either track changes
+function tracksChanged() {
+  activeIndex = -1;
+  renderStrip(-1);
+  if (cues.length) {
+    renderTranscript(cues);
+    updateActiveCue();
+  } else {
+    transcriptBody.innerHTML = '<div id="transcriptPlaceholder">Load an SRT file<br><span style="font-size:0.75rem">.srt, .vtt or .txt</span></div>';
+  }
+  cueCountLabel.textContent = cues.length
+    ? `${cues.length} cues` + (cues2.length ? ` + ${cues2.length} subs2` : '')
+    : (cues2.length ? `${cues2.length} subs2 (load Subs 1)` : 'No SRT loaded');
+  renderTrackInfo();
+}
+
+function clearTrack1() { cues = []; name1 = ''; tracksChanged(); setStatus('Subs 1 cleared', false); }
+function clearTrack2() { cues2 = []; name2 = ''; tracksChanged(); setStatus('Subs 2 cleared', false); }
+
 document.getElementById('srtFileInput').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = ev => {
     cues = parseSrt(ev.target.result);
-    activeIndex = -1;
-    renderTranscript(cues);
-    cueCountLabel.textContent = `${cues.length} cues`;
-    setStatus(`SRT: ${file.name}`);
+    name1 = file.name;
+    tracksChanged();
+    setStatus(`Subs 1: ${file.name}`, true);
   };
   reader.readAsText(file, 'utf-8');
+  e.target.value = '';
+});
+
+// ── Second subtitle track (shown under primary, approximate time match) ─────
+document.getElementById('loadSrt2Btn').addEventListener('click', () =>
+  document.getElementById('srt2FileInput').click());
+
+document.getElementById('srt2FileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    cues2 = parseSrt(ev.target.result);
+    name2 = file.name;
+    tracksChanged();
+    setStatus(`Subs 2: ${file.name}`);
+    if (cues.length && cues2.length && cues[0].text === cues2[0].text) {
+      setStatus('Subs 2 looks identical to Subs 1 — wrong file?');
+    }
+  };
+  reader.readAsText(file, 'utf-8');
+  e.target.value = '';
+});
+
+// Re-render words when the source language changes (segmentation differs)
+srcLangSel.addEventListener('change', () => { renderTranscript(cues); srcLangSel.blur(); });
+// a focused <select> swallows the keyboard shortcuts, so release focus after choosing
+tgtLangSel.addEventListener('change', () => tgtLangSel.blur());
+
+// ── Translation (MyMemory API, free, CORS-enabled) with localStorage cache ──
+// MyMemory wants full codes (ko-KR, en-US); map our select values
+const MM_CODES = {
+  'zh-CN':'zh-CN', 'zh-TW':'zh-TW', 'en':'en-US', 'es':'es-ES', 'fr':'fr-FR',
+  'ja':'ja-JP', 'ko':'ko-KR', 'yue':'zh-HK', 'tl':'tl', 'de':'de-DE'
+};
+const MM_ERROR = /PLEASE SELECT|MYMEMORY WARNING|INVALID|QUOTA/i;
+
+const dictCache = JSON.parse(localStorage.getItem('vtp_dict_cache') || '{}');
+// purge previously-cached error strings
+let purged = 0;
+for (const k of Object.keys(dictCache)) {
+  if (MM_ERROR.test(dictCache[k])) { delete dictCache[k]; purged++; }
+}
+function saveDictCache() {
+  try { localStorage.setItem('vtp_dict_cache', JSON.stringify(dictCache)); } catch (e) {}
+}
+if (purged) saveDictCache();
+
+async function translate(text) {
+  const src = MM_CODES[srcLangSel.value] || srcLangSel.value;
+  const tgt = MM_CODES[tgtLangSel.value] || tgtLangSel.value;
+  if (src === tgt) return '(source and target language are the same — change one above)';
+  const key = `${src}|${tgt}|${text}`;
+  if (dictCache[key]) return dictCache[key];
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${src}|${tgt}`;
+  const res = await fetch(url);
+  const data = await res.json();
+  const out = (data && data.responseData && data.responseData.translatedText) || '';
+  // only cache real translations, never error strings
+  if (out && !MM_ERROR.test(out)) { dictCache[key] = out; saveDictCache(); }
+  return MM_ERROR.test(out) ? '(lookup failed: ' + out.toLowerCase() + ')' : out;
+}
+
+// ── Korean romanization ──────────────────────────────────────────────────────
+// Revised Romanization of Korean, pronunciation-based: applies liaison (맞아요 → majayo),
+// nasalization (합니다 → hamnida), ㅎ aspiration/silence, ㄹ assimilation (신라 → silla) and
+// ㄷ/ㅌ+이 palatalization. Like the official standard, it does not mark tensification
+// (학교 → hakgyo). Rules apply within a word only, not across spaces.
+const HG_INIT = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const HG_CODA = ['','ㄱ','ㄲ','ㄱㅅ','ㄴ','ㄴㅈ','ㄴㅎ','ㄷ','ㄹ','ㄹㄱ','ㄹㅁ','ㄹㅂ','ㄹㅅ','ㄹㅌ','ㄹㅍ','ㄹㅎ','ㅁ','ㅂ','ㅂㅅ','ㅅ','ㅆ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+const HG_VOWEL = ['a','ae','ya','yae','eo','e','yeo','ye','o','wa','wae','oe','yo','u','wo','we','wi','yu','eu','ui','i'];
+const HG_INIT_RR = { 'ㄱ':'g','ㄲ':'kk','ㄴ':'n','ㄷ':'d','ㄸ':'tt','ㄹ':'r','ㅁ':'m','ㅂ':'b','ㅃ':'pp','ㅅ':'s','ㅆ':'ss','ㅇ':'','ㅈ':'j','ㅉ':'jj','ㅊ':'ch','ㅋ':'k','ㅌ':'t','ㅍ':'p','ㅎ':'h' };
+const HG_FINAL_RR = { 'ㄱ':'k','ㄴ':'n','ㄷ':'t','ㄹ':'l','ㅁ':'m','ㅂ':'p','ㅇ':'ng' };
+// the one sound each final consonant (cluster) is pronounced as
+const HG_FINAL_REP = { 'ㄱ':'ㄱ','ㄲ':'ㄱ','ㄱㅅ':'ㄱ','ㄴ':'ㄴ','ㄴㅈ':'ㄴ','ㄴㅎ':'ㄴ','ㄷ':'ㄷ','ㄹ':'ㄹ','ㄹㄱ':'ㄱ','ㄹㅁ':'ㅁ','ㄹㅂ':'ㄹ','ㄹㅅ':'ㄹ','ㄹㅌ':'ㄹ','ㄹㅍ':'ㅂ','ㄹㅎ':'ㄹ','ㅁ':'ㅁ','ㅂ':'ㅂ','ㅂㅅ':'ㅂ','ㅅ':'ㄷ','ㅆ':'ㄷ','ㅇ':'ㅇ','ㅈ':'ㄷ','ㅊ':'ㄷ','ㅋ':'ㄱ','ㅌ':'ㄷ','ㅍ':'ㅂ','ㅎ':'ㄷ' };
+const HG_ASPIRATE = { 'ㄱ':'ㅋ', 'ㄷ':'ㅌ', 'ㅈ':'ㅊ' };
+const HG_STOP_ASPIRATE = { 'ㄱ':'ㅋ', 'ㄷ':'ㅌ', 'ㅂ':'ㅍ' };
+const HG_NASAL = { 'ㄱ':'ㅇ', 'ㄷ':'ㄴ', 'ㅂ':'ㅁ' };
+
+function romanizeRun(run) {
+  const syl = [...run].map(ch => {
+    const n = ch.charCodeAt(0) - 0xAC00;
+    return { init: HG_INIT[Math.floor(n / 588)], v: Math.floor((n % 588) / 28), coda: HG_CODA[n % 28], sound: undefined };
+  });
+  for (let i = 0; i < syl.length - 1; i++) {
+    const a = syl[i], b = syl[i + 1];
+    if (!a.coda) continue;
+    if (b.init === 'ㅇ') {                       // liaison: the final consonant moves onto the next syllable
+      if (a.coda === 'ㅇ') continue;             // ng never moves
+      if (a.coda === 'ㅎ') { a.coda = ''; continue; }  // silent ㅎ
+      let moved;
+      if (a.coda.length === 2) {                 // cluster: first stays, second moves (ㄶ/ㅀ: ㅎ is dropped, the first moves)
+        moved = a.coda.endsWith('ㅎ') ? a.coda[0] : a.coda[1];
+        a.coda = a.coda.endsWith('ㅎ') ? '' : a.coda[0];
+      } else { moved = a.coda; a.coda = ''; }
+      if (b.v === 20 && moved === 'ㄷ') moved = 'ㅈ';   // 같이 → gachi
+      if (b.v === 20 && moved === 'ㅌ') moved = 'ㅊ';
+      b.init = moved;
+      continue;
+    }
+    if (a.coda.endsWith('ㅎ') && HG_ASPIRATE[b.init]) {   // 좋다 → jota
+      b.init = HG_ASPIRATE[b.init];
+      a.coda = a.coda.slice(0, -1);
+      continue;
+    }
+    let r = a.coda === 'ㄹㄱ' ? (b.init === 'ㄱ' ? 'ㄹ' : 'ㄱ') : HG_FINAL_REP[a.coda];
+    if (b.init === 'ㅎ' && HG_STOP_ASPIRATE[r]) {          // 입학 → ipak
+      b.init = HG_STOP_ASPIRATE[r];
+      a.coda = '';
+      continue;
+    }
+    if (b.init === 'ㄹ') {
+      if (r === 'ㄴ') r = 'ㄹ';                            // 신라 → silla
+      else if (r !== 'ㄹ') b.init = 'ㄴ';                  // 심리 → simni, 독립 → dongnip
+    } else if (r === 'ㄹ' && b.init === 'ㄴ') b.init = 'ㄹ'; // 설날 → sallal
+    if ((b.init === 'ㄴ' || b.init === 'ㅁ') && HG_NASAL[r]) r = HG_NASAL[r];  // 합니다 → hamnida
+    a.sound = r;
+  }
+  let out = '', prevL = false;
+  for (const s of syl) {
+    const fin = s.sound !== undefined ? s.sound
+      : (s.coda ? (s.coda === 'ㄹㄱ' ? 'ㄱ' : HG_FINAL_REP[s.coda]) : '');
+    const ini = s.init === 'ㄹ' ? (prevL ? 'l' : 'r') : HG_INIT_RR[s.init];
+    out += ini + HG_VOWEL[s.v] + (fin ? HG_FINAL_RR[fin] : '');
+    prevL = fin === 'ㄹ';
+  }
+  return out;
+}
+
+// Romanization for text containing Hangul syllables ('' when it has none)
+function romanizeHangul(text) {
+  if (!/[가-힣]/.test(text)) return '';
+  return text.replace(/[가-힣]+/g, romanizeRun);
+}
+
+// ── Word popup ────────────────────────────────────────────────────────────────
+async function onWordClick(word, cueIdx, x, y) {
+  ctl.pause();
+  popupCtx = { word, cueIdx };
+  wpWord.textContent = word;
+  wpRoman.textContent = romanizeHangul(word);
+  wpSentence.textContent = cues[cueIdx] ? cues[cueIdx].text : '';
+  wpTrans.textContent = '…';
+  document.getElementById('wpCopy').textContent = 'Copy';
+  fillVoiceSelect();
+
+  wordPopup.style.display = 'block';
+  const pw = wordPopup.offsetWidth, ph = wordPopup.offsetHeight;
+  wordPopup.style.left = Math.max(8, Math.min(x - pw/2, window.innerWidth - pw - 8)) + 'px';
+  // Sit ~1-2 lines below the word so the rest of the sentence stays visible; with no room
+  // below (e.g. the strip under the video) go the same distance above instead
+  const POPUP_GAP = 42;
+  const top = y + POPUP_GAP + ph + 8 <= window.innerHeight ? y + POPUP_GAP : y - POPUP_GAP - ph;
+  wordPopup.style.top = Math.max(8, top) + 'px';
+
+  try {
+    wpTrans.textContent = await translate(word) || '(no result)';
+  } catch (e) {
+    wpTrans.textContent = '(lookup failed — offline or rate-limited)';
+  }
+}
+
+function hidePopup() { wordPopup.style.display = 'none'; popupCtx = null; speechSynthesis.cancel(); }
+
+document.getElementById('wpClose').addEventListener('click', hidePopup);
+document.addEventListener('mousedown', e => {
+  if (wordPopup.style.display === 'block' && !wordPopup.contains(e.target) &&
+      !e.target.classList.contains('w')) hidePopup();
+});
+
+// Copy "word<TAB>translation" to the clipboard and save the word to the Vocab list
+// (word alone while the lookup is pending or failed)
+document.getElementById('wpCopy').addEventListener('click', async () => {
+  if (!popupCtx) return;
+  const { word } = popupCtx;
+  const t = wpTrans.textContent;
+  const ok = t && t !== '…' && !t.startsWith('(');
+  vocabAdd(word, ok ? t : '', wpSentence.textContent);
+  document.querySelectorAll('.w').forEach(el => {
+    if (el.textContent === word) el.classList.add('saved');
+  });
+  try {
+    await navigator.clipboard.writeText(ok ? `${word}\t${t}` : word);
+    document.getElementById('wpCopy').textContent = 'Copied ✓';
+    setStatus(`Copied + saved: ${word}`);
+  } catch (e) {
+    setStatus(`Saved ${word} — clipboard blocked by the browser`);
+  }
+});
+
+// ── Speech (browser TTS) ─────────────────────────────────────────────────────
+// With no voice set, Chrome picks a generic match, often one of macOS's novelty
+// voices (Eddy, Flo, Grandma…) which sound very robotic. Rank the voices instead.
+const wpVoice = document.getElementById('wpVoice');
+const speechLang = () => MM_CODES[srcLangSel.value] || srcLangSel.value;
+
+function voiceScore(v) {
+  let s = 0;
+  if (/premium|enhanced|neural|natural/i.test(v.name)) s += 3;
+  if (/^google/i.test(v.name)) s += 2;
+  if (/^(eddy|flo|grandma|grandpa|reed|rocko|sandy|shelley)\b/i.test(v.name)) s -= 2;
+  return s;
+}
+
+// Voices for a language tag, best first (full tag match, else same primary language)
+function voicesFor(lang) {
+  const norm = t => t.replace('_', '-').toLowerCase();
+  const all = speechSynthesis.getVoices();
+  let list = all.filter(v => norm(v.lang) === norm(lang));
+  if (!list.length) list = all.filter(v => norm(v.lang).split('-')[0] === norm(lang).split('-')[0]);
+  list.sort((a, b) => voiceScore(b) - voiceScore(a));
+  // Chinese: also offer the Cantonese voices, after the Mandarin ones so the default stays Mandarin
+  if (/^(zh|yue)\b/.test(norm(lang))) {
+    const cantonese = all.filter(v => !list.includes(v) && /^(yue|zh-hk)\b/.test(norm(v.lang)));
+    list = list.concat(cantonese.sort((a, b) => voiceScore(b) - voiceScore(a)));
+  }
+  return list;
+}
+
+function pickVoice(lang) {
+  const list = voicesFor(lang);
+  let saved = '';
+  try { saved = localStorage.getItem('vtp_voice_' + lang) || ''; } catch (e) {}
+  return list.find(v => v.voiceURI === saved) || list[0] || null;
+}
+
+function fillVoiceSelect() {
+  const lang = speechLang();
+  const list = voicesFor(lang);
+  const cur = pickVoice(lang);
+  wpVoice.innerHTML = '';
+  list.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v.voiceURI;
+    o.textContent = v.name + (v.localService ? '' : ' ☁');
+    o.selected = cur && v.voiceURI === cur.voiceURI;
+    wpVoice.appendChild(o);
+  });
+  wpVoice.style.display = list.length > 1 ? 'block' : 'none';
+}
+speechSynthesis.addEventListener('voiceschanged', fillVoiceSelect); // voices load asynchronously
+
+function speakWord(word) {
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(word);
+  u.lang = speechLang();
+  u.voice = pickVoice(u.lang);
+  if (u.voice) u.lang = u.voice.lang; // a Cantonese voice picked under Mandarin must speak as Cantonese
+  speechSynthesis.speak(u);
+}
+
+document.getElementById('wpSpeak').addEventListener('click', () => {
+  if (popupCtx) speakWord(popupCtx.word);
+});
+
+wpVoice.addEventListener('change', () => {
+  try { localStorage.setItem('vtp_voice_' + speechLang(), wpVoice.value); } catch (e) {}
+  if (popupCtx) speakWord(popupCtx.word); // hear the new voice straight away
+  wpVoice.blur(); // a focused select would swallow the S shortcut
+});
+
+// ── Vocab list (localStorage) ────────────────────────────────────────────────
+let vocab = JSON.parse(localStorage.getItem('vtp_vocab') || '[]');
+function saveVocab() {
+  try { localStorage.setItem('vtp_vocab', JSON.stringify(vocab)); } catch (e) {}
+}
+function vocabHas(word) { return vocab.some(v => v.word === word); }
+
+function vocabAdd(word, translation, sentence) {
+  const existing = vocab.find(v => v.word === word);
+  if (existing) {
+    // fill in a translation that was still loading when the word was first saved
+    if (!existing.translation && translation) {
+      existing.translation = translation;
+      saveVocab();
+      renderVocab();
+    }
+    return;
+  }
+  vocab.unshift({
+    word, translation, sentence,
+    src: srcLangSel.value, tgt: tgtLangSel.value,
+    ts: Date.now()
+  });
+  saveVocab();
+  renderVocab();
+}
+
+function renderVocab() {
+  document.getElementById('vocabBtn').textContent = vocab.length ? `Vocab (${vocab.length})` : 'Vocab';
+  if (!vocab.length) {
+    vocabList.innerHTML = '<div id="vocabEmpty">No saved words yet.<br>Click a word, then "Copy" in the popup.</div>';
+    return;
+  }
+  vocabList.innerHTML = '';
+  vocab.forEach((v, i) => {
+    const item = document.createElement('div');
+    item.className = 'vItem';
+    item.innerHTML =
+      `<div class="vw"><div class="word">${escHtml(v.word)}</div>` +
+      `<div class="tr">${escHtml(v.translation)}</div>` +
+      (v.sentence ? `<div class="sn">${escHtml(v.sentence)}</div>` : '') + `</div>`;
+    const del = document.createElement('button');
+    del.className = 'vdel';
+    del.textContent = '✕';
+    del.addEventListener('click', () => {
+      vocab.splice(i, 1);
+      saveVocab();
+      renderVocab();
+      document.querySelectorAll('.w').forEach(el => {
+        if (el.textContent === v.word) el.classList.remove('saved');
+      });
+    });
+    item.appendChild(del);
+    vocabList.appendChild(item);
+  });
+}
+
+// The panel opens only from this toolbar toggle (saving a word never opens it)
+function setVocabPanel(open) {
+  vocabPanel.style.display = open ? 'flex' : 'none';
+  document.getElementById('vocabBtn').classList.toggle('on', open);
+}
+document.getElementById('vocabBtn').addEventListener('click', () => {
+  renderVocab();
+  setVocabPanel(vocabPanel.style.display !== 'flex');
+});
+document.getElementById('vocabClose').addEventListener('click', () => setVocabPanel(false));
+renderVocab(); // show the saved count on the toolbar button at page load
+
+// One "word<TAB>translation" per line, same format as the popup's Copy
+document.getElementById('vocabCopyAll').addEventListener('click', async () => {
+  if (!vocab.length) { setStatus('No saved words to copy'); return; }
+  const text = vocab.map(v => v.translation ? `${v.word}\t${v.translation}` : v.word).join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus(`Copied ${vocab.length} words`);
+  } catch (e) {
+    setStatus('Copy failed — clipboard blocked by the browser');
+  }
+});
+
+document.getElementById('vocabExport').addEventListener('click', () => {
+  const lines = vocab.map(v =>
+    `${v.word}\t${v.translation}\t${v.sentence || ''}\t${v.src}→${v.tgt}`);
+  const blob = new Blob([lines.join('\n')], { type: 'text/tab-separated-values' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'vocab.tsv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setStatus(`Exported ${vocab.length} words`);
+});
+
+document.getElementById('vocabClear').addEventListener('click', () => {
+  vocab = [];
+  saveVocab();
+  renderVocab();
+  document.querySelectorAll('.w.saved').forEach(el => el.classList.remove('saved'));
+  setStatus('Vocab cleared');
 });
 
 // ── Auto-scroll toggle ────────────────────────────────────────────────────────
@@ -366,15 +1136,28 @@ searchInput.addEventListener('input', () => {
 });
 
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
+// Keys pressed while the YouTube iframe has focus go to YouTube, not this page (and YouTube's
+// own digit keys seek to 10%, 20%…), so take focus back right after the iframe grabs it.
+window.addEventListener('blur', () => setTimeout(() => {
+  const a = document.activeElement;
+  if (a && a.tagName === 'IFRAME') { a.blur(); window.focus(); }
+}, 0));
+
 document.addEventListener('keydown', e => {
   const tag = document.activeElement.tagName;
-  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
   switch(e.code) {
-    case 'Space':      e.preventDefault(); video.paused ? video.play() : video.pause(); break;
-    case 'ArrowRight': video.currentTime = Math.min(video.duration||0, video.currentTime + 5);  break;
-    case 'ArrowLeft':  video.currentTime = Math.max(0, video.currentTime - 5);                   break;
-    case 'ArrowUp':    e.preventDefault(); video.currentTime = Math.min(video.duration||0, video.currentTime + 30); break;
-    case 'ArrowDown':  e.preventDefault(); video.currentTime = Math.max(0, video.currentTime - 30); break;
+    case 'Space':      e.preventDefault(); ctl.toggle(); break;
+    case 'ArrowRight': ctl.time = Math.min(ctl.duration||0, ctl.time + 5);  break;
+    case 'ArrowLeft':  ctl.time = Math.max(0, ctl.time - 5);                break;
+    case 'ArrowUp':    e.preventDefault(); ctl.time = Math.min(ctl.duration||0, ctl.time + 30); break;
+    case 'ArrowDown':  e.preventDefault(); ctl.time = Math.max(0, ctl.time - 30); break;
+    case 'KeyR':       if (activeIndex >= 0) { ctl.time = cues[activeIndex].start; if (ctl.paused) ctl.play(); } break;
+    case 'KeyL':       loopBtn.click(); break;
+    case 'KeyS':       if (popupCtx && !e.metaKey && !e.ctrlKey && !e.altKey) speakWord(popupCtx.word); break;
+    case 'KeyQ':       if (!e.metaKey && !e.ctrlKey && !e.altKey) hidePopup(); break;
+    case 'Digit1': case 'Numpad1': if (!e.metaKey && !e.ctrlKey && !e.altKey) ctl.toggle(); break;
+    case 'Escape':     hidePopup(); break;
   }
 });
 

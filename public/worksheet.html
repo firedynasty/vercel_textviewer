@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Worksheet</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0f1115; color: #e6e6e6; font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; line-height: 1.45; }
+  a { color: #8ab4ff; }
+  header { display: flex; align-items: center; gap: 12px; padding: 10px 16px; background: #181b22; border-bottom: 1px solid #2a2e38; flex-wrap: wrap; }
+  header h1 { font-size: 1.05rem; font-weight: 600; flex: 1; min-width: 160px; }
+  #score { font-size: 0.9rem; color: #4ade80; font-variant-numeric: tabular-nums; }
+  button { font: inherit; font-size: 0.85rem; background: #2a2e38; color: #e6e6e6; border: 1px solid #3a3f4b; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  button:hover { background: #343947; }
+  button.primary { background: #2563eb; border-color: #2563eb; }
+  button.primary:hover { background: #1d4fd8; }
+  main { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; padding: 16px; align-items: start; }
+  #videoCol { position: sticky; top: 12px; }
+  #videoWrap { position: relative; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 8px; overflow: hidden; }
+  #videoWrap iframe, #player { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #problems { display: flex; flex-direction: column; gap: 12px; }
+  .prob { background: #181b22; border: 1px solid #2a2e38; border-radius: 8px; padding: 12px 14px; }
+  .prob.ok { border-color: #1f7a46; }
+  .prob.bad { border-color: #8a3030; }
+  .meta { display: flex; gap: 8px; align-items: center; font-size: 0.72rem; color: #9aa0ad; margin-bottom: 6px; }
+  .lvl { padding: 1px 7px; border-radius: 10px; background: #2a2e38; }
+  .lvl1 { color: #86efac; } .lvl2 { color: #fcd34d; } .lvl3 { color: #fca5a5; }
+  .q { font-size: 1rem; margin-bottom: 8px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  input[type=text] { flex: 1; min-width: 120px; font: inherit; background: #0f1115; color: #e6e6e6; border: 1px solid #3a3f4b; border-radius: 6px; padding: 6px 10px; }
+  input[type=text]:focus { outline: 2px solid #2563eb; outline-offset: -1px; }
+  .hint { font-size: 0.75rem; color: #9aa0ad; margin-top: 4px; }
+  .fb { margin-top: 8px; font-size: 0.9rem; }
+  .fb.ok { color: #4ade80; } .fb.bad { color: #f87171; }
+  .sol { margin-top: 8px; padding: 8px 10px; background: #0f1115; border-left: 3px solid #3a3f4b; border-radius: 4px; font-size: 0.88rem; color: #cfd3dc; white-space: pre-wrap; }
+  #list li { margin: 8px 0; }
+  #empty { padding: 24px 16px; color: #9aa0ad; }
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    #videoCol { position: static; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Video Worksheet</h1>
+  <span id="score"></span>
+  <span id="loadMsg" style="color:#f87171;font-size:0.8rem"></span>
+  <button id="loadBtn" title="Open worksheet .json files from your computer (no deploy needed)">Load worksheet file…</button>
+  <button id="resetBtn" style="display:none">Reset answers</button>
+  <input type="file" id="fileInput" accept=".json,application/json" multiple style="display:none">
+</header>
+
+<div id="empty" style="display:none"></div>
+
+<main id="main" style="display:none">
+  <div id="videoCol">
+    <div id="videoWrap"><div id="player"></div></div>
+    <p class="hint" style="margin-top:8px">Answer on the right. A wrong answer gives a button that jumps this video to where the skill is taught.</p>
+  </div>
+  <div id="problems"></div>
+</main>
+
+<script>
+const qs = new URLSearchParams(location.search);
+let videoId = qs.get('v');
+let ws = null;          // loaded worksheet
+let progress = {};      // problem id -> { val, ok }
+let player = null;      // YT.Player, once ready
+let pendingSeek = null; // seek requested before the player was ready
+
+// ── Answer parsing: the same rules as parse_value in make_worksheet.py ──────────
+function parseValue(s) {
+  s = String(s).trim().replace(/[$,\s]/g, '');
+  if (!s) return null;
+  const pct = s.endsWith('%');
+  if (pct) s = s.slice(0, -1);
+  let v;
+  if (s.includes('/')) {
+    const p = s.split('/');
+    if (p.length !== 2 || !/^-?\d+(\.\d+)?$/.test(p[0]) || !/^\d+(\.\d+)?$/.test(p[1])) return null;
+    if (Number(p[1]) === 0) return null;
+    v = Number(p[0]) / Number(p[1]);
+  } else {
+    if (!/^-?(\d+\.?\d*|\.\d+)$/.test(s)) return null;
+    v = Number(s);
+  }
+  return pct ? v / 100 : v;
+}
+
+const gcd = (a, b) => (b ? gcd(b, a % b) : Math.abs(a));
+const near = (a, b, tol) => Math.abs(a - b) <= tol + 1e-9;
+
+// Returns { ok, msg } for one typed answer
+function checkAnswer(p, input) {
+  if (p.kind === 'list') {
+    const got = input.split(',').map(parseValue);
+    const want = p.answer.split(',').map(parseValue);
+    if (got.length !== want.length || got.some(v => v === null)) {
+      return { ok: false, msg: `Type ${want.length} values separated by commas.` };
+    }
+    return got.every((v, i) => near(v, want[i], p.tolerance))
+      ? { ok: true } : { ok: false, msg: 'Not quite. Check the order, smallest first.' };
+  }
+
+  const v = parseValue(input);
+  if (v === null) return { ok: false, msg: 'Enter a number, like 3/10, 0.3, 30% or $4.13.' };
+  const s = input.trim();
+  if (p.form === 'fraction' && !s.includes('/')) return { ok: false, msg: 'Give it as a fraction, like 3/10.' };
+  if (p.form === 'percent' && !s.includes('%')) return { ok: false, msg: 'Give it as a percent, like 30%.' };
+  if (p.form === 'decimal' && /[\/%]/.test(s)) return { ok: false, msg: 'Give it as a decimal, like 0.3.' };
+  if (!near(v, parseValue(p.answer), p.tolerance)) return { ok: false, msg: 'Not quite.' };
+
+  // "lowest terms": reject 70/100 when the key is 7/10
+  const key = p.answer.split('/');
+  if (p.form === 'fraction' && key.length === 2 && gcd(+key[0], +key[1]) === 1) {
+    const mine = s.split('/');
+    if (mine.length === 2 && gcd(+mine[0], +mine[1]) !== 1) {
+      return { ok: false, msg: 'Right value, but reduce it to lowest terms.' };
+    }
+  }
+  return { ok: true };
+}
+
+// ── Storage (progress is a convenience: the page works without it) ──────────────
+const storeKey = () => 'ws_' + videoId;
+function loadProgress() {
+  try { progress = JSON.parse(localStorage.getItem(storeKey())) || {}; } catch (e) { progress = {}; }
+}
+function saveProgress() {
+  try { localStorage.setItem(storeKey(), JSON.stringify(progress)); } catch (e) {}
+}
+
+// ── Video ───────────────────────────────────────────────────────────────────────
+function seekTo(t) {
+  if (player && player.seekTo) { player.seekTo(t, true); player.playVideo(); }
+  else pendingSeek = t;
+}
+function fmt(t) { return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); }
+
+function loadYouTube() {
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+window.onYouTubeIframeAPIReady = () => {
+  player = new YT.Player('player', {
+    videoId,
+    playerVars: { playsinline: 1, rel: 0 },
+    events: { onReady: () => { if (pendingSeek !== null) { seekTo(pendingSeek); pendingSeek = null; } } },
+  });
+};
+
+// ── Rendering ───────────────────────────────────────────────────────────────────
+function el(tag, cls, text) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+
+function hintFor(p) {
+  if (p.kind === 'list') return 'Comma-separated, smallest first, e.g. 1/4, 0.3, 40%';
+  return { fraction: 'Type a fraction, e.g. 3/10', decimal: 'Type a decimal, e.g. 0.3',
+           percent: 'Type a percent, e.g. 30%', money: 'Type an amount, e.g. $4.13' }[p.form] || '';
+}
+
+function renderProblem(p) {
+  const box = el('div', 'prob');
+  const meta = el('div', 'meta');
+  meta.append(el('span', 'lvl lvl' + p.level, 'Level ' + p.level), el('span', '', p.id + '. ' + p.skill));
+  box.append(meta, el('div', 'q', p.question));
+
+  const row = el('div', 'row');
+  const input = el('input');
+  input.type = 'text';
+  input.autocomplete = 'off';
+  input.placeholder = 'Your answer';
+  const checkBtn = el('button', 'primary', 'Check');
+  const solBtn = el('button', '', 'Show solution');
+  row.append(input, checkBtn, solBtn);
+  box.append(row);
+  if (hintFor(p)) box.append(el('div', 'hint', hintFor(p)));
+
+  const fb = el('div', 'fb');
+  const sol = el('div', 'sol', p.solution);
+  sol.style.display = 'none';
+  box.append(fb, sol);
+
+  function showResult(r) {
+    box.classList.toggle('ok', r.ok);
+    box.classList.toggle('bad', !r.ok);
+    fb.className = 'fb ' + (r.ok ? 'ok' : 'bad');
+    fb.replaceChildren();
+    fb.append(r.ok ? '✓ Correct' : '✗ ' + r.msg);
+    if (!r.ok) {
+      const watch = el('button', '', '▶ Watch this part (' + fmt(p.t) + ')');
+      watch.style.marginLeft = '8px';
+      watch.addEventListener('click', () => seekTo(p.t));
+      fb.append(watch);
+    }
+  }
+
+  checkBtn.addEventListener('click', () => {
+    const r = checkAnswer(p, input.value);
+    progress[p.id] = { val: input.value, ok: r.ok };
+    saveProgress();
+    showResult(r);
+    updateScore();
+  });
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') checkBtn.click(); });
+  solBtn.addEventListener('click', () => {
+    const open = sol.style.display === 'none';
+    sol.style.display = open ? 'block' : 'none';
+    solBtn.textContent = open ? 'Hide solution' : 'Show solution';
+  });
+
+  const saved = progress[p.id];
+  if (saved) { input.value = saved.val; showResult(checkAnswer(p, saved.val)); }
+  return box;
+}
+
+function updateScore() {
+  const done = ws.problems.filter(p => progress[p.id] && progress[p.id].ok).length;
+  document.getElementById('score').textContent = done + ' / ' + ws.problems.length + ' correct';
+}
+
+function renderWorksheet() {
+  document.title = ws.title;
+  document.getElementById('title').textContent = ws.title;
+  const box = document.getElementById('problems');
+  box.replaceChildren(...ws.problems.map(renderProblem));
+  updateScore();
+  document.getElementById('main').style.display = '';
+  document.getElementById('resetBtn').style.display = '';
+}
+
+// Two-click reset (no confirm() dialog)
+const resetBtn = document.getElementById('resetBtn');
+let resetArmed = null;
+resetBtn.addEventListener('click', () => {
+  if (!resetArmed) {
+    resetBtn.textContent = 'Really reset?';
+    resetArmed = setTimeout(() => { resetBtn.textContent = 'Reset answers'; resetArmed = null; }, 3000);
+    return;
+  }
+  clearTimeout(resetArmed); resetArmed = null;
+  resetBtn.textContent = 'Reset answers';
+  progress = {}; saveProgress(); renderWorksheet();
+});
+
+// ── Start ───────────────────────────────────────────────────────────────────────
+function showEmpty(node) {
+  const e = document.getElementById('empty');
+  e.replaceChildren(node);
+  e.style.display = '';
+}
+
+// ── Worksheets loaded from files: kept in this browser, no deploy needed ────────
+let localWs = {};   // videoId -> worksheet object
+function readLocal() { try { localWs = JSON.parse(localStorage.getItem('ws_local')) || {}; } catch (e) { localWs = {}; } }
+function writeLocal() { try { localStorage.setItem('ws_local', JSON.stringify(localWs)); } catch (e) {} }
+
+// Returns an error string, or '' if the object looks like a worksheet this page can run
+function validateWorksheet(w) {
+  if (!w || typeof w !== 'object') return 'not a worksheet';
+  if (!/^[\w-]{11}$/.test(w.videoId || '')) return 'missing a valid videoId';
+  if (!Array.isArray(w.problems) || !w.problems.length) return 'no problems';
+  for (const p of w.problems) {
+    if (!p.question || !p.answer || !p.solution || !['number', 'list'].includes(p.kind)) {
+      return 'problem ' + (p.id || '?') + ' is missing question, answer, solution or kind';
+    }
+    if (p.kind === 'list' ? p.answer.split(',').some(x => parseValue(x) === null) : parseValue(p.answer) === null) {
+      return 'problem ' + (p.id || '?') + ' has an answer the page cannot read';
+    }
+  }
+  return '';
+}
+
+document.getElementById('loadBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('fileInput').addEventListener('change', async e => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  let last = null; const problems = [];
+  for (const f of files) {
+    try {
+      const w = JSON.parse(await f.text());
+      const err = validateWorksheet(w);
+      if (err) { problems.push(f.name + ': ' + err); continue; }
+      w.problems.forEach((p, i) => {
+        p.id = p.id || i + 1; p.level = p.level || 1; p.skill = p.skill || '';
+        p.form = p.form || 'any'; p.tolerance = Number(p.tolerance) || 0; p.t = Number(p.t) || 0;
+      });
+      w.title = w.title || w.videoId;
+      localWs[w.videoId] = w; last = w;
+    } catch (err) { problems.push(f.name + ': not valid JSON'); }
+  }
+  writeLocal();
+  const msg = document.getElementById('loadMsg');
+  msg.textContent = problems.length ? 'Could not load: ' + problems.join('; ') : '';
+  if (last) { history.replaceState(null, '', '?v=' + encodeURIComponent(last.videoId)); videoId = last.videoId; start(); }
+  else if (!videoId) start();
+});
+
+async function showList() {
+  let idx = [];
+  try { idx = await (await fetch('worksheets/index.json')).json(); } catch (e) {}
+  const deployed = new Set(idx.map(w => w.videoId));
+  const entries = idx.map(w => ({ ...w, local: false }));
+  Object.values(localWs).forEach(w => {
+    const e = { index: null, videoId: w.videoId, title: w.title, problems: w.problems.length, local: true };
+    const at = entries.findIndex(x => x.videoId === w.videoId);
+    if (at >= 0) { e.index = entries[at].index; entries[at] = e; } else entries.push(e);
+  });
+
+  const wrap = el('div');
+  if (!entries.length) {
+    wrap.append(el('p', '', 'No worksheets yet. Use "Load worksheet file…" to open a .json made by make_worksheet.py.'));
+  } else {
+    wrap.append(el('p', '', 'Pick a worksheet:'));
+    const ul = el('ul'); ul.id = 'list';
+    entries.sort((a, b) => (a.index ?? 1e9) - (b.index ?? 1e9));
+    entries.forEach(w => {
+      const li = el('li');
+      const label = (w.index != null ? w.index + '. ' : '') + w.title + ' (' + w.problems + ' problems' +
+        (w.status ? ', ' + w.status : '') + (w.local ? ', loaded from file' : '') + ')';
+      const a = el('a', '', label);
+      a.href = '?v=' + encodeURIComponent(w.videoId);
+      li.append(a);
+      if (w.local) {
+        const rm = el('button', '', 'Remove');
+        rm.style.marginLeft = '10px';
+        rm.title = 'Forget this loaded file (your saved answers stay)';
+        rm.addEventListener('click', () => { delete localWs[w.videoId]; writeLocal(); start(); });
+        li.append(rm);
+      }
+      ul.append(li);
+    });
+    wrap.append(ul);
+  }
+  showEmpty(wrap);
+}
+
+async function start() {
+  document.getElementById('empty').style.display = 'none';
+  document.getElementById('main').style.display = 'none';
+  document.getElementById('resetBtn').style.display = 'none';
+  document.getElementById('score').textContent = '';
+  document.getElementById('title').textContent = 'Video Worksheet';
+  document.title = 'Video Worksheet';
+  readLocal();
+  if (!videoId) { await showList(); return; }
+
+  if (localWs[videoId]) ws = localWs[videoId];   // a loaded file wins over the deployed copy
+  else {
+    try {
+      const res = await fetch('worksheets/' + encodeURIComponent(videoId) + '.json');
+      if (!res.ok) throw new Error(res.status);
+      ws = await res.json();
+    } catch (e) {
+      showEmpty(el('p', '', 'No worksheet found for video ' + videoId + '. Use "Load worksheet file…" to open its .json.'));
+      return;
+    }
+  }
+  loadProgress();
+  renderWorksheet();
+  if (player && player.loadVideoById) player.cueVideoById(videoId);
+  else if (!document.querySelector('script[src*="iframe_api"]')) loadYouTube();
+  else if (window.YT && YT.Player) window.onYouTubeIframeAPIReady();
+}
+start();
+</script>
+</body>
+</html>

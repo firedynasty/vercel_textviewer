@@ -215,6 +215,8 @@
   <h1>Video Transcript Player</h1>
   <button class="btn" id="loadVideoBtn">Load Video</button>
   <button class="btn" id="embedBtn">Embed Link</button>
+  <button class="btn" id="loadFromDbBtn" style="background:linear-gradient(45deg,#0061ff,#004bb5);color:#fff" title="Sign in to Dropbox (popup) and load /vercel/textviewer/video_library.json">📥 Load from DB</button>
+  <select class="langSel" id="librarySel" title="Videos with ready-made subtitles (python3 video_transcript_player/workflow/build_library.py)"><option value="">Library…</option></select>
   <button class="btn" id="loadSrtBtn" title="Main subtitle track (clickable words). Loading again REPLACES it.">Load Subs 1</button>
   <button class="btn" id="loadSrt2Btn" title="Second track (e.g. English), shown under the main one. Loading again replaces it.">+ Subs 2</button>
   <label for="srcLang" style="font-size:0.72rem;color:#666">Subs</label>
@@ -637,11 +639,15 @@ function showFileMode() {
   ytWrap.style.display = 'none';
 }
 
-document.getElementById('embedBtn').addEventListener('click', async () => {
+document.getElementById('embedBtn').addEventListener('click', () => {
   const url = prompt('YouTube link (watch, youtu.be, shorts or embed):');
   if (!url) return;
   const id = parseYoutubeId(url);
   if (!id) { setStatus('Not a valid YouTube link'); return; }
+  embedYoutube(id);
+});
+
+async function embedYoutube(id) {
   video.pause();
   video.style.display = 'none';
   videoPlaceholder.style.display = 'none';
@@ -666,6 +672,101 @@ document.getElementById('embedBtn').addEventListener('click', async () => {
   clearInterval(ytTimer);
   ytTimer = setInterval(tick, 250);
   setStatus(`Embedded: ${id}`);
+}
+
+// ── Library: videos + subtitles listed in video_library/index.json ───────────
+const librarySel = document.getElementById('librarySel');
+let library = [];
+function populateLibrary(list) {
+  library = list;
+  librarySel.length = 1;
+  list.forEach((e, i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = e.title; librarySel.appendChild(o);
+  });
+}
+// Local testing without login: public/video_library.json (written by build_library.py, not committed)
+fetch('video_library.json').then(r => r.ok ? r.json() : []).then(populateLibrary).catch(() => {});
+
+// ── Dropbox login (PKCE popup, same flow as vercel_youtube "Load from DB") ───
+// Add this page's URL (origin + path) to the Dropbox app's Redirect URIs once.
+const DBX_APP_KEY = 'pqeqkzb3yvnta3n';
+const DBX_LIBRARY_PATH = '/vercel/textviewer/video_library.json';
+const DBX_REDIRECT = location.origin + location.pathname;
+let dbxToken = null;
+try { dbxToken = sessionStorage.getItem('vtp_dbx_token'); } catch (e) {}
+
+const b64url = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+// We are the popup: trade ?code= for a token, hand it to the opener, close
+(async () => {
+  const code = new URLSearchParams(location.search).get('code');
+  if (!code || !window.opener) return;
+  const body = new URLSearchParams({ code, grant_type: 'authorization_code', client_id: DBX_APP_KEY,
+    redirect_uri: DBX_REDIRECT, code_verifier: localStorage.getItem('vtp_dbx_verifier') || '' });
+  try {
+    const r = await fetch('https://api.dropboxapi.com/oauth2/token', { method: 'POST', body });
+    const d = await r.json();
+    if (d.access_token) {
+      window.opener.postMessage({ type: 'dropbox-token', token: d.access_token }, location.origin);
+      window.close();
+    } else document.body.textContent = 'Dropbox auth failed: ' + JSON.stringify(d);
+  } catch (err) { document.body.textContent = 'Dropbox auth error: ' + err.message; }
+})();
+
+function dbxSignIn() {
+  return new Promise(async (resolve, reject) => {
+    const verifier = b64url(crypto.getRandomValues(new Uint8Array(64)));
+    const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+    localStorage.setItem('vtp_dbx_verifier', verifier);
+    const w = window.open('https://www.dropbox.com/oauth2/authorize?client_id=' + DBX_APP_KEY +
+      '&response_type=code&code_challenge=' + challenge + '&code_challenge_method=S256&redirect_uri=' +
+      encodeURIComponent(DBX_REDIRECT) + '&token_access_type=online', 'dropbox-auth', 'width=600,height=700');
+    if (!w) { reject(new Error('popup blocked')); return; }
+    const onMsg = ev => {
+      if (ev.origin !== location.origin || !ev.data || ev.data.type !== 'dropbox-token') return;
+      removeEventListener('message', onMsg);
+      dbxToken = ev.data.token;
+      try { sessionStorage.setItem('vtp_dbx_token', dbxToken); } catch (e) {}
+      resolve();
+    };
+    addEventListener('message', onMsg);
+  });
+}
+
+async function dbxDownload(path) {
+  const r = await fetch('https://content.dropboxapi.com/2/files/download', { method: 'POST',
+    headers: { Authorization: 'Bearer ' + dbxToken, 'Dropbox-API-Arg': JSON.stringify({ path }) } });
+  if (r.status === 401) { dbxToken = null; try { sessionStorage.removeItem('vtp_dbx_token'); } catch (e) {} }
+  if (!r.ok) throw new Error('Dropbox ' + r.status + ' ' + (await r.text()).slice(0, 120));
+  return r.text();
+}
+
+document.getElementById('loadFromDbBtn').addEventListener('click', async e => {
+  const btn = e.currentTarget, label = btn.textContent;
+  btn.disabled = true; btn.textContent = '⏳ Loading…';
+  try {
+    if (!dbxToken) await dbxSignIn();
+    let text;
+    try { text = await dbxDownload(DBX_LIBRARY_PATH); }
+    catch (err) { if (dbxToken) throw err; await dbxSignIn(); text = await dbxDownload(DBX_LIBRARY_PATH); }
+    populateLibrary(JSON.parse(text));
+    setStatus(`Library: ${library.length} videos from Dropbox`, true);
+  } catch (err) { setStatus('DB load failed: ' + err.message); }
+  finally { btn.textContent = label; btn.disabled = false; }
+});
+
+librarySel.addEventListener('change', async () => {
+  const e = library[librarySel.value];
+  librarySel.blur();
+  if (!e) return;
+  await embedYoutube(e.id);
+  cues = parseSrt(e.sub1.text); name1 = e.sub1.name;
+  cues2 = e.sub2 ? parseSrt(e.sub2.text) : []; name2 = e.sub2 ? e.sub2.name : '';
+  const sel = { zh: 'zh-TW', ko: 'ko', en: 'en' }[e.lang];
+  if (sel) srcLangSel.value = sel;
+  tracksChanged();
+  setStatus(`Library: ${e.title}`, true);
 });
 
 // ── File loading ─────────────────────────────────────────────────────────────

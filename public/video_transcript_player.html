@@ -682,7 +682,7 @@ function populateLibrary(list) {
   librarySel.length = 1;
   list.forEach((e, i) => {
     const o = document.createElement('option');
-    o.value = i; o.textContent = e.title; librarySel.appendChild(o);
+    o.value = i; o.textContent = `${e.title} [${e.id}]`; librarySel.appendChild(o);
   });
 }
 // Local testing without login: public/video_library.json (written by build_library.py, not committed)
@@ -766,7 +766,7 @@ librarySel.addEventListener('change', async () => {
   const sel = { zh: 'zh-TW', ko: 'ko', en: 'en' }[e.lang];
   if (sel) srcLangSel.value = sel;
   tracksChanged();
-  setStatus(`Library: ${e.title}`, true);
+  setStatus(`Library: ${e.title} [${e.id}] https://www.youtube.com/watch?v=${e.id}`, true);
 });
 
 // ── File loading ─────────────────────────────────────────────────────────────

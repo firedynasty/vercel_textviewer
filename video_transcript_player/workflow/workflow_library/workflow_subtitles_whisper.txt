@@ -1,0 +1,117 @@
+<!-- source: conversation snippet, 2026-10-31, cwd ~/Documents/technical/github/vercel_textviewer -->
+
+## Summary
+Make timed bilingual subtitles (.srt) for a foreign-language YouTube video that has NO captions
+(first case: Chinese, https://www.youtube.com/watch?v=UUDt4vyCOfo; Korean is the next target).
+Pipeline: yt-dlp mp3 -> OpenAI Whisper (original language, timestamps) -> gpt-4.1-mini translation
+(same cue numbers and timings) -> merged bilingual .srt -> load in the video transcript player.
+Tested 2026-10-31 on UUDt4vyCOfo (2.5 min): 20 cues, zh + en, all three files written.
+Also tested 2026-10-31 on an audio file ALREADY in ~/Downloads (VD98ZnvusY8 .m4a, 2.5 min): 13 cues, zh + en.
+Korean has NOT been run yet; the scripts accept it (see Open questions).
+
+Two starting points:
+  A) You have a YouTube link only      -> from_youtube.sh downloads the mp3 itself.
+  B) You already have an audio file    -> e.g. the .m4a/.mp3 in ~/Downloads; see "Already have the audio file".
+
+## Decide first: do you need Whisper at all?
+Free route first. Run:
+    yt-dlp --cookies-from-browser chrome --no-playlist --list-subs "<url>"
+- Lists captions       -> use the zsh function:  downloadyoutube "<url>"  then choose  s
+                          (writes .vtt for en.*, ko.*, zh.*; no API cost). See "Free route" below.
+- "no automatic captions / no subtitles" (UUDt4vyCOfo was like this) -> use the Whisper route.
+Do not use downloadyoutube option t for language learning: it makes a de-duplicated minute-marker .txt
+(good for reading and for the math worksheet flow, useless for timed subtitles).
+
+## Relevant files & code
+Repo: ~/Documents/technical/github/vercel_textviewer   (the scripts below are currently UNTRACKED in git)
+  video_transcript_player/workflow/from_youtube.sh      ONE COMMAND: url -> mp3 -> 3 srt files
+  video_transcript_player/workflow/2_transcribe_srt.sh  mp3 -> Whisper API -> srt (splits files >24MB,
+                                                        fixes offsets; only `zh` gets a prompt hint:
+                                                        Traditional Chinese, not Simplified)
+  video_transcript_player/workflow/3_translate_srt.py   srt -> translated srt, gpt-4.1-mini, batches,
+                                                        keeps numbering/timings. lang_names has
+                                                        en zh ko es ja fr de pt it ru ar.
+  video_transcript_player/workflow/4_merge_bilingual.py -a top.srt -b bottom.srt -o merged.srt
+  video_transcript_player/workflow/1_extract_audio.sh, run_all.sh   for LOCAL video files (not YouTube)
+  public/video_transcript_player.html                   the player: Embed Link, Load SRT, "+ Subs 2"
+Output goes to: video_transcript_player/youtube/<video_id>/
+  <id>.mp3, <id>_<src>.srt, <id>_<tgt>.srt, <id>_<src>_<tgt>.srt
+Requirements: yt-dlp (with Chrome cookies), ffmpeg, python3 + `openai` pip package, OPENAI_API_KEY in the
+shell that runs it, `deno` for yt-dlp JS challenges (already installed).
+
+from_youtube.sh usage (edited 2026-10-31 to take any language pair):
+    cd ~/Documents/technical/github/vercel_textviewer/video_transcript_player/workflow
+    bash from_youtube.sh "<youtube url>" -l <spoken lang> [-t <translate-into lang>]
+      -l  zh | ko | ja | en | ...   language spoken in the video (default en)
+      -t  target language           (default en; default zh when -l is en)
+      -l and -t must differ (script exits otherwise)
+  Chinese video:  bash from_youtube.sh "https://www.youtube.com/watch?v=UUDt4vyCOfo" -l zh
+  Korean video:   bash from_youtube.sh "<url>" -l ko
+  Korean learner of an English video:  bash from_youtube.sh "<url>" -l en -t ko
+
+Already have the audio file (case B, e.g. a YouTube download sitting in ~/Downloads):
+  from_youtube.sh only takes a URL, so run its steps by hand and skip the download.
+  The file name is "<title> [<video_id>].m4a" with spaces and Chinese/full-width characters, so use a glob on
+  the 11-character video id instead of typing the name. Replace ID and -l as needed (zh, ko, ja, en ...):
+
+    cd ~/Documents/technical/github/vercel_textviewer/video_transcript_player/workflow
+    ID=VD98ZnvusY8
+    OUT=../youtube/$ID ; mkdir -p "$OUT" ; BASE="$OUT/$ID"
+    bash 2_transcribe_srt.sh -i ~/Downloads/*"$ID"*.m4a -l zh -o "${BASE}_zh.srt"
+    python3 3_translate_srt.py -i "${BASE}_zh.srt" -t en -o "${BASE}_en.srt"
+    python3 4_merge_bilingual.py -a "${BASE}_zh.srt" -b "${BASE}_en.srt" -o "${BASE}_zh_en.srt"
+
+  Output lands in the same folder as case A: video_transcript_player/youtube/<id>/ (the audio file in
+  ~/Downloads is left where it is, not copied). Change "zh" and "en" together if the languages differ.
+  Whisper accepts m4a directly (verified); 2_transcribe_srt.sh says "MP3" in its comments but does not care.
+  Check the glob matches ONE file first:  ls ~/Downloads/*"$ID"*
+  GOTCHA (hit 2026-10-31): a COMMA (or ";") in the audio file name makes 2_transcribe_srt.sh die silently at
+  the curl upload (curl -F file=@... treats a comma as a file-list separator); no .srt is written. Copy the file
+  to a plain name first and pass that:  cp ~/Downloads/*"$ID"*.m4a /tmp-or-scratch/$ID.m4a  and use -i on it.
+  WARNING (untested): if the audio is over 24MB the script splits it with `-c copy` into .mp3 segments,
+  which is wrong for an m4a. Convert first:  ffmpeg -i ~/Downloads/*"$ID"*.m4a -b:a 128k "$OUT/$ID.mp3"
+  and pass that mp3 as -i. Files under 24MB (about 25 min of m4a) need no conversion.
+  In the player, use Embed Link https://www.youtube.com/watch?v=<id> (the id is in the file name's [brackets]).
+
+Free route (captions exist), from the user's ~/.zshrc function `downloadyoutube` (option s):
+    yt-dlp --remote-components ejs:github --cookies-from-browser chrome --no-playlist --skip-download \
+      --write-auto-sub --write-sub --sub-lang "en.*,ko.*,zh.*" --sub-format vtt "<url>"
+  VTT pairing rules (player reads .vtt directly): `.A-B.vtt` = language A translated from B.
+  Korean video: primary = `.ko.vtt`, Subs 2 = `.en-ko.vtt` (same cue count; verify with
+  `grep -c -- '-->' file`). Avoid plain `.en.vtt` (rolling captions), `*-orig.vtt`, `*-<id>.vtt`.
+
+## Current behavior (verified)
+- UUDt4vyCOfo has no YouTube captions (`--list-subs` said so), so the Whisper route was used.
+- Whisper returned 20 cues (00:00:01 ... ~00:02:23), Traditional Chinese, translated to English:
+    00:00:01 我也做。 / I also do it.      00:00:09 媽媽做菜。 / Mom cooks.      00:00:13 我也做菜。 / I also cook.
+  Only the first few and last cue were read by hand; the rest were not proofread.
+- Cost: Whisper about $0.006 per audio minute, plus a few cents for translation.
+- In the player: Embed Link -> the YouTube url, Load SRT -> `_zh.srt`; "+ Subs 2" -> `_en.srt`
+  (or load `_zh_en.srt` alone). Cue counts of the two tracks are equal because translation is 1:1.
+
+## Steps for a fresh session (copy these)
+0. If the user points at an audio file (e.g. in ~/Downloads), use "Already have the audio file" and skip step 3's
+   from_youtube.sh. Run that section's commands instead.
+1. Confirm there are no captions (see "Decide first"). If there are, stop and use the free route.
+2. Confirm `echo $OPENAI_API_KEY` is non-empty in this shell. Never print the value.
+3. Run from_youtube.sh with the right -l (and -t). Allow a generous Bash timeout (600000 ms for a long video).
+4. `head -16 .../youtube/<id>/<id>_<src>_<tgt>.srt` and `tail` the source .srt to spot-check timings and text.
+5. Tell the user the three file paths and how to load them in the player. Do not commit unless asked.
+Spending money: Whisper is a paid API call. Say the rough cost and get a yes before running it on a long video.
+
+## Open questions / decisions needed
+- Korean: steps 2 and 3 already accept ko, but 2_transcribe_srt.sh has no Korean prompt hint (zh has one).
+  Not needed unless Korean output has obvious errors; then add a `ko)` case near the `case "$LANGUAGE"` block.
+- Output names are `_ko.srt` / `_en.srt` / `_ko_en.srt`, not the `.ko.vtt` / `.en-ko.vtt` style of the free
+  route. The player loads both; convert srt->vtt only if matching the vtt naming matters.
+- The untracked workflow scripts and the youtube/ output folder are not committed. Large outputs
+  (mp3) should probably be gitignored before committing video_transcript_player/youtube/.
+- from_youtube.sh was syntax-checked and run once (zh -> en). The -t flag and a `-l ko` run are untested.
+- Case B (local audio) is run by hand, not by a script. Optional: add a `-f <audio file>` option to
+  from_youtube.sh (or a small from_audio.sh) so it is one command like case A.
+- VD98ZnvusY8 output (13 cues) was only spot-checked (first 5 and last 2 cues); the rest is not proofread.
+
+## Next steps
+- Run a short Korean video through `-l ko` and proofread the .srt.
+- Decide whether to commit workflow/*.sh, *.py and add youtube/ to .gitignore.
+- Optionally save this file next to the scripts (video_transcript_player/workflow/WORKFLOW.md).

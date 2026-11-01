@@ -1,0 +1,71 @@
+<!-- source: conversation snippet, 2026-10-31, cwd ~/Documents/technical/github/vercel_textviewer -->
+
+## Summary
+Publish new subtitled videos to the Library dropdown of https://vercel-textviewer.vercel.app/video_transcript_player.html
+WITHOUT a git commit/push. All subtitles for every video go in ONE json, uploaded to Dropbox with rclone;
+the player reads it by PATH after a Dropbox popup login ("📥 Load from DB" button), so shared-link URLs
+are not involved. Single user, so no Vercel API proxy or env var (an earlier api/videolibrary.js +
+DROPBOX_VIDEOLIB_URL design was removed). Code committed and pushed 2026-10-31 (commits 718b8958, c76cc0dd).
+NOT yet verified: the live Load from DB click-through (see "One-time setup").
+
+## Everyday workflow (a new video is already in video_transcript_player/youtube/<id>/)
+    cd ~/Documents/technical/github/vercel_textviewer
+    python3 video_transcript_player/workflow/build_library.py --push
+No commit, no deploy. Then in the player click "📥 Load from DB" (signs in via popup the first time per
+browser session), and choose the video in the "Library…" dropdown. Without --push it only rewrites
+public/video_library.json (local test, not committed).
+
+To get a video INTO video_transcript_player/youtube/<id>/ first, see ~/Downloads/workflow_subtitles_whisper.txt
+(from_youtube.sh "<url>" -l zh|ko|..., or by hand for an audio file already in ~/Downloads).
+Each folder needs *.srt files; .mp3 files are ignored.
+
+## Relevant files & code
+Repo: ~/Documents/technical/github/vercel_textviewer
+  video_transcript_player/workflow/build_library.py   scans youtube/*/ -> public/video_library.json;
+                                                      --push does `rclone copy` to dropbox:vercel/textviewer
+                                                      Format: list of {id, title, lang, sub1:{name,text},
+                                                      sub2:{name,text}|null} (srt text embedded)
+  public/video_transcript_player.html                 "📥 Load from DB" button (id loadFromDbBtn) + "Library…"
+                                                      select (librarySel) next to Embed Link. PKCE popup login,
+                                                      app key pqeqkzb3yvnta3n (same as video_viewer.html),
+                                                      downloads /vercel/textviewer/video_library.json via
+                                                      files/download. On choose: embedYoutube(id), then
+                                                      parseSrt(sub1.text) -> cues, sub2 -> cues2. The status line
+                                                      and dropdown show "[id] + watch URL" for manual matching.
+                                                      Falls back to fetch('video_library.json') for local tests.
+Same login pattern as ~/Documents/technical/github/vercel_youtube/public/index.html (loadFromDropboxClipboard,
+dropboxSignInPopup).
+Dropbox: dropbox:vercel/textviewer/video_library.json (rclone remote `dropbox`).
+
+How build_library.py picks tracks per folder:
+  <id>_<xx>_<yy>.srt present -> sub1 = <id>_<xx>.srt, sub2 = <id>_<yy>.srt, lang = xx
+  only <id>.srt              -> sub1 only (e.g. 7UDcz1eDz5s)
+  otherwise                  -> first .srt alphabetically as sub1
+Titles: YouTube oEmbed (no key), falls back to the id offline. To change a title, edit it in
+public/video_library.json (existing titles are kept) and run --push.
+
+## One-time setup (NOT confirmed done when this was written)
+Dropbox console, app key pqeqkzb3yvnta3n: add Redirect URIs
+  https://vercel-textviewer.vercel.app/video_transcript_player.html
+  http://localhost:8000/video_transcript_player.html     (only for local testing)
+and check the app has files.content.read and full-Dropbox (not app-folder) access, since the path is
+/vercel/textviewer/.... Popup shows a redirect error -> URI missing; permission error -> scope missing.
+
+## Local test
+    cd ~/Documents/technical/github/vercel_textviewer/public && python3 -m http.server 8000
+    open http://localhost:8000/video_transcript_player.html   (Load from DB, or falls back to video_library.json)
+
+## Current behavior
+- build_library.py --push ran 2026-10-31: 7 videos uploaded. Test: forcing a re-upload with
+  `rclone copy --ignore-times` kept the same shared link (but the user reported new URLs in other cases,
+  which is why login-by-path was chosen).
+- The Dropbox login and dropdown were NOT clicked through in a browser.
+
+## Open questions / decisions needed
+- He65MI21sDo and ZinAK6n6cWU are Korean videos but only have _zh/_en tracks, so Library loads Chinese +
+  English and sets the source language to zh-TW. Get a Korean .vtt (downloadyoutube option s) if Korean
+  text with romanization is wanted; build_library.py only globs *.srt.
+
+## Next steps
+- Do the one-time setup, then test Load from DB on the live site.
+- Optionally have from_youtube.sh call build_library.py --push at the end.

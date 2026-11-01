@@ -244,6 +244,7 @@
     <option value="tl">Filipino</option>
   </select>
   <button class="btn" id="vocabBtn">Vocab</button>
+  <button class="btn" id="askClaudeBtn" title="Copy the whole transcript with the current time, ready to paste into Claude">Copy for Claude</button>
   <span id="statusMsg"></span>
   <input type="file" id="videoFileInput" accept="video/*,.mp4,.mov,.webm,.mkv">
   <input type="file" id="srtFileInput" accept=".srt,.txt,.vtt">
@@ -1181,6 +1182,21 @@ document.getElementById('vocabCopyAll').addEventListener('click', async () => {
   try {
     await navigator.clipboard.writeText(text);
     setStatus(`Copied ${vocab.length} words`);
+  } catch (e) {
+    setStatus('Copy failed — clipboard blocked by the browser');
+  }
+});
+
+// Whole transcript + current time, ready to paste into a Claude chat
+document.getElementById('askClaudeBtn').addEventListener('click', async () => {
+  if (!cues.length) { setStatus('Load Subs 1 first'); return; }
+  const title = (name1 || 'video').replace(/\.[^.]+$/, '');
+  const text = `Video: ${title}\nI'm watching at ${fmtTime(ctl.time)}.\n\nTranscript:\n`
+    + cues.map(c => `[${fmtTime(c.start)}] ${c.text.replace(/\s*\n\s*/g, ' ')}`).join('\n')
+    + '\n\nMy question about this moment: ';
+  try {
+    await navigator.clipboard.writeText(text);
+    setStatus(`Copied ${cues.length} lines for Claude (at ${fmtTime(ctl.time)})`);
   } catch (e) {
     setStatus('Copy failed — clipboard blocked by the browser');
   }

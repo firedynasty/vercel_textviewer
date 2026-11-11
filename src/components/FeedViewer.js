@@ -4,13 +4,20 @@ import { changedPaths, filterFeed } from '../utils/feedUtils';
 import FeedMarkdown from './FeedMarkdown';
 import './FeedViewer.css';
 
-const FILTERS = [['all', 'Everything'], ['note', 'Notes'], ['image', 'Images'], ['video', 'Videos']];
+const FILTERS = [['all', 'Everything'], ['note', 'Notes'], ['pdf', 'PDFs'], ['image', 'Images'], ['video', 'Videos']];
 const LABELS = { note: 'Note', image: 'Image', video: 'Video' };
 
 function Note({ item, formatted }) {
   return formatted && item.text
     ? <FeedMarkdown text={item.text} plainText={!/\.(md|markdown)$/i.test(item.name)} />
-    : <div className="feed-plain-text">{item.text || <span className="feed-muted">Empty note</span>}</div>;
+    : <div className="feed-plain-text">{item.text || (!item.error && <span className="feed-muted">Empty note</span>)}</div>;
+}
+
+function NoteWarnings({ item }) {
+  return <>
+    {item.truncated && <p className="feed-file-warning">Preview limited. Open the original for the full note.</p>}
+    {item.error && <p className="feed-file-warning">{item.error}</p>}
+  </>;
 }
 
 function Media({ item, onExpand }) {
@@ -49,6 +56,14 @@ const FeedCard = memo(function FeedCard({ item, onExpand, formatted }) {
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
   useEffect(() => () => clearTimeout(copyTimer.current), []);
+  if (item.type === 'pdf') {
+    return <article className="feed-card" data-feed-path={item.path}>
+      <a className="feed-pdf-link" href={item.url} target="_blank" rel="noreferrer" aria-label={`Open PDF ${item.path} in a new tab or window`}>
+        <span className="feed-file-icon feed-file-icon--pdf" aria-hidden="true">PDF</span>
+        <span className="feed-pdf-path">{item.path}</span><span aria-hidden="true">↗</span>
+      </a>
+    </article>;
+  }
   const date = new Date(item.modified);
   const longNote = (item.text || '').length > 600 || (item.text || '').split('\n').length > 10;
   const tags = [...new Set((item.text || '').match(/#[\p{L}\p{N}_-]+/gu) || [])].slice(0, 8);
@@ -66,8 +81,7 @@ const FeedCard = memo(function FeedCard({ item, onExpand, formatted }) {
     </header>
     {item.type === 'note'
       ? <><div className={`feed-note${longNote && !expanded ? ' feed-note--clipped' : ''}`}><Note item={item} formatted={formatted} /></div>
-        {item.truncated && <p className="feed-file-warning">Preview limited to 256 KB. Open the original for the full note.</p>}
-        {item.error && <p className="feed-file-warning">{item.error}</p>}
+        <NoteWarnings item={item} />
         <footer className="feed-card-footer"><div className="feed-tags">{tags.map(tag => <span key={tag}>{tag}</span>)}</div><div className="feed-card-actions">
           {longNote && <button onClick={() => setExpanded(value => !value)}>{expanded ? 'Collapse' : 'Read more'}</button>}
           <button onClick={() => onExpand(item)}>Expand</button><button onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
@@ -86,7 +100,7 @@ function PreviewDialog({ item, onClose, formatted }) {
   }, []);
   return <dialog ref={dialog} className="feed-dialog" onCancel={onClose} onClick={event => { if (event.target === dialog.current) onClose(); }} aria-label={item.name}>
     <div className="feed-dialog-content"><header><h2>{item.name}</h2><button onClick={onClose} autoFocus aria-label="Close preview">×</button></header>
-      {item.type === 'image' ? <img src={item.url} alt={item.name} /> : <Note item={item} formatted={formatted} />}
+      {item.type === 'image' ? <img src={item.url} alt={item.name} /> : <><Note item={item} formatted={formatted} /><NoteWarnings item={item} /></>}
       {item.url && <a href={item.url} target="_blank" rel="noreferrer">Open original file ↗</a>}
     </div>
   </dialog>;
@@ -167,7 +181,7 @@ export default function FeedViewer({ onOpenReader }) {
       <div className="feed-sidebar-bottom"><button onClick={onOpenReader}>Open file reader ↗</button><button onClick={() => setDark(value => !value)}>{dark ? 'Light appearance' : 'Dark appearance'}</button>{feed.isServer && !feed.stopped && <button onClick={feed.stop}>Stop local server</button>}</div>
     </aside>
     <main className="feed-main">
-      <header className="feed-topbar"><div><span className={`feed-status-dot${!feed.hasFolder || feed.error || feed.stopped ? ' feed-status-dot--idle' : ''}`} />{feed.stopped ? 'Server stopped' : feed.error ? 'Connection needs attention' : feed.hasFolder ? 'Live folder' : 'Local files'}</div><span>Notes · Images · Videos</span></header>
+      <header className="feed-topbar"><div><span className={`feed-status-dot${!feed.hasFolder || feed.error || feed.stopped ? ' feed-status-dot--idle' : ''}`} />{feed.stopped ? 'Server stopped' : feed.error ? 'Connection needs attention' : feed.hasFolder ? 'Live folder' : 'Local files'}</div><span>Notes · PDFs · Images · Videos</span></header>
       <div className="feed-scroll" ref={scrolling}>
         <div className="feed-column">
           <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
@@ -175,9 +189,9 @@ export default function FeedViewer({ onOpenReader }) {
           {feed.error && <div className="feed-notice" role="alert">{feed.error} <button onClick={feed.refresh}>Retry</button></div>}
           {pending && <button className="feed-update" onClick={applyUpdates}>{pending.count} {pending.count === 1 ? 'change' : 'changes'} available · Show updates ↑</button>}
           {feed.stopped && <div className="feed-notice">The local server has stopped. Run the launcher again to reconnect.</div>}
-          {!feed.hasFolder && <div className="feed-empty"><div aria-hidden="true">▤</div><h2>Your folder becomes a feed.</h2><p>Choose a folder of notes, images, and videos. Save files in your usual apps and see updates here.</p><button className="feed-primary" onClick={feed.chooseFolder}>Choose a folder</button><small>Files stay on your computer.</small></div>}
+          {!feed.hasFolder && <div className="feed-empty"><div aria-hidden="true">▤</div><h2>Your folder becomes a feed.</h2><p>Choose a folder of notes, PDFs, images, and videos. Save files in your usual apps and see updates here.</p><button className="feed-primary" onClick={feed.chooseFolder}>Choose a folder</button><small>Files stay on your computer.</small></div>}
           {feed.hasFolder && items === null && feed.loading && <div className="feed-empty" role="status">Reading your folder…</div>}
-          {items !== null && filtered.length === 0 && <div className="feed-empty"><h2>{query ? 'No matching files' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename, phrase, or hashtag.' : 'Save a .txt, .md, image, or video in this folder, or include subfolders.'}</p></div>}
+          {items !== null && filtered.length === 0 && <div className="feed-empty"><h2>{query ? 'No matching files' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename, phrase, or hashtag.' : 'Save a .txt, .md, .docx, .pdf, image, or video in this folder, or include subfolders.'}</p></div>}
           <div className="feed-cards">{filtered.slice(0, limit).map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} />)}</div>
           {filtered.length > limit && <div ref={sentinel} className="feed-more"><button onClick={() => setLimit(value => value + 40)}>Load more files</button></div>}
           {filtered.length > 0 && filtered.length <= limit && <p className="feed-end">You're all caught up. New saves will appear here.</p>}

@@ -101,3 +101,44 @@ test('expanded notes follow TXT>MD and copying keeps the original source', async
   act(expand);
   expect(container.querySelector('dialog .feed-plain-text').textContent).toBe(text);
 });
+
+test('DOCX appears under Notes with searchable, copyable text and an original link in its preview', async () => {
+  const text = 'Word document #practice\n\nExtracted paragraph';
+  state.snapshot.items = [
+    { ...original, path: 'practice.docx', name: 'practice.docx', text, url: 'blob:word-document' },
+    { path: 'photo.png', name: 'photo.png', type: 'image', modified: 1000, size: 10, url: 'blob:photo' },
+  ];
+  navigator.clipboard = { writeText: jest.fn().mockResolvedValue() };
+  render();
+  const notes = [...container.querySelectorAll('nav button')].find(button => button.textContent.startsWith('Notes'));
+  expect(notes.textContent).toBe('Notes1');
+  act(() => Simulate.click(notes));
+  act(() => Simulate.change(container.querySelector('input[type="search"]'), { target: { value: '#practice' } }));
+  expect(container.querySelectorAll('.feed-card')).toHaveLength(1);
+  expect(container.querySelector('.feed-card h2').textContent).toBe('practice.docx');
+  await act(async () => Simulate.click([...container.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === 'Copy')));
+  expect(navigator.clipboard.writeText).toHaveBeenCalledWith(text);
+  act(() => Simulate.click([...container.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === 'Expand')));
+  expect(container.querySelector('dialog').textContent).toContain('Extracted paragraph');
+  expect(container.querySelector('dialog a').getAttribute('href')).toBe('blob:word-document');
+});
+
+test('PDF sidebar filter lists searchable paths that open separately without loading an inline preview', () => {
+  const pdf = { path: 'references/guide.pdf', name: 'guide.pdf', type: 'pdf', modified: 1000, size: 100, url: '/files/references/guide.pdf' };
+  state.snapshot.items = [original, pdf];
+  render();
+  const filter = [...container.querySelectorAll('nav button')].find(button => button.textContent.startsWith('PDFs'));
+  expect(filter.textContent).toBe('PDFs1');
+  act(() => Simulate.click(filter));
+  expect(container.querySelectorAll('.feed-card')).toHaveLength(1);
+  const link = container.querySelector('.feed-pdf-link');
+  expect(link.textContent).toContain(pdf.path);
+  expect(link.getAttribute('href')).toBe(pdf.url);
+  expect(link.target).toBe('_blank');
+  expect(link.rel).toBe('noreferrer');
+  expect(container.querySelector('.feed-card iframe, .feed-card embed, .feed-card object, .feed-card video, .feed-card img')).toBe(null);
+  act(() => Simulate.change(container.querySelector('input[type="search"]'), { target: { value: 'references' } }));
+  expect(container.querySelectorAll('.feed-card')).toHaveLength(1);
+  act(() => Simulate.change(container.querySelector('input[type="search"]'), { target: { value: 'missing' } }));
+  expect(container.querySelectorAll('.feed-card')).toHaveLength(0);
+});

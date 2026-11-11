@@ -2,7 +2,7 @@
 .feed-app.feed-dark { --feed-bg: #171d19; --feed-panel: #202923; --feed-ink: #edf0e8; --feed-muted: #a0aea1; --feed-line: #344137; --feed-accent: #9fc7a3; }
 .feed-app button, .feed-dialog button { font: inherit; cursor: pointer; }
 .feed-app button { color: inherit; }
-.feed-app button:focus-visible, .feed-app input:focus-visible, .feed-dialog button:focus-visible { outline: 2px solid var(--feed-accent, #427354); outline-offset: 4px; }
+.feed-app button:focus-visible, .feed-app input:focus-visible, .feed-app a:focus-visible, .feed-dialog button:focus-visible { outline: 2px solid var(--feed-accent, #427354); outline-offset: 4px; }
 .feed-sidebar { width: 244px; flex-shrink: 0; border-right: 1px solid var(--feed-line); padding: 35px 22px 22px; display: flex; flex-direction: column; background: var(--feed-panel); }
 .feed-brand { display: flex; align-items: center; gap: 12px; font-weight: 650; font-size: 19px; letter-spacing: -.5px; margin-bottom: 48px; }
 .feed-brand > span { font-size: 28px; color: var(--feed-accent); }
@@ -44,6 +44,10 @@
 .feed-file-icon { width: 37px; height: 37px; flex-shrink: 0; display: grid; place-items: center; background: #eaf0e8; color: #507650; border-radius: 9px; font-family: Georgia, serif; font-size: 18px; }
 .feed-file-icon--image { background: #edf0f7; color: #627c9d; }
 .feed-file-icon--video { background: #f6eee5; color: #af8652; font-size: 14px; }
+.feed-file-icon--pdf { background: #f6eae6; color: #a25e4c; font: 600 10px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.feed-pdf-link { display: flex; align-items: center; gap: 12px; padding: 20px 23px; color: var(--feed-accent); text-decoration: none; font-size: 13px; }
+.feed-pdf-path { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.feed-pdf-link:hover .feed-pdf-path { text-decoration: underline; }
 .feed-card-heading h2 { font-size: 13px; font-weight: 600; margin-bottom: 5px; overflow-wrap: anywhere; }
 .feed-card-heading p { font-size: 10px; color: var(--feed-muted); line-height: 1.5; overflow-wrap: anywhere; }
 .feed-card-heading p span { padding: 0 4px; }

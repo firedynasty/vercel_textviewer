@@ -22,7 +22,8 @@ from urllib.request import ProxyHandler, Request, build_opener
 REPO = Path(__file__).resolve().parent.parent
 NOTE_LIMIT = 256 * 1024
 TYPES = {
-    **dict.fromkeys(('.txt', '.md', '.markdown'), 'note'),
+    **dict.fromkeys(('.txt', '.md', '.markdown', '.docx'), 'note'),
+    '.pdf': 'pdf',
     **dict.fromkeys(('.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.bmp', '.svg'), 'image'),
     **dict.fromkeys(('.mp4', '.webm', '.mov', '.m4v', '.ogv'), 'video'),
 }
@@ -81,7 +82,8 @@ class Feed:
                             'size': stat.st_size,
                             'url': f'{self.base}/files/{quote(relative)}?v={version}',
                         }
-                        if kind == 'note':
+                        # DOCX archives are extracted by the browser's existing parser.
+                        if kind == 'note' and path.suffix.lower() != '.docx':
                             cached = self.notes.get(relative)
                             if cached and cached[0] == version:
                                 text = cached[1]
@@ -174,15 +176,16 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self.send_response(206 if partial else 200)
             mime = mimetypes.guess_type(path.name)[0] or 'application/octet-stream'
-            if content and TYPES.get(path.suffix.lower()) == 'note':
+            if content and TYPES.get(path.suffix.lower()) == 'note' and path.suffix.lower() != '.docx':
                 mime = 'text/plain; charset=utf-8'
             self.send_header('Content-Type', mime)
             self.send_header('Accept-Ranges', 'bytes')
             self.send_header('Content-Length', str(max(0, end - start + 1)))
             if partial:
                 self.send_header('Content-Range', f'bytes {start}-{end}/{size}')
-            if content:
+            if content and path.suffix.lower() != '.pdf':
                 # SVGs opened directly cannot execute scripts in the viewer origin.
+                # PDFs use Chrome's native viewer, which needs its own page policy.
                 self.send_header('Content-Security-Policy', "sandbox; default-src 'none'; style-src 'unsafe-inline'")
             self.end_headers()
             if self.command == 'HEAD':

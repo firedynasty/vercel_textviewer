@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { scanDirectory, sortFeed } from '../utils/feedUtils';
+import { loadServerNotes, scanDirectory, sortFeed } from '../utils/feedUtils';
 
 export default function useLiveFeed(recursive, retainedItems) {
   const server = window.__LOCAL_FEED__;
@@ -56,7 +56,10 @@ export default function useLiveFeed(recursive, retainedItems) {
           });
           if (!response.ok) throw new Error(`Folder unavailable (${response.status}). Reopen it with the feed launcher.`);
           next = await response.json();
-          next.items = sortFeed(next.items);
+          const result = await loadServerNotes(next.items, cache.current, controller.signal);
+          if (cancelled) return;
+          cache.current = result.cache;
+          next.items = sortFeed(result.items);
         } else {
           const result = await scanDirectory(directory, recursive, cache.current);
           for (const item of result.items) if (item.url) allocatedUrls.current.add(item.url);
@@ -97,7 +100,10 @@ export default function useLiveFeed(recursive, retainedItems) {
 
   return {
     snapshot, error, loading, stopped, chooseFolder, stop,
-    refresh: () => setRefreshKey(value => value + 1),
+    refresh: () => {
+      cache.current = new Map();
+      setRefreshKey(value => value + 1);
+    },
     isServer: Boolean(server), hasFolder: Boolean(server || directory),
   };
 }

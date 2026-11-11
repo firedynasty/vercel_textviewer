@@ -64,6 +64,25 @@ class FeedTests(unittest.TestCase):
         self.assertEqual(len(items['large.md']['text']), NOTE_LIMIT)
         self.assertEqual(before, {path.name: path.read_bytes() for path in self.folder.iterdir()})
 
+    def test_docx_is_a_note_with_binary_url_for_browser_extraction(self):
+        contents = b'PK\x03\x04\xff\x00archive'
+        (self.folder / 'Practice.DOCX').write_bytes(contents)
+        item = self.feed.snapshot()['items'][0]
+        self.assertEqual(item['type'], 'note')
+        self.assertEqual(item['name'], 'Practice.DOCX')
+        self.assertIn('/files/Practice.DOCX?v=', item['url'])
+        self.assertNotIn('text', item)
+        self.assertEqual(self.feed.notes, {})
+        self.assertEqual((self.folder / 'Practice.DOCX').read_bytes(), contents)
+
+    def test_pdf_metadata_is_listed_without_extracting_text(self):
+        (self.folder / 'Guide.PDF').write_bytes(b'%PDF-1.4\nexample')
+        item = self.feed.snapshot()['items'][0]
+        self.assertEqual(item['type'], 'pdf')
+        self.assertIn('/files/Guide.PDF?v=', item['url'])
+        self.assertNotIn('text', item)
+        self.assertEqual(self.feed.notes, {})
+
 
 class HTTPTests(unittest.TestCase):
     def setUp(self):
@@ -150,6 +169,22 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(headers['Content-Type'], 'text/plain; charset=utf-8')
         self.assertIn('sandbox', headers['Content-Security-Policy'])
         self.assertIn(b'<script>', body)
+
+    def test_docx_download_preserves_binary_and_word_mime(self):
+        contents = b'PK\x03\x04\xff\x00archive'
+        name = '你好 #notes.DOCX'
+        (self.folder / name).write_bytes(contents)
+        status, headers, body = self.get(self.base + '/files/' + quote(name))
+        self.assertEqual((status, body), (200, contents))
+        self.assertEqual(headers['Content-Type'], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
+    def test_pdf_link_serves_original_for_the_native_browser_viewer(self):
+        contents = b'%PDF-1.4\nexample'
+        (self.folder / 'Guide #1.PDF').write_bytes(contents)
+        status, headers, body = self.get(self.base + '/files/' + quote('Guide #1.PDF'))
+        self.assertEqual((status, body), (200, contents))
+        self.assertEqual(headers['Content-Type'], 'application/pdf')
+        self.assertNotIn('Content-Security-Policy', headers)
 
     def test_stop_endpoint(self):
         self.assertEqual(self.get(self.base + '/api/stop', method='POST')[0], 200)

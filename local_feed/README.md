@@ -1,6 +1,6 @@
 # Live folder feed
 
-Read `.txt` / `.md` notes, images, and videos together in Chrome. New saves,
+Read `.txt` / `.md` / `.docx` notes, PDF links, images, and videos together in Chrome. New saves,
 edits, and deletions are checked every two seconds. The most recently modified
 files appear first. While you are reading farther down or playing a video,
 changes wait behind **Show updates** so the page stays still.
@@ -94,7 +94,9 @@ The source template is [Open Folder Feed.applescript](Open%20Folder%20Feed.apple
 ## Feed controls
 
 - Search filenames, subfolder paths, note contents, or hashtags; `/` focuses search.
-- Filter everything, notes, images, or videos. Enable **Include subfolders** when needed.
+- Filter everything, notes, PDFs, images, or videos. Enable **Include subfolders** when needed.
+- **PDFs** lists file paths as links that open the original PDF in a new tab or
+  window. PDFs load only when clicked; search matches their names and paths.
 - Expand long notes, copy their text, and click images to enlarge.
 - **TXT>MD** starts on: notes use Markdown typography, bullets, paragraphs, and
   clickable links. Turn it off for the original plain text; expanded previews
@@ -106,8 +108,12 @@ The source template is [Open Folder Feed.applescript](Open%20Folder%20Feed.apple
 One file is one card; companion files are not automatically grouped. Markdown
 headings, lists, links, code, and tables are rendered safely. Markdown HTML stays
 plain text, and embedded image references are shown as labels; images in the
-folder have their own cards. Notes show at most 256 KiB; the original file remains
-available through the local preview dialog. Text is interpreted as UTF-8.
+folder have their own cards. Text notes show at most 256 KiB and are interpreted
+as UTF-8. Word (`.docx`) documents appear under **Notes**, with extracted text for
+search, hashtags, copy, and previews. DOCX previews show at most 256K characters;
+Word layout and embedded images are not displayed. The original file is available
+from the expanded preview in both launcher and browser-only modes. Damaged or
+encrypted documents show a warning without interrupting the other files.
 
 Supported image extensions: JPG, JPEG, PNG, GIF, WebP, AVIF, BMP, SVG. Video:
 MP4, WebM, MOV, M4V, OGV. Actual playback depends on Chrome's codec support;

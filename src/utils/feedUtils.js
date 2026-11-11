@@ -2,7 +2,8 @@ export const NOTE_LIMIT = 256 * 1024;
 
 export function feedType(name) {
   const extension = name.split('.').pop().toLowerCase();
-  if (['txt', 'md', 'markdown'].includes(extension)) return 'note';
+  if (['txt', 'md', 'markdown', 'docx'].includes(extension)) return 'note';
+  if (extension === 'pdf') return 'pdf';
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'svg'].includes(extension)) return 'image';
   if (['mp4', 'webm', 'mov', 'm4v', 'ogv'].includes(extension)) return 'video';
   return null;
@@ -18,10 +19,12 @@ export function sortFeed(items) {
 
 // Hold new ordering and content until the reader chooses to apply the update.
 export function changedPaths(previous, next) {
-  const before = new Map(previous.map(item => [item.path, revision(item)]));
-  const after = new Map(next.map(item => [item.path, revision(item)]));
+  // Retrying an unavailable document can change its error without a new save.
+  const signature = item => `${revision(item)}:${item.error || ''}`;
+  const before = new Map(previous.map(item => [item.path, signature(item)]));
+  const after = new Map(next.map(item => [item.path, signature(item)]));
   return new Set([
-    ...next.filter(item => before.get(item.path) !== revision(item)).map(item => item.path),
+    ...next.filter(item => before.get(item.path) !== signature(item)).map(item => item.path),
     ...previous.filter(item => !after.has(item.path)).map(item => item.path),
   ]);
 }
@@ -33,6 +36,47 @@ export function filterFeed(items, query, type) {
     const searchable = `${item.path}\n${item.text || ''}`.toLowerCase();
     return words.every(word => searchable.includes(word));
   });
+}
+
+export function isDocxNote(item) {
+  return item.type === 'note' && /\.docx$/i.test(item.name);
+}
+
+async function readDocxNote(readBuffer) {
+  try {
+    // DOCX is a ZIP archive: read the whole file before limiting extracted text.
+    const arrayBuffer = await readBuffer();
+    const mammoth = await import('mammoth');
+    const { value } = await mammoth.extractRawText({ arrayBuffer });
+    return { text: value.slice(0, NOTE_LIMIT), truncated: value.length > NOTE_LIMIT };
+  } catch (error) {
+    if (error.name === 'AbortError') throw error;
+    return { text: '', error: 'Could not read this DOCX file. It may be damaged, encrypted, or unavailable.' };
+  }
+}
+
+// The local server lists DOCX metadata; extract its text in the browser too.
+export async function loadServerNotes(items, cache = new Map(), signal) {
+  const nextCache = new Map();
+  const loaded = [];
+  for (const item of items) {
+    if (!isDocxNote(item)) {
+      loaded.push(item);
+      continue;
+    }
+    const previous = cache.get(item.path);
+    const note = previous && revision(previous) === revision(item) ? previous : {
+      ...item,
+      ...await readDocxNote(async () => {
+        const response = await fetch(item.url, { signal, cache: 'no-store' });
+        if (!response.ok) throw new Error(`Could not load DOCX (${response.status}).`);
+        return response.arrayBuffer();
+      }),
+    };
+    nextCache.set(item.path, note);
+    loaded.push(note);
+  }
+  return { items: loaded, cache: nextCache };
 }
 
 export async function scanDirectory(handle, recursive, cache = new Map()) {
@@ -55,10 +99,14 @@ export async function scanDirectory(handle, recursive, cache = new Map()) {
         let item;
         if (previous && revision(previous) === revision(metadata)) {
           item = previous;
+        } else if (isDocxNote(metadata)) {
+          item = { ...metadata, url: URL.createObjectURL(file), ...await readDocxNote(() => file.arrayBuffer()) };
         } else if (type === 'note') {
           item = { ...metadata, text: await file.slice(0, NOTE_LIMIT).text(), truncated: file.size > NOTE_LIMIT };
         } else {
-          item = { ...metadata, url: URL.createObjectURL(file) };
+          // A folder handle may omit MIME types; PDFs should open in the browser.
+          const source = type === 'pdf' ? new Blob([file], { type: 'application/pdf' }) : file;
+          item = { ...metadata, url: URL.createObjectURL(source) };
         }
         nextCache.set(path, item);
         items.push(item);

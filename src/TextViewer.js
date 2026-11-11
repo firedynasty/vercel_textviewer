@@ -7,7 +7,7 @@ import SongMemorizeModal, { parseSongTxt } from './components/SongMemorizeModal'
 import { processFiles, processDropboxFolder, extractHashtags, isTextFile, isMarkdownFile, isImageFile } from './utils/fileUtils';
 import { useDropbox } from './hooks/useDropbox';
 
-function TextViewer() {
+function TextViewer({ onOpenFeed }) {
   const [files, setFiles] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [displayedFileIndex, setDisplayedFileIndex] = useState(0);
@@ -836,6 +836,7 @@ function TextViewer() {
 
       <div className="main-content">
         {!readerMode && <ControlBar
+          onOpenFeed={onOpenFeed}
           currentFile={displayedFile}
           fontSize={fontSize}
           showSidebar={showSidebar}

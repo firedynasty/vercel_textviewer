@@ -1,6 +1,10 @@
 # Basic Vercel App
 
-A simple React application with a button that displays "Hello World!" when clicked.
+A React file reader with a live feed for notes, images, and videos.
+
+For the live feed, background folder server, and Finder Quick Action, see
+[local_feed/README.md](local_feed/README.md). Build with `npm run build:feed`,
+then open a folder with `npm run feed -- "/path/to/notes"`.
 
 ## Getting Started
 

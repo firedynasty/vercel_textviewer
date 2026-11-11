@@ -3,6 +3,8 @@ import { marked } from 'marked';
 import hljs from 'highlight.js';
 import 'highlight.js/styles/github.css';
 import { rtfToPlainText, isRtfFile, parseCsv } from '../utils/fileUtils';
+import { formatTextAsMarkdown } from '../utils/textFormatting';
+import FeedMarkdown from './FeedMarkdown';
 import * as pdfjsLib from 'pdfjs-dist';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
@@ -68,7 +70,7 @@ function ContentViewer({
 }) {
   const [textContent, setTextContent] = useState('');
   const [markdownHtml, setMarkdownHtml] = useState('');
-  const [renderAsMarkdown, setRenderAsMarkdown] = useState(false);
+  const [renderAsMarkdown, setRenderAsMarkdown] = useState(true);
   // Image modal: null = closed, { src, alt, loading } = open
   const [imageModal, setImageModal] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -97,6 +99,8 @@ function ContentViewer({
       const timer = setTimeout(() => {
         if (file.type === 'pdf' && pdfContainerRef.current) {
           pdfContainerRef.current.focus();
+        } else if ((file.type === 'text' || file.type === 'rtf') && markdownPreviewRef.current) {
+          markdownPreviewRef.current.focus();
         } else if ((file.type === 'text' || file.type === 'rtf' || file.type === 'docx') && textPreviewRef.current) {
           textPreviewRef.current.focus();
         } else if (file.type === 'markdown' && markdownPreviewRef.current) {
@@ -306,7 +310,7 @@ function ContentViewer({
     setSheetPickerOpen(false);
     setSheetNames([]);
     setPendingWorkbook(null);
-    setRenderAsMarkdown(false);
+    setRenderAsMarkdown(true);
     setHtmlContent('');
     if (onHeadingsExtracted) onHeadingsExtracted([]);
 
@@ -430,11 +434,11 @@ function ContentViewer({
     if (!onHeadingsExtracted) return;
     if (!file || (file.type !== 'text' && file.type !== 'rtf')) return;
     if (renderAsMarkdown && textContent) {
-      onHeadingsExtracted(extractMarkdownHeadings(textContent));
+      onHeadingsExtracted(extractMarkdownHeadings(formatTextAsMarkdown(textContent)));
     } else {
       onHeadingsExtracted([]);
     }
-  }, [renderAsMarkdown]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [file, renderAsMarkdown, textContent, onHeadingsExtracted]);
 
   // Scroll to heading when requested from TOC
   useEffect(() => {
@@ -621,7 +625,8 @@ function ContentViewer({
               <button
                 className="txt-md-toggle-btn"
                 onClick={() => setRenderAsMarkdown(true)}
-                title="Render as Markdown"
+                title="Toggle formatted view (bullets * lines, auto-link, paragraphs)"
+                aria-pressed={false}
               >
                 TXT&gt;MD
               </button>
@@ -636,15 +641,10 @@ function ContentViewer({
             style={{ fontSize: `${fontSize}px` }}
             ref={markdownPreviewRef}
             tabIndex={-1}
-            dangerouslySetInnerHTML={{
-              __html: `<div class="content-title">${file.key}<button class="txt-md-toggle-btn active" id="txt-md-back-btn">MD&gt;TXT</button></div>${addHeadingIds(marked.parse(textContent))}`
-            }}
-            onClick={(e) => {
-              if (e.target.id === 'txt-md-back-btn' || e.target.closest('#txt-md-back-btn')) {
-                setRenderAsMarkdown(false);
-              }
-            }}
-          />
+          >
+            <div className="content-title">{file.key}<button className="txt-md-toggle-btn active" aria-pressed={true} title="Switch to plain text" onClick={() => setRenderAsMarkdown(false)}>MD&gt;TXT</button></div>
+            <FeedMarkdown text={textContent} plainText headingId={slugify} className="reader-markdown-body" />
+          </div>
         )}
 
         {(file.type === 'text' || file.type === 'rtf') && isEditing && (

@@ -7,6 +7,7 @@ function getShortLabel(path) {
 }
 
 function ControlBar({
+  onOpenFeed,
   currentFile,
   fontSize,
   onFontSizeChange,
@@ -393,6 +394,7 @@ function ControlBar({
       onMouseEnter={onMouseEnterBar}
       onMouseLeave={onMouseLeaveBar}
     >
+      {onOpenFeed && <button className="dropbox-btn" onClick={onOpenFeed} title="Live notes, images, and videos">Feed</button>}
       {!showSidebar && (
         <button
           className="hamburger-btn"

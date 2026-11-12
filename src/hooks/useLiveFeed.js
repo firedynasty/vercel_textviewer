@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadServerNotes, scanDirectory, sortFeed } from '../utils/feedUtils';
+import { CHAT_MARKER, hasControlCharacters } from '../utils/chatUtils';
+import { WORKSHEET_MARKER } from '../utils/worksheetUtils';
 
 export default function useLiveFeed(recursive, retainedItems) {
   const server = window.__LOCAL_FEED__;
@@ -98,8 +100,64 @@ export default function useLiveFeed(recursive, retainedItems) {
     } catch (problem) { setError(problem.message); }
   };
 
+  const saveNote = async (filename, text) => {
+    if (stopped) throw new Error('Reopen the folder to reconnect before saving.');
+    let path;
+    if (server) {
+      const response = await fetch(`${server.base}/api/notes`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename, text }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not save this note.');
+      path = result.path;
+    } else {
+      if (!directory) throw new Error('Choose a folder before saving.');
+      if (!/^[^/\\]+\.md$/i.test(filename) || filename.startsWith('.') || hasControlCharacters(filename)) throw new Error('Choose a Markdown filename without folders.');
+      if (new Blob([text]).size > 2 * 1024 * 1024) throw new Error('This note exceeds 2 MiB.');
+      const permission = await directory.requestPermission({ mode: 'readwrite' });
+      if (permission !== 'granted') throw new Error('Allow write access to save a note in this folder.');
+      for (let number = 1; number <= 10000; number++) {
+        path = number === 1 ? filename : `${filename.slice(0, -3)}-${number}.md`;
+        try { await directory.getFileHandle(path); }
+        catch (problem) {
+          if (problem.name !== 'NotFoundError') throw problem;
+          const handle = await directory.getFileHandle(path, { create: true });
+          const output = await handle.createWritable();
+          try { await output.write(text); await output.close(); }
+          catch (error) { await output.abort().catch(() => {}); throw error; }
+          setRefreshKey(value => value + 1);
+          return path;
+        }
+      }
+      throw new Error('Choose another filename.');
+    }
+    setRefreshKey(value => value + 1);
+    return path;
+  };
+
+  const readSaved = async (item, kind, marker) => {
+    let text;
+    if (server) {
+      const response = await fetch(`${server.base}/api/${kind}/load?path=${encodeURIComponent(item.path)}`, { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Could not open this conversation.');
+      text = data.text;
+    } else {
+      const parts = item.path.split('/');
+      let handle = directory;
+      for (const part of parts.slice(0, -1)) handle = await handle.getDirectoryHandle(part);
+      const file = await (await handle.getFileHandle(parts[parts.length - 1])).getFile();
+      if (file.size > 2 * 1024 * 1024) throw new Error('This conversation exceeds 2 MiB.');
+      text = await file.text();
+    }
+    if (!text.startsWith(marker)) throw new Error('This is not a supported saved file.');
+    return text;
+  };
+
   return {
-    snapshot, error, loading, stopped, chooseFolder, stop,
+    snapshot, error, loading, stopped, chooseFolder, stop, saveNote,
+    readChat: item => readSaved(item, 'chat', CHAT_MARKER),
+    readWorksheet: item => readSaved(item, 'practice', WORKSHEET_MARKER),
     refresh: () => {
       cache.current = new Map();
       setRefreshKey(value => value + 1);

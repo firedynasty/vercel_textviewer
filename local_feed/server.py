@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Serve the React viewer and a separate, read-only media folder. No dependencies."""
+"""Serve a folder viewer, explicit Markdown saves, and local Activity Island chat."""
 
 import argparse
 import fcntl
 import hashlib
 import hmac
+import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
@@ -18,6 +19,8 @@ import threading
 import time
 from urllib.parse import parse_qs, quote, unquote, urlsplit
 from urllib.request import ProxyHandler, Request, build_opener
+from chat import CHAT_LIMIT, SAVE_LIMIT, activity_connection, activity_providers, save_markdown, validate_chat
+from practice import MARKER as PRACTICE_MARKER, example_practice, generate_practice
 
 REPO = Path(__file__).resolve().parent.parent
 NOTE_LIMIT = 256 * 1024
@@ -92,6 +95,8 @@ class Feed:
                                     text = source.read(NOTE_LIMIT).decode('utf-8-sig', errors='replace')
                             notes[relative] = (version, text)
                             item.update(text=text, truncated=stat.st_size > NOTE_LIMIT)
+                            item['chat'] = text.startswith('<!-- textviewer-chat:v1\n')
+                            item['worksheet'] = text.startswith(PRACTICE_MARKER)
                         items.append(item)
                     except FileNotFoundError:
                         continue  # Editors can replace a file while scanning.
@@ -219,15 +224,35 @@ class Handler(BaseHTTPRequestHandler):
                 html = html.replace('</head>', f'<script>window.__LOCAL_FEED__={config};</script></head>')
                 return self.reply(200, html.encode(), 'text/html; charset=utf-8')
             if route == '/api/ping':
-                return self.reply(200, {'folder': str(self.server.feed.folder), 'pid': os.getpid(), 'version': 1})
+                return self.reply(200, {'folder': str(self.server.feed.folder), 'pid': os.getpid(), 'version': 3})
             if route == '/api/feed':
                 return self.reply(200, self.server.feed.snapshot(query.get('recursive') == ['1']))
+            if route == '/api/chat/providers':
+                try:
+                    return self.reply(200, activity_providers(self.server.chat_url))
+                except (OSError, ValueError, http.client.HTTPException):
+                    return self.reply(503, {'error': f'Activity Island is unavailable. Start it at {self.server.chat_url}, then click Reconnect.'})
+            if route == '/api/practice/example':
+                return self.reply(200, example_practice())
+            if route in ('/api/chat/load', '/api/practice/load'):
+                path = content_path(self.server.feed.folder, query.get('path', [''])[0])
+                if path.suffix.lower() != '.md':
+                    raise ValueError('Choose a saved Markdown conversation.')
+                with path.open('rb') as source:
+                    data = source.read(SAVE_LIMIT + 1)
+                if len(data) > SAVE_LIMIT:
+                    raise ValueError('This conversation is too large to reopen (maximum 2 MiB).')
+                if route == '/api/practice/load' and not data.startswith(PRACTICE_MARKER.encode()):
+                    raise ValueError('Choose a saved practice worksheet.')
+                return self.reply(200, {'text': data.decode('utf-8-sig')})
             if route.startswith('/files/'):
                 path = content_path(self.server.feed.folder, unquote(route[len('/files/'):]))
                 return self.send_file(path, content=True)
             self.reply(404, {'error': 'Not found'})
         except PermissionError as problem:
             self.reply(403, {'error': str(problem)})
+        except (ValueError, UnicodeError) as problem:
+            self.reply(400, {'error': str(problem)})
         except (FileNotFoundError, NotADirectoryError):
             self.reply(404, {'error': 'The file or folder is no longer available.'})
         except (BrokenPipeError, ConnectionResetError):
@@ -238,23 +263,82 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         try:
             route, _query = self.route()
+            if route == '/api/notes':
+                data = self.read_json(SAVE_LIMIT * 2)
+                if not isinstance(data, dict):
+                    raise ValueError('Expected a note object.')
+                name = save_markdown(self.server.feed.folder, data.get('filename'), data.get('text'))
+                return self.reply(201, {'path': name})
+            if route == '/api/chat/ask':
+                payload = validate_chat(self.read_json(CHAT_LIMIT))
+                providers = activity_providers(self.server.chat_url)
+                if providers.get('contextChat') != 1:
+                    return self.reply(409, {'error': 'Restart Activity Island to load the folder-chat update, then click Reconnect.'})
+                return self.proxy_chat(payload)
+            if route == '/api/practice/generate':
+                data = self.read_json(CHAT_LIMIT)
+                try:
+                    result = generate_practice(self.server.chat_url, data)
+                except (OSError, http.client.HTTPException):
+                    return self.reply(503, {'error': 'Could not generate practice. Check Activity Island and the selected AI provider, then retry.'})
+                return self.reply(200, result)
             if route != '/api/stop':
                 return self.reply(404, {'error': 'Not found'})
             self.reply(200, {'stopped': True})
             threading.Thread(target=self.server.shutdown, daemon=True).start()
         except PermissionError as problem:
             self.reply(403, {'error': str(problem)})
+        except (ValueError, UnicodeError) as problem:
+            self.reply(400, {'error': str(problem)})
         except (BrokenPipeError, ConnectionResetError):
             pass
+        except (OSError, http.client.HTTPException):
+            self.reply(503, {'error': 'Could not reach Activity Island or write the note. Check the connection and folder permissions.'})
+
+    def read_json(self, limit):
+        if self.headers.get_content_type() != 'application/json':
+            raise ValueError('Send application/json.')
+        length = int(self.headers.get('Content-Length', '0'))
+        if not 0 < length <= limit or self.headers.get('Transfer-Encoding'):
+            raise ValueError('The request is empty or too large.')
+        self.connection.settimeout(15)
+        body = self.rfile.read(length)
+        if len(body) != length:
+            raise ValueError('The request was interrupted.')
+        return json.loads(body)
+
+    def proxy_chat(self, payload):
+        connection = activity_connection(self.server.chat_url)
+        try:
+            connection.request('POST', '/ask', body=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
+            response = connection.getresponse()
+            if response.status != 200:
+                return self.reply(response.status, {'error': response.read(4096).decode('utf-8', errors='replace')})
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/x-ndjson; charset=utf-8')
+            self.end_headers()
+            try:
+                while True:
+                    chunk = response.read1(8192)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    self.wfile.flush()
+            except (OSError, http.client.HTTPException):
+                self.wfile.write(b'\n{"error":"Chat connection interrupted. Retry your question."}\n')
+        finally:
+            connection.close()
 
 
-def make_server(folder, build, port=0, token=None):
+def make_server(folder, build, port=0, token=None, chat_url='http://127.0.0.1:8787'):
+    activity_connection(chat_url).close()  # Validate before binding a port.
     server = ThreadingHTTPServer(('127.0.0.1', port), Handler)
     server.daemon_threads = True
     server.token = token or secrets.token_urlsafe(32)
     server.base = f'/_feed/{server.token}'
     server.feed = Feed(folder, server.base)
     server.build = build.resolve()
+    server.chat_url = chat_url
     return server
 
 
@@ -268,15 +352,16 @@ def request(state, endpoint='ping', method='GET'):
 def running(path, folder):
     try:
         state = json.loads(path.read_text())
-        if request(state)['folder'] == str(folder):
-            return state
+        ping = request(state)
+        if ping['folder'] == str(folder):
+            return {**state, 'version': ping.get('version', 1)}
     except (OSError, ValueError, KeyError):
         pass
     return None
 
 
 def serve(args, folder, state_path, on_ready=None):
-    server = make_server(folder, args.build_dir, args.port)
+    server = make_server(folder, args.build_dir, args.port, chat_url=args.chat_url)
     state = {'url': f'http://127.0.0.1:{server.server_port}{server.base}/', 'pid': os.getpid(), 'folder': str(folder)}
     temporary = state_path.with_suffix(f'.{os.getpid()}.tmp')
     temporary.write_text(json.dumps(state))
@@ -307,6 +392,7 @@ def main():
     parser.add_argument('--no-open', action='store_true', help='print the URL without opening Chrome')
     parser.add_argument('--foreground', action='store_true', help='stay in the terminal; Ctrl-C stops serving')
     parser.add_argument('--port', type=int, default=0, help='0 chooses a free port (default)')
+    parser.add_argument('--chat-url', default=os.environ.get('TEXTVIEWER_CHAT_URL', 'http://127.0.0.1:8787'), help='local Activity Island address')
     parser.add_argument('--build-dir', type=Path, default=REPO / 'dist' / 'local-feed')
     parser.add_argument('--state-dir', type=Path, default=Path(os.environ.get('TEXTVIEWER_FEED_STATE_DIR', Path.home() / '.cache' / 'textviewer-feed')))
     parser.add_argument('--_serve', action='store_true', help=argparse.SUPPRESS)
@@ -338,6 +424,15 @@ def main():
         if args.status:
             print(state['url'] if state else 'No feed is running for this folder.')
             return
+        if state and state.get('version', 1) < 3:
+            request(state, 'stop', 'POST')
+            for _ in range(50):
+                if not state_path.exists():
+                    break
+                time.sleep(0.1)
+            if state_path.exists():
+                raise SystemExit('The older folder server is still stopping. Run the Quick Action again.')
+            state = None
         if not folder.is_dir():
             parser.error(f'not a directory: {folder}')
         if not (args.build_dir / 'index.html').is_file():
@@ -346,7 +441,7 @@ def main():
             serve(args, folder, state_path, lambda: fcntl.flock(lock, fcntl.LOCK_UN))
             return
         if not state:
-            command = [sys.executable, str(Path(__file__).resolve()), str(folder), '--_serve', '--port', str(args.port), '--build-dir', str(args.build_dir), '--state-dir', str(args.state_dir)]
+            command = [sys.executable, str(Path(__file__).resolve()), str(folder), '--_serve', '--port', str(args.port), '--build-dir', str(args.build_dir), '--state-dir', str(args.state_dir), '--chat-url', args.chat_url]
             with (args.state_dir / f'{key}.log').open('ab') as log:
                 process = subprocess.Popen(command, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True, close_fds=True)
             for _ in range(100):

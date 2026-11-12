@@ -1,6 +1,7 @@
 import React from 'react';
 import { marked } from 'marked';
 import { formatTextAsMarkdown } from '../utils/textFormatting';
+import { visibleChatMarkdown } from '../utils/chatUtils';
 
 // Build React elements from Markdown tokens: raw HTML is text, never executable.
 function safeLink(href) {
@@ -44,6 +45,7 @@ function blocks(tokens, headingId) {
 }
 
 export default function FeedMarkdown({ text, plainText = false, headingId, className = 'feed-markdown' }) {
-  const source = plainText ? formatTextAsMarkdown(text) : text;
+  const visible = visibleChatMarkdown(text);
+  const source = plainText ? formatTextAsMarkdown(visible) : visible;
   return <div className={className}>{blocks(marked.lexer(source, { gfm: true, breaks: plainText }), headingId)}</div>;
 }

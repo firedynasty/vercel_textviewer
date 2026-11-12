@@ -1,7 +1,13 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import useLiveFeed from '../hooks/useLiveFeed';
+import useFolderChat from '../hooks/useFolderChat';
+import useFolderPractice from '../hooks/useFolderPractice';
 import { changedPaths, filterFeed } from '../utils/feedUtils';
+import { CHAT_MARKER, visibleChatMarkdown } from '../utils/chatUtils';
 import FeedMarkdown from './FeedMarkdown';
+import FeedChat from './FeedChat';
+import FeedPractice from './FeedPractice';
+import { WORKSHEET_MARKER } from '../utils/worksheetUtils';
 import './FeedViewer.css';
 
 const FILTERS = [['all', 'Everything'], ['note', 'Notes'], ['pdf', 'PDFs'], ['image', 'Images'], ['video', 'Videos']];
@@ -10,7 +16,7 @@ const LABELS = { note: 'Note', image: 'Image', video: 'Video' };
 function Note({ item, formatted }) {
   return formatted && item.text
     ? <FeedMarkdown text={item.text} plainText={!/\.(md|markdown)$/i.test(item.name)} />
-    : <div className="feed-plain-text">{item.text || (!item.error && <span className="feed-muted">Empty note</span>)}</div>;
+    : <div className="feed-plain-text">{visibleChatMarkdown(item.text || '') || (!item.error && <span className="feed-muted">Empty note</span>)}</div>;
 }
 
 function NoteWarnings({ item }) {
@@ -51,7 +57,7 @@ function Media({ item, onExpand }) {
   </div>;
 }
 
-const FeedCard = memo(function FeedCard({ item, onExpand, formatted }) {
+const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, practice }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
@@ -69,7 +75,7 @@ const FeedCard = memo(function FeedCard({ item, onExpand, formatted }) {
   const tags = [...new Set((item.text || '').match(/#[\p{L}\p{N}_-]+/gu) || [])].slice(0, 8);
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(item.text || '');
+      await navigator.clipboard.writeText(visibleChatMarkdown(item.text || ''));
       setCopied(true);
       copyTimer.current = setTimeout(() => setCopied(false), 1600);
     } catch { setCopied(false); }
@@ -80,17 +86,21 @@ const FeedCard = memo(function FeedCard({ item, onExpand, formatted }) {
       <div><h2>{item.name}</h2><p title={item.path}>{item.path.includes('/') ? item.path.slice(0, item.path.lastIndexOf('/')) + ' · ' : ''}{LABELS[item.type]} <span aria-hidden="true">·</span> <time dateTime={date.toISOString()} title={date.toLocaleString()}>{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</time></p></div>
     </header>
     {item.type === 'note'
-      ? <><div className={`feed-note${longNote && !expanded ? ' feed-note--clipped' : ''}`}><Note item={item} formatted={formatted} /></div>
+      ? <><div className={`feed-note${longNote && !expanded ? ' feed-note--clipped' : ''}`} onMouseUp={event => chat.capture(event, item)} onKeyUp={event => chat.capture(event, item)}><Note item={item} formatted={formatted} /></div>
         <NoteWarnings item={item} />
         <footer className="feed-card-footer"><div className="feed-tags">{tags.map(tag => <span key={tag}>{tag}</span>)}</div><div className="feed-card-actions">
           {longNote && <button onClick={() => setExpanded(value => !value)}>{expanded ? 'Collapse' : 'Read more'}</button>}
           <button onClick={() => onExpand(item)}>Expand</button><button onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+          <button disabled={chat.busy || chat.saving || !item.text?.trim()} onClick={() => chat.add(item)}>Add note</button>
+          {chat.selection?.path === item.path && <button disabled={chat.busy || chat.saving} onClick={() => chat.add(item, chat.selection.text)}>Add selection</button>}
+          {(item.chat || item.text?.startsWith(CHAT_MARKER)) && <button disabled={chat.busy || chat.saving} onClick={() => chat.load(item)}>Continue chat</button>}
+          {(item.worksheet || item.text?.startsWith(WORKSHEET_MARKER)) && <button disabled={practice.busy || practice.saving} onClick={() => practice.load(item)}>Continue practice</button>}
         </div></footer></>
       : <Media item={item} onExpand={onExpand} />}
   </article>;
 });
 
-function PreviewDialog({ item, onClose, formatted }) {
+function PreviewDialog({ item, onClose, formatted, chat }) {
   const dialog = useRef(null);
   useEffect(() => {
     const previous = document.activeElement;
@@ -100,7 +110,7 @@ function PreviewDialog({ item, onClose, formatted }) {
   }, []);
   return <dialog ref={dialog} className="feed-dialog" onCancel={onClose} onClick={event => { if (event.target === dialog.current) onClose(); }} aria-label={item.name}>
     <div className="feed-dialog-content"><header><h2>{item.name}</h2><button onClick={onClose} autoFocus aria-label="Close preview">×</button></header>
-      {item.type === 'image' ? <img src={item.url} alt={item.name} /> : <><Note item={item} formatted={formatted} /><NoteWarnings item={item} /></>}
+      {item.type === 'image' ? <img src={item.url} alt={item.name} /> : <><div onMouseUp={event => chat.capture(event, item)} onKeyUp={event => chat.capture(event, item)}><Note item={item} formatted={formatted} /></div><NoteWarnings item={item} /><div className="feed-preview-actions"><button disabled={chat.busy || chat.saving || !item.text?.trim()} onClick={() => { chat.add(item); onClose(); }}>Add note to context</button>{chat.selection?.path === item.path && <button disabled={chat.busy || chat.saving} onClick={() => { chat.add(item, chat.selection.text); onClose(); }}>Add selection to context</button>}</div></>}
       {item.url && <a href={item.url} target="_blank" rel="noreferrer">Open original file ↗</a>}
     </div>
   </dialog>;
@@ -110,6 +120,8 @@ export default function FeedViewer({ onOpenReader }) {
   const [recursive, setRecursive] = useState(false);
   const [items, setItems] = useState(null);
   const feed = useLiveFeed(recursive, items);
+  const chat = useFolderChat(feed);
+  const practice = useFolderPractice(feed, chat);
   const [pending, setPending] = useState(null);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState('all');
@@ -123,14 +135,14 @@ export default function FeedViewer({ onOpenReader }) {
 
   useEffect(() => {
     const focusSearch = event => {
-      if (event.key === '/' && !selected && !['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) {
+      if (event.key === '/' && !selected && !practice.open && !['INPUT', 'TEXTAREA', 'SELECT'].includes(event.target.tagName)) {
         event.preventDefault();
         search.current?.focus();
       }
     };
     window.addEventListener('keydown', focusSearch);
     return () => window.removeEventListener('keydown', focusSearch);
-  }, [selected]);
+  }, [selected, practice.open]);
 
   useEffect(() => { localStorage.setItem('feed-dark', String(dark)); }, [dark]);
   useEffect(() => {
@@ -164,21 +176,27 @@ export default function FeedViewer({ onOpenReader }) {
     return result;
   }, {}), [items]);
   const openPreview = React.useCallback(item => setSelected(item), []);
+  const leaveChat = action => {
+    if (chat.busy || chat.saving || practice.busy || practice.saving) return;
+    if ((!chat.dirty && !practice.dirty) || window.confirm('Leave this folder and discard unsaved chat or worksheet changes?')) action();
+  };
   const applyUpdates = () => {
     setItems(pending.items);
     setPending(null);
     scrolling.current?.scrollTo({ top: 0 });
   };
 
-  return <div className={`feed-app${dark ? ' feed-dark' : ''}`}>
+  return <div className={`feed-app${dark ? ' feed-dark' : ''}${chat.open ? ' feed-app--chat' : ''}`}>
     <aside className="feed-sidebar">
       <div className="feed-brand"><span aria-hidden="true">▤</span><div>Folder feed<small>Your files, in the flow.</small></div></div>
       <div className="feed-source-label">YOUR FOLDER</div>
       <div className="feed-folder" title={feed.snapshot?.folder}>{feed.snapshot?.folder?.split('/').filter(Boolean).pop() || 'Choose a folder'}</div>
-      {!feed.isServer && <button className="feed-open-folder" onClick={feed.chooseFolder}>{feed.hasFolder ? 'Change folder' : 'Open folder'} <span aria-hidden="true">↗</span></button>}
+      {!feed.isServer && <button className="feed-open-folder" onClick={() => leaveChat(feed.chooseFolder)}>{feed.hasFolder ? 'Change folder' : 'Open folder'} <span aria-hidden="true">↗</span></button>}
       <nav aria-label="File types">{FILTERS.map(([type, label]) => <button key={type} className={filter === type ? 'is-active' : ''} onClick={() => setFilter(type)} aria-pressed={filter === type}><span>{label}</span><span>{type === 'all' ? items?.length || 0 : counts[type] || 0}</span></button>)}</nav>
       <label className="feed-recursive"><input type="checkbox" checked={recursive} onChange={event => setRecursive(event.target.checked)} /> Include subfolders</label>
-      <div className="feed-sidebar-bottom"><button onClick={onOpenReader}>Open file reader ↗</button><button onClick={() => setDark(value => !value)}>{dark ? 'Light appearance' : 'Dark appearance'}</button>{feed.isServer && !feed.stopped && <button onClick={feed.stop}>Stop local server</button>}</div>
+      {feed.hasFolder && <button className="feed-chat-launch" aria-expanded={chat.open} onClick={() => chat.setOpen(value => !value)}>Context & chat · {chat.session.context.filter(item => item.enabled !== false).length}</button>}
+      <button className="feed-practice-launch" aria-haspopup="dialog" onClick={practice.launch}>Practice worksheets ↗</button>
+      <div className="feed-sidebar-bottom"><button onClick={() => leaveChat(onOpenReader)}>Open file reader ↗</button><button onClick={() => setDark(value => !value)}>{dark ? 'Light appearance' : 'Dark appearance'}</button>{feed.isServer && !feed.stopped && <button onClick={() => leaveChat(feed.stop)}>Stop local server</button>}</div>
     </aside>
     <main className="feed-main">
       <header className="feed-topbar"><div><span className={`feed-status-dot${!feed.hasFolder || feed.error || feed.stopped ? ' feed-status-dot--idle' : ''}`} />{feed.stopped ? 'Server stopped' : feed.error ? 'Connection needs attention' : feed.hasFolder ? 'Live folder' : 'Local files'}</div><span>Notes · PDFs · Images · Videos</span></header>
@@ -192,12 +210,14 @@ export default function FeedViewer({ onOpenReader }) {
           {!feed.hasFolder && <div className="feed-empty"><div aria-hidden="true">▤</div><h2>Your folder becomes a feed.</h2><p>Choose a folder of notes, PDFs, images, and videos. Save files in your usual apps and see updates here.</p><button className="feed-primary" onClick={feed.chooseFolder}>Choose a folder</button><small>Files stay on your computer.</small></div>}
           {feed.hasFolder && items === null && feed.loading && <div className="feed-empty" role="status">Reading your folder…</div>}
           {items !== null && filtered.length === 0 && <div className="feed-empty"><h2>{query ? 'No matching files' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename, phrase, or hashtag.' : 'Save a .txt, .md, .docx, .pdf, image, or video in this folder, or include subfolders.'}</p></div>}
-          <div className="feed-cards">{filtered.slice(0, limit).map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} />)}</div>
+          <div className="feed-cards">{filtered.slice(0, limit).map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} chat={chat} practice={practice} />)}</div>
           {filtered.length > limit && <div ref={sentinel} className="feed-more"><button onClick={() => setLimit(value => value + 40)}>Load more files</button></div>}
           {filtered.length > 0 && filtered.length <= limit && <p className="feed-end">You're all caught up. New saves will appear here.</p>}
         </div>
       </div>
     </main>
-    {selected && <PreviewDialog item={selected} onClose={() => setSelected(null)} formatted={formattedNotes} />}
+    <FeedChat chat={chat} folder={feed.snapshot?.folder} stopped={feed.stopped} onPractice={practice.launch} />
+    <FeedPractice practice={practice} chat={chat} folder={feed.snapshot?.folder} stopped={feed.stopped} />
+    {selected && <PreviewDialog item={selected} onClose={() => setSelected(null)} formatted={formattedNotes} chat={chat} />}
   </div>;
 }

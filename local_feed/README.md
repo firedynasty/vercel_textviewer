@@ -111,18 +111,31 @@ The source template is [Open Folder Feed.applescript](Open%20Folder%20Feed.apple
 
 ## Context, chat, and saving knowledge
 
-1. Use **Add note** on a note card to collect its text. Or highlight a passage in
-   a card or expanded preview, then click **Add selection**.
-2. **Context & chat** lists the collected passages with their filenames. Edit
-   passages, uncheck any to exclude them, or remove them. **Copy context** copies
-   just the checked passages for pasting into ChatGPT, Claude, or another app.
-3. Choose **Ollama** or **OpenAI**, enter a question, and click **Ask**. Replies
+1. To chat about one note, click **Ask about this** on its card, or **Expand**
+   the note and choose **Ask about this note**. The panel opens with only that
+   note checked and the cursor in the question box; anything collected earlier
+   stays in the list, unchecked, so nothing is lost.
+2. To build a wider context, use **Add note** on each card you want, or highlight
+   a passage in a card or expanded preview and click **Add selection**. To append
+   many notes at once, use **Add all notes in view** in Context & chat: it adds
+   every note matching the current filter and search (so search a `#tag` first to
+   add just that set), skips notes already collected, and stops before the
+   60,000-character budget rather than overflowing it. Saved chats and worksheets
+   are left out.
+3. **Context & chat** lists the collected passages with their filenames and
+   character counts. Edit passages, uncheck any to exclude them, **Only this** to
+   isolate one, **Check all** to re-enable every passage, or **Remove** one.
+   **Clear context** empties the list while keeping the conversation and topic,
+   and **Undo clear** puts the passages back. **New chat**, under *Save in this
+   folder*, clears everything instead. **Copy context** copies just the checked
+   passages for pasting into ChatGPT, Claude, or another app.
+4. Choose **Ollama** or **OpenAI**, enter a question, and click **Ask**. Replies
    stream beside your notes. Enter sends; Shift+Enter adds a line. **Stop answer**
    cancels a request and keeps your question available for retrying.
-4. Give the conversation a topic, add your own notes, and use **Save chat**. The
+5. Give the conversation a topic, add your own notes, and use **Save chat**. The
    Markdown file goes directly into the folder you opened and appears in the
    live feed. **Save answer as note** saves one response and its source filenames.
-5. Saved conversation cards have **Continue chat**, which restores the selected
+6. Saved conversation cards have **Continue chat**, which restores the selected
    passages, their inclusion settings, conversation, provider, and personal notes.
 
 Saves always create new files. If `Topic-chat.md` exists, the next save becomes

@@ -83,7 +83,7 @@ async function screenshot(name) {
     await until(() => evaluate('document.querySelectorAll(".feed-card").length === 2'), 'folder contents');
     await evaluate(`(() => { const note = document.querySelector('[data-feed-path="first.txt"] .feed-note'); const text = note.querySelector('p').firstChild; const range = document.createRange(); range.setStart(text, 0); range.setEnd(text, 25); window.getSelection().addRange(range); note.dispatchEvent(new MouseEvent('mouseup', {bubbles:true})); })()`);
     await click('Add selection');
-    await evaluate(`document.querySelector('[data-feed-path="exclude.txt"] .feed-card-actions button:last-child').click()`);
+    await evaluate(`[...document.querySelectorAll('[data-feed-path="exclude.txt"] .feed-card-actions button')].find(button => button.textContent === 'Add note').click()`);
     await evaluate(`document.querySelectorAll('.feed-context-source input')[1].click()`);
     await input('.feed-chat-label input', 'Research connections');
     await input('.feed-chat-composer textarea', 'Explain this selected passage.');

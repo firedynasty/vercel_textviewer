@@ -77,8 +77,8 @@ async function screenshot(name) {
     await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1100, deviceScaleFactor: 1, mobile: false });
     await send('Page.navigate', { url });
     await until(() => evaluate('document.querySelectorAll(".feed-card").length === 2'), 'notes');
-    await evaluate(`document.querySelector('[data-feed-path="fractions.txt"] .feed-card-actions button:last-child').click()`);
-    await evaluate(`document.querySelector('[data-feed-path="private.txt"] .feed-card-actions button:last-child').click()`);
+    await evaluate(`[...document.querySelectorAll('[data-feed-path="fractions.txt"] .feed-card-actions button')].find(button => button.textContent === 'Add note').click()`);
+    await evaluate(`[...document.querySelectorAll('[data-feed-path="private.txt"] .feed-card-actions button')].find(button => button.textContent === 'Add note').click()`);
     await evaluate(`document.querySelectorAll('.feed-context-source input')[1].click()`);
     await click('Practise these notes ↗');
     await click('Try fractions example');

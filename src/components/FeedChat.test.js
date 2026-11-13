@@ -85,3 +85,22 @@ test('a highlighted passage is collected separately from the whole note', async 
   await click(button('Add selection'));
   expect(container.querySelector('.feed-context-source textarea').value).toBe('First');
 });
+
+test('one note can be asked about alone, every note in view can be appended, and clearing context is undoable', async () => {
+  const askAbout = card => [...[...container.querySelectorAll('.feed-card')][card].querySelectorAll('.feed-card-actions button')].find(item => item.textContent === 'Ask about this');
+  await click(askAbout(1));
+  expect(container.querySelectorAll('.feed-context-source')).toHaveLength(1);
+  expect(container.querySelector('.feed-context-source textarea').value).toBe(notes[1].text);
+  expect(document.activeElement).toBe(container.querySelector('.feed-chat-composer textarea'));
+  // Asking about another note keeps the first collected but unchecked.
+  await click(askAbout(0));
+  const checkboxes = [...container.querySelectorAll('.feed-context-source input[type="checkbox"]')];
+  expect(checkboxes.map(item => item.checked)).toEqual([false, true]);
+  await click(button('Add all notes in view (2)'));
+  expect([...container.querySelectorAll('.feed-context-source input[type="checkbox"]')].map(item => item.checked)).toEqual([true, true]);
+  expect(container.querySelector('[role="status"]').textContent).toContain('1 already collected');
+  await click(button('Clear context'));
+  expect(container.querySelectorAll('.feed-context-source')).toHaveLength(0);
+  await click(button('Undo clear'));
+  expect(container.querySelectorAll('.feed-context-source')).toHaveLength(2);
+});

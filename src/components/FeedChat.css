@@ -18,6 +18,7 @@
 .feed-context-source label { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 11px; }
 .feed-context-source label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feed-context-source textarea, .feed-context-source small { grid-column: 1 / -1; }
+.feed-context-source-buttons { display: flex; gap: 6px; align-items: start; }
 .feed-context-source small { color: var(--feed-muted); font-size: 10px; }
 .feed-chat input[type="checkbox"] { accent-color: var(--feed-accent); }
 .feed-chat-actions { display: flex; flex-wrap: wrap; gap: 9px; margin: 12px 0; }

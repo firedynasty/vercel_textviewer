@@ -19,6 +19,30 @@ export function contextText(context) {
   return context.filter(item => item.enabled !== false).map(item => `Source: ${item.path}\n\n${item.text}`).join('\n\n---\n\n');
 }
 
+export function nextSourceId() {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+// Append passages without duplicating or silently overflowing the context budget.
+// A single deliberate add passes Infinity so the panel can show an over-limit warning instead.
+export function addSources(context, additions, limit = CONTEXT_LIMIT) {
+  let next = context, size = contextSize(context), added = 0, skipped = 0, present = 0;
+  for (const addition of additions) {
+    const text = addition.text || '';
+    if (!text.trim()) { skipped += 1; continue; }
+    const cost = addition.path.length + text.length;
+    const index = next.findIndex(source => source.path === addition.path && source.text === text);
+    if (index >= 0 && next[index].enabled !== false) { present += 1; continue; }
+    if (size + cost > limit) { skipped += 1; continue; }
+    next = index >= 0
+      ? next.map((source, position) => position === index ? { ...source, enabled: true } : source)
+      : [...next, { id: nextSourceId(), path: addition.path, text, enabled: true, truncated: Boolean(addition.truncated) }];
+    size += cost;
+    added += 1;
+  }
+  return { context: next, added, skipped, present };
+}
+
 export function validateSession(value) {
   if (!value || value.version !== 1 || typeof value.title !== 'string' || typeof value.notes !== 'string' || !['ollama', 'openai'].includes(value.provider)
     || !Array.isArray(value.context) || !Array.isArray(value.messages)

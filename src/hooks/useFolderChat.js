@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { chatMarkdown, CONTEXT_LIMIT, contextSize, contextText, emptyChat, noteFilename, parseChat, readChatStream, visibleChatMarkdown } from '../utils/chatUtils';
+import { addSources, chatMarkdown, CONTEXT_LIMIT, contextSize, contextText, emptyChat, noteFilename, parseChat, readChatStream, visibleChatMarkdown } from '../utils/chatUtils';
 
 export default function useFolderChat(feed) {
   const [open, setOpen] = useState(false);
@@ -15,6 +15,8 @@ export default function useFolderChat(feed) {
   const [providers, setProviders] = useState(null);
   const [connecting, setConnecting] = useState(false);
   const [selection, setSelection] = useState(null);
+  const [cleared, setCleared] = useState(null);
+  const [focusTick, setFocusTick] = useState(0);
   const controller = useRef(null);
   const providerController = useRef(null);
   const base = window.__LOCAL_FEED__?.base;
@@ -38,6 +40,7 @@ export default function useFolderChat(feed) {
       setQuestion('');
       setFilename('');
       setSelection(null);
+      setCleared(null);
       setNotice('');
       setError('');
     }
@@ -68,17 +71,55 @@ export default function useFolderChat(feed) {
     setDirty(true);
     setNotice('');
   };
+  const passage = item => ({ path: item.path, text: visibleChatMarkdown(item.text || ''), truncated: Boolean(item.truncated) });
+  // One deliberate add is never dropped for the budget: the panel marks it over-limit so a passage can be trimmed.
   const add = (item, text = visibleChatMarkdown(item.text || '')) => {
     if (busy || saving || !text.trim()) return;
     setOpen(true);
-    change(previous => {
-      const duplicate = previous.context.find(source => source.path === item.path && source.text === text);
-      const context = duplicate
-        ? previous.context.map(source => source.id === duplicate.id ? { ...source, enabled: true } : source)
-        : [...previous.context, { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, path: item.path, text, enabled: true, truncated: Boolean(item.truncated) }];
-      return { ...previous, context };
-    });
+    setCleared(null);
+    change(previous => ({ ...previous, context: addSources(previous.context, [{ ...passage(item), text }], Infinity).context }));
     setSelection(null);
+  };
+  // Append several notes at once, keeping the collection inside the 60,000-character budget.
+  const addAll = items => {
+    if (busy || saving) return;
+    const result = addSources(session.context, items.map(passage));
+    setOpen(true);
+    setCleared(null);
+    setSelection(null);
+    change({ ...session, context: result.context });
+    setNotice([
+      result.added ? `Added ${result.added} ${result.added === 1 ? 'note' : 'notes'}.` : 'Added no new notes.',
+      result.present ? `${result.present} already collected.` : '',
+      result.skipped ? `${result.skipped} skipped: empty, or the context budget is full.` : '',
+    ].filter(Boolean).join(' '));
+  };
+  // Ask about one note without losing the rest: the others stay collected but unchecked.
+  const focus = item => {
+    if (busy || saving) return;
+    const source = passage(item);
+    if (!source.text.trim()) return;
+    const context = addSources(session.context, [source], Infinity).context;
+    const target = context.filter(entry => entry.path === source.path && entry.text === source.text).pop();
+    setOpen(true);
+    setCleared(null);
+    setSelection(null);
+    change({ ...session, context: context.map(entry => ({ ...entry, enabled: entry.id === target.id })) });
+    setNotice(context.length > 1 ? `Asking about ${item.path} only. Other passages stay collected but unchecked.` : `Asking about ${item.path}.`);
+    setFocusTick(value => value + 1);
+  };
+  const clearContext = () => {
+    if (busy || saving || !session.context.length) return;
+    const removed = session.context;
+    change({ ...session, context: [] });
+    setCleared(removed);
+    setNotice(`Cleared ${removed.length} ${removed.length === 1 ? 'passage' : 'passages'}. The conversation stays; use Undo clear to bring them back.`);
+  };
+  const restoreContext = () => {
+    if (busy || saving || !cleared) return;
+    change({ ...session, context: cleared });
+    setCleared(null);
+    setNotice('Context restored.');
   };
   const capture = (event, item) => {
     const selected = window.getSelection();
@@ -151,16 +192,18 @@ export default function useFolderChat(feed) {
       setAnswer('');
       setQuestion('');
       setFilename(noteFilename(next.title));
+      setCleared(null);
       setNotice(`Opened ${item.path}. Saving creates a new version.`);
       setError('');
     } catch (problem) { setError(problem.message); }
   };
   const reset = () => {
     if (busy || saving || (dirty && !window.confirm('Start a new chat and discard the current unsaved changes?'))) return;
-    setSession(emptyChat()); setDirty(false); setQuestion(''); setAnswer(''); setFilename(''); setError(''); setNotice('');
+    setSession(emptyChat()); setDirty(false); setQuestion(''); setAnswer(''); setFilename(''); setError(''); setNotice(''); setCleared(null);
   };
 
   return { open, setOpen, session, change, dirty, busy, saving, answer, question, setQuestion, filename, setFilename,
-    error, notice, providers, connecting, connect, selection, capture, add, ask, save, copy, load, reset,
+    error, notice, providers, connecting, connect, selection, capture, add, addAll, focus, ask, save, copy, load, reset,
+    clearContext, restoreContext, cleared, focusTick,
     stop: () => controller.current?.abort(), isLocal: Boolean(base) };
 }

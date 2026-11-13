@@ -102,6 +102,9 @@ The source template is [Open Folder Feed.applescript](Open%20Folder%20Feed.apple
 - **PDFs** lists file paths as links that open the original PDF in a new tab or
   window. PDFs load only when clicked; search matches their names and paths.
 - **Read more** unfolds a long note in place; **Collapse** folds it back.
+- **Expand all / Collapse all**, beside **TXT>MD**, does the same for every long
+  note at once. A card's own **Read more** or **Collapse** still overrides it
+  afterwards, and the choice is remembered for the next time you open a feed.
 - **Open in app** hands the file to the app your Mac opens it with, exactly like
   double-clicking it in Finder or running `open` in a terminal: Typora (or
   whatever owns `.md`) for Markdown, Word for `.docx`, Preview for a PDF or an

@@ -197,3 +197,29 @@ test('the sort button switches between newest saves and filename order, and is r
   act(() => Simulate.click(container.querySelector('.feed-sort')));
   expect(names()).toEqual(['other.md', 'note.txt']);
 });
+
+test('Expand all opens every clipped note, is remembered, and still lets one card collapse', () => {
+  const long = { ...original, path: 'long.md', name: 'long.md', modified: 2000, text: 'Line\n'.repeat(40) };
+  state.snapshot.items = [long, original];
+  render();
+  const clipped = () => container.querySelectorAll('.feed-note--clipped').length;
+  const toggle = () => container.querySelector('.feed-expand-all');
+  const cardButton = () => [...container.querySelectorAll('.feed-card-actions button')].find(button => /Read more|Collapse/.test(button.textContent));
+  expect(clipped()).toBe(1);
+  expect(toggle().textContent).toBe('Expand all');
+  act(() => Simulate.click(toggle()));
+  expect(clipped()).toBe(0);
+  expect(toggle().textContent).toBe('Collapse all');
+  expect(cardButton().textContent).toBe('Collapse');
+  expect(localStorage.getItem('feed-expand')).toBe('true');
+  act(() => root.unmount());
+  root = createRoot(container);
+  render();
+  expect(clipped()).toBe(0);
+  act(() => Simulate.click(cardButton()));
+  expect(clipped()).toBe(1);
+  expect(toggle().textContent).toBe('Collapse all');
+  act(() => Simulate.click(toggle()));
+  expect(clipped()).toBe(1);
+  expect(localStorage.getItem('feed-expand')).toBe('false');
+});

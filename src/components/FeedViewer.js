@@ -89,13 +89,15 @@ function FileName({ item, onRename, as: Tag = 'h2' }) {
   </form>;
 }
 
-const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, practice, onRename, onOpen }) {
-  const [expanded, setExpanded] = useState(false);
+const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, practice, onRename, onOpen, expandAll }) {
+  const [expanded, setExpanded] = useState(expandAll);
   const [copied, setCopied] = useState(false);
   const [opening, setOpening] = useState(false);
   const [openError, setOpenError] = useState('');
   const copyTimer = useRef(null);
   useEffect(() => () => clearTimeout(copyTimer.current), []);
+  // Follow the feed-wide Expand all toggle; a click on this card's own button still wins afterwards.
+  useEffect(() => { setExpanded(expandAll); }, [expandAll]);
   // Open the file the way double-clicking it would: Typora for Markdown, Word for DOCX, Preview for a PDF.
   const openInApp = async () => {
     if (opening) return;
@@ -183,6 +185,7 @@ export default function FeedViewer({ onOpenReader }) {
   const [limit, setLimit] = useState(40);
   const [dark, setDark] = useState(() => localStorage.getItem('feed-dark') === 'true');
   const [sort, setSort] = useState(() => localStorage.getItem('feed-sort') === 'name' ? 'name' : 'recent');
+  const [expandAll, setExpandAll] = useState(() => localStorage.getItem('feed-expand') === 'true');
   const scrolling = useRef(null);
   const sentinel = useRef(null);
   const search = useRef(null);
@@ -200,6 +203,7 @@ export default function FeedViewer({ onOpenReader }) {
 
   useEffect(() => { localStorage.setItem('feed-dark', String(dark)); }, [dark]);
   useEffect(() => { localStorage.setItem('feed-sort', sort); }, [sort]);
+  useEffect(() => { localStorage.setItem('feed-expand', String(expandAll)); }, [expandAll]);
   useEffect(() => {
     if (!feed.snapshot) { setItems(null); setPending(null); return; }
     const next = feed.snapshot.items;
@@ -266,7 +270,7 @@ export default function FeedViewer({ onOpenReader }) {
       <header className="feed-topbar"><div><span className={`feed-status-dot${!feed.hasFolder || feed.error || feed.stopped ? ' feed-status-dot--idle' : ''}`} />{feed.stopped ? 'Server stopped' : feed.error ? 'Connection needs attention' : feed.hasFolder ? 'Live folder' : 'Local files'}</div><span>Notes · PDFs · Images · Videos</span></header>
       <div className="feed-scroll" ref={scrolling}>
         <div className="feed-column">
-          <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><button className={`feed-sort${sort === 'name' ? ' is-active' : ''}`} onClick={() => setSort(value => value === 'name' ? 'recent' : 'name')} aria-pressed={sort === 'name'} title="Sort by filename or by most recent save">Sort: {sort === 'name' ? 'Name A\u2013Z' : 'Newest'}</button><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
+          <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><button className={`feed-sort${sort === 'name' ? ' is-active' : ''}`} onClick={() => setSort(value => value === 'name' ? 'recent' : 'name')} aria-pressed={sort === 'name'} title="Sort by filename or by most recent save">Sort: {sort === 'name' ? 'Name A\u2013Z' : 'Newest'}</button><button className={`feed-expand-all${expandAll ? ' is-active' : ''}`} onClick={() => setExpandAll(value => !value)} aria-pressed={expandAll} title="Show every long note in full, instead of clipping it behind Read more">{expandAll ? 'Collapse all' : 'Expand all'}</button><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
           <label className="feed-search"><span aria-hidden="true">⌕</span><input ref={search} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search filenames, notes, or #tags" aria-label="Search feed" /><kbd>/</kbd></label>
           {feed.error && <div className="feed-notice" role="alert">{feed.error} <button onClick={feed.refresh}>Retry</button></div>}
           {pending && <button className="feed-update" onClick={applyUpdates}>{pending.count} {pending.count === 1 ? 'change' : 'changes'} available · Show updates ↑</button>}
@@ -274,7 +278,7 @@ export default function FeedViewer({ onOpenReader }) {
           {!feed.hasFolder && <div className="feed-empty"><div aria-hidden="true">▤</div><h2>Your folder becomes a feed.</h2><p>Choose a folder of notes, PDFs, images, and videos. Save files in your usual apps and see updates here.</p><button className="feed-primary" onClick={feed.chooseFolder}>Choose a folder</button><small>Files stay on your computer.</small></div>}
           {feed.hasFolder && items === null && feed.loading && <div className="feed-empty" role="status">Reading your folder…</div>}
           {items !== null && filtered.length === 0 && <div className="feed-empty"><h2>{query ? 'No matching files' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename, phrase, or hashtag.' : 'Save a .txt, .md, .docx, .pdf, image, or video in this folder, or include subfolders.'}</p></div>}
-          <div className="feed-cards">{filtered.slice(0, limit).map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} chat={chat} practice={practice} onRename={rename} onOpen={openInApp} />)}</div>
+          <div className="feed-cards">{filtered.slice(0, limit).map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} chat={chat} practice={practice} onRename={rename} onOpen={openInApp} expandAll={expandAll} />)}</div>
           {filtered.length > limit && <div ref={sentinel} className="feed-more"><button onClick={() => setLimit(value => value + 40)}>Load more files</button></div>}
           {filtered.length > 0 && filtered.length <= limit && <p className="feed-end">You're all caught up. New saves will appear here.</p>}
         </div>

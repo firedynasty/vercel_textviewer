@@ -19,7 +19,7 @@ beforeEach(() => {
   document.body.appendChild(container);
   root = createRoot(container);
   localStorage.clear();
-  state = { snapshot: { folder: '/notes', items: [original] }, hasFolder: true, isServer: true, refresh: jest.fn(), stop: jest.fn(), renameItem: jest.fn().mockResolvedValue('renamed.txt') };
+  state = { snapshot: { folder: '/notes', items: [original] }, hasFolder: true, isServer: true, refresh: jest.fn(), stop: jest.fn(), renameItem: jest.fn().mockResolvedValue('renamed.txt'), openExternally: jest.fn().mockResolvedValue('note.txt') };
   useLiveFeed.mockImplementation(() => state);
 });
 
@@ -87,20 +87,21 @@ test('TXT>MD starts on, formats plain-text notes, and reversibly toggles the ori
   expect(container.querySelector('.feed-note strong').textContent).toBe('Updated');
 });
 
-test('expanded notes follow TXT>MD and copying keeps the original source', async () => {
+test('copying keeps the original source and Open in app hands the file to the desktop', async () => {
   const text = '# Heading\n\n* First\n* Second';
   state.snapshot.items = [{ ...original, text }];
   navigator.clipboard = { writeText: jest.fn().mockResolvedValue() };
   render();
-  await act(async () => Simulate.click([...container.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === 'Copy')));
+  const action = label => [...container.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === label);
+  await act(async () => Simulate.click(action('Copy')));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(text);
-  const expand = () => Simulate.click([...container.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === 'Expand'));
-  act(expand);
-  expect(container.querySelector('dialog .feed-markdown h1').textContent).toBe('Heading');
-  act(() => Simulate.click(container.querySelector('dialog button')));
-  act(() => Simulate.click(container.querySelector('.feed-format-toggle')));
-  act(expand);
-  expect(container.querySelector('dialog .feed-plain-text').textContent).toBe(text);
+  await act(async () => Simulate.click(action('Open in app')));
+  expect(state.openExternally).toHaveBeenCalledWith(state.snapshot.items[0]);
+  expect(container.querySelector('[role="alert"]')).toBe(null);
+  expect(container.querySelector('dialog')).toBe(null);
+  state.openExternally.mockRejectedValueOnce(new Error('No desktop app is set up to open this file.'));
+  await act(async () => Simulate.click(action('Open in app')));
+  expect(container.querySelector('[role="alert"]').textContent).toContain('No desktop app');
 });
 
 test('DOCX appears under Notes with searchable, copyable text and an original link in its preview', async () => {
@@ -119,9 +120,21 @@ test('DOCX appears under Notes with searchable, copyable text and an original li
   expect(container.querySelector('.feed-card h2').textContent).toBe('practice.docx');
   await act(async () => Simulate.click([...container.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === 'Copy')));
   expect(navigator.clipboard.writeText).toHaveBeenCalledWith(text);
-  act(() => Simulate.click([...container.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === 'Expand')));
-  expect(container.querySelector('dialog').textContent).toContain('Extracted paragraph');
-  expect(container.querySelector('dialog a').getAttribute('href')).toBe('blob:word-document');
+  await act(async () => Simulate.click([...container.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === 'Open in app')));
+  expect(state.openExternally).toHaveBeenCalledWith(state.snapshot.items[0]);
+  expect(container.querySelector('.feed-card').textContent).toContain('Extracted paragraph');
+});
+
+test('an image enlarges in the viewer and also opens in its desktop app', async () => {
+  state.snapshot.items = [{ path: 'court.png', name: 'court.png', type: 'image', modified: 1000, size: 10, url: 'blob:photo' }];
+  render();
+  const action = label => [...container.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === label);
+  await act(async () => Simulate.click(action('Open in app')));
+  expect(state.openExternally).toHaveBeenCalledWith(state.snapshot.items[0]);
+  act(() => Simulate.click(action('Enlarge here')));
+  expect(container.querySelector('dialog img').getAttribute('src')).toBe('blob:photo');
+  act(() => Simulate.click(container.querySelector('dialog button')));
+  expect(container.querySelector('dialog')).toBe(null);
 });
 
 test('PDF sidebar filter lists searchable paths that open separately without loading an inline preview', () => {

@@ -101,6 +101,27 @@ def rename_content(folder, relative, name):
     return str((source.parent / target).relative_to(folder))
 
 
+def open_in_desktop_app(folder, relative):
+    """Hand a file in the feed to the desktop app that owns it, the way Finder does."""
+    if not isinstance(relative, str) or not relative:
+        raise ValueError('Choose a file to open.')
+    path = content_path(folder, relative)
+    if os.name == 'nt':
+        os.startfile(str(path))
+        return str(path.relative_to(folder))
+    if sys.platform == 'darwin':
+        command = ['/usr/bin/open', str(path)]
+    elif sys.platform.startswith('linux'):
+        command = ['xdg-open', str(path)]
+    else:
+        raise ValueError('This system has no command for opening files in a desktop app.')
+    # The path is absolute, resolved, and inside the feed, so no shell or option parsing is involved.
+    result = subprocess.run(command, capture_output=True, text=True, timeout=20)
+    if result.returncode != 0:
+        raise ValueError((result.stderr.strip().splitlines() or ['No desktop app is set up to open this file.'])[-1][:300])
+    return str(path.relative_to(folder))
+
+
 class Feed:
     def __init__(self, folder, base):
         self.folder, self.base = folder.resolve(), base
@@ -269,7 +290,7 @@ class Handler(BaseHTTPRequestHandler):
                 html = html.replace('</head>', f'<script>window.__LOCAL_FEED__={config};</script></head>')
                 return self.reply(200, html.encode(), 'text/html; charset=utf-8')
             if route == '/api/ping':
-                return self.reply(200, {'folder': str(self.server.feed.folder), 'pid': os.getpid(), 'version': 4})
+                return self.reply(200, {'folder': str(self.server.feed.folder), 'pid': os.getpid(), 'version': 5})
             if route == '/api/feed':
                 return self.reply(200, self.server.feed.snapshot(query.get('recursive') == ['1']))
             if route == '/api/chat/providers':
@@ -314,6 +335,11 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('Expected a note object.')
                 name = save_markdown(self.server.feed.folder, data.get('filename'), data.get('text'))
                 return self.reply(201, {'path': name})
+            if route == '/api/open':
+                data = self.read_json(64 * 1024)
+                if not isinstance(data, dict):
+                    raise ValueError('Expected a file object.')
+                return self.reply(200, {'path': open_in_desktop_app(self.server.feed.folder, data.get('path'))})
             if route == '/api/rename':
                 data = self.read_json(64 * 1024)
                 if not isinstance(data, dict):
@@ -476,7 +502,7 @@ def main():
         if args.status:
             print(state['url'] if state else 'No feed is running for this folder.')
             return
-        if state and state.get('version', 1) < 4:
+        if state and state.get('version', 1) < 5:
             request(state, 'stop', 'POST')
             for _ in range(50):
                 if not state_path.exists():

@@ -56,7 +56,7 @@
 .feed-rename input { flex: 1 1 180px; min-width: 0; font: inherit; font-size: 13px; color: var(--feed-ink); background: var(--feed-bg); border: 1px solid var(--feed-accent); border-radius: 6px; padding: 6px 8px; }
 .feed-rename button { font-size: 11px; padding: 6px 9px; border: 1px solid var(--feed-line); border-radius: 6px; background: var(--feed-panel); }
 .feed-rename .feed-file-warning { flex: 1 0 100%; padding: 0; color: #bc4646; }
-.feed-pdf-rename { padding: 0 23px 15px; font-size: 11px; color: var(--feed-muted); }
+.feed-pdf-rename { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 0 23px 15px; font-size: 11px; color: var(--feed-muted); }
 .feed-app .feed-sort { padding: 7px 10px; border: 1px solid var(--feed-line); border-radius: 6px; background: var(--feed-panel); color: var(--feed-muted); font-size: 11px; font-weight: 600; white-space: nowrap; }
 .feed-app .feed-sort.is-active, .feed-app .feed-sort:hover { color: var(--feed-accent); border-color: var(--feed-accent); background: var(--feed-bg); }
 .feed-card-heading p span { padding: 0 4px; }
@@ -80,6 +80,7 @@
 .feed-tags span { background: var(--feed-bg); color: var(--feed-accent); font-size: 10px; padding: 4px 6px; border-radius: 4px; }
 .feed-card-actions { display: flex; gap: 13px; flex-shrink: 0; }
 .feed-card-actions button { border: 0; background: none; font-size: 11px; color: var(--feed-muted); }
+.feed-card-actions button:hover:not(:disabled), .feed-card-actions button:focus-visible { color: var(--feed-accent); }
 .feed-media { min-height: 240px; background: var(--feed-bg); }
 .feed-image-button { display: block; width: 100%; border: 0; background: transparent; }
 .feed-media img { width: 100%; max-height: 620px; object-fit: contain; display: block; }

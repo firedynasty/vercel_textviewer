@@ -41,8 +41,6 @@
 .feed-context summary .feed-chat-over { color: #bc4646; }
 .feed-chat-launch { margin-top: 22px; padding: 10px; border: 1px solid var(--feed-line); background: var(--feed-bg); border-radius: 6px; text-align: left; }
 .feed-card-actions { flex-wrap: wrap; }
-.feed-dialog .feed-preview-actions button { font-size: 12px; border: 1px solid var(--feed-line); border-radius: 6px; padding: 9px 12px; margin-right: 10px; }
-.feed-preview-actions { margin-top: 18px; }
 @media (max-width: 1000px) { .feed-app--chat .feed-sidebar { width: 175px; padding: 25px 12px; } .feed-app--chat .feed-column { padding: 25px 14px; } .feed-app--chat .feed-card-footer { flex-wrap: wrap; } .feed-chat { width: 380px; } }
 @media (max-width: 760px) { .feed-chat { position: fixed; z-index: 5; inset: 0 0 0 auto; width: min(440px, 100vw); box-shadow: -10px 0 40px #0003; } .feed-app--chat .feed-sidebar { width: 200px; } }
 @media (max-width: 600px) { .feed-app--chat .feed-sidebar { width: 100%; padding: 15px; } .feed-chat-launch { margin-top: 0; font-size: 11px !important; grid-column: 1 / -1; } .feed-chat-body { padding: 15px; } }

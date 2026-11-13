@@ -135,6 +135,18 @@ export default function useLiveFeed(recursive, retainedItems) {
     return path;
   };
 
+  // Let the desktop decide which app owns this file, the way double-clicking it would.
+  const openExternally = async item => {
+    if (!server) throw new Error('Open this folder with the Finder Quick Action to open files in their desktop app.');
+    if (stopped) throw new Error('Reopen the folder to reconnect before opening files.');
+    const response = await fetch(`${server.base}/api/open`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: item.path }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || 'Could not open this file in a desktop app.');
+    return result.path;
+  };
+
   // Rename a file in place: same folder, same extension, never replacing another file.
   const renameItem = async (item, name) => {
     if (stopped) throw new Error('Reopen the folder to reconnect before renaming.');
@@ -191,7 +203,7 @@ export default function useLiveFeed(recursive, retainedItems) {
   };
 
   return {
-    snapshot, error, loading, stopped, chooseFolder, stop, saveNote, renameItem,
+    snapshot, error, loading, stopped, chooseFolder, stop, saveNote, renameItem, openExternally,
     readChat: item => readSaved(item, 'chat', CHAT_MARKER),
     readWorksheet: item => readSaved(item, 'practice', WORKSHEET_MARKER),
     refresh: () => {

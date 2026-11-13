@@ -101,7 +101,14 @@ The source template is [Open Folder Feed.applescript](Open%20Folder%20Feed.apple
 - Filter everything, notes, PDFs, images, or videos. Enable **Include subfolders** when needed.
 - **PDFs** lists file paths as links that open the original PDF in a new tab or
   window. PDFs load only when clicked; search matches their names and paths.
-- Expand long notes, copy their text, and click images to enlarge.
+- **Read more** unfolds a long note in place; **Collapse** folds it back.
+- **Open in app** hands the file to the app your Mac opens it with, exactly like
+  double-clicking it in Finder or running `open` in a terminal: Typora (or
+  whatever owns `.md`) for Markdown, Word for `.docx`, Preview for a PDF or an
+  image, your player for a video. Every card has it, including PDF cards. The
+  launcher runs the system opener; a folder opened with **Choose a folder** in
+  the browser cannot, and the card says so. Images also keep **Enlarge here**
+  for a quick look without leaving the feed.
 - **Sort: Newest / Name A–Z** switches the order between the most recent save and
   the filename shown in each card header. Filenames sort the way people read
   them, so `02-history.md` comes before `10-building.md`, and the choice is
@@ -115,20 +122,19 @@ The source template is [Open Folder Feed.applescript](Open%20Folder%20Feed.apple
   opened with **Choose a folder** needs a Chrome version that can rename picked
   files, and says so when it cannot.
 - **TXT>MD** starts on: notes use Markdown typography, bullets, paragraphs, and
-  clickable links. Turn it off for the original plain text; expanded previews
-  follow the same setting. Formatting does not change your files or copied text.
+  clickable links. Turn it off for the original plain text. Formatting does not
+  change your files or copied text.
 - Videos play on click and pause when scrolled away or when Chrome hides the tab.
 - Media loads near the viewport; the feed adds more cards as you scroll.
 - Use **Open file reader** to return to the original viewer and its folder/Dropbox controls.
 
 ## Context, chat, and saving knowledge
 
-1. To chat about one note, click **Ask about this** on its card, or **Expand**
-   the note and choose **Ask about this note**. The panel opens with only that
-   note checked and the cursor in the question box; anything collected earlier
-   stays in the list, unchecked, so nothing is lost.
+1. To chat about one note, click **Ask about this** on its card. The panel opens
+   with only that note checked and the cursor in the question box; anything
+   collected earlier stays in the list, unchecked, so nothing is lost.
 2. To build a wider context, use **Add note** on each card you want, or highlight
-   a passage in a card or expanded preview and click **Add selection**. To append
+   a passage in a card and click **Add selection**. To append
    many notes at once, use **Add all notes in view** in Context & chat: it adds
    every note matching the current filter and search (so search a `#tag` first to
    add just that set), skips notes already collected, and stops before the
@@ -243,8 +249,8 @@ plain text, and embedded image references are shown as labels; images in the
 folder have their own cards. Text notes show at most 256 KiB and are interpreted
 as UTF-8. Word (`.docx`) documents appear under **Notes**, with extracted text for
 search, hashtags, copy, and previews. DOCX previews show at most 256K characters;
-Word layout and embedded images are not displayed. The original file is available
-from the expanded preview in both launcher and browser-only modes. Damaged or
+Word layout and embedded images are not displayed. Use **Open in app** to read the
+document itself in Word. Damaged or
 encrypted documents show a warning without interrupting the other files.
 
 Supported image extensions: JPG, JPEG, PNG, GIF, WebP, AVIF, BMP, SVG. Video:

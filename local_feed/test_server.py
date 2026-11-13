@@ -7,6 +7,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from urllib.parse import quote, urlsplit
 
 from server import Feed, NOTE_LIMIT, byte_range, make_server
@@ -122,6 +123,23 @@ class HTTPTests(unittest.TestCase):
         result = response.status, response.read()
         connection.close()
         return result
+
+    def test_open_hands_the_file_to_the_system_opener_and_guards_paths(self):
+        (self.folder / 'note.md').write_text('hello')
+        (self.folder / 'script.py').write_text('print(1)')
+        with mock.patch('server.subprocess.run', return_value=subprocess.CompletedProcess([], 0, '', '')) as opener:
+            status, body = self.post(self.base + '/api/open', {'path': 'note.md'})
+        self.assertEqual((status, json.loads(body)['path']), (200, 'note.md'))
+        self.assertEqual(opener.call_args[0][0][-1], str((self.folder / 'note.md').resolve()))
+        with mock.patch('server.subprocess.run', return_value=subprocess.CompletedProcess([], 1, '', 'LSOpenURLsWithRole() failed')):
+            status, body = self.post(self.base + '/api/open', {'path': 'note.md'})
+        self.assertEqual(status, 400)
+        self.assertIn('LSOpenURLsWithRole', json.loads(body)['error'])
+        for payload, expected in [({'path': '../private.md'}, 403), ({'path': 'script.py'}, 403), ({'path': '.hidden.md'}, 403),
+                                  ({'path': 'missing.md'}, 404), ({'path': ''}, 400), ({}, 400)]:
+            with self.subTest(payload=payload), mock.patch('server.subprocess.run') as blocked:
+                self.assertEqual(self.post(self.base + '/api/open', payload)[0], expected)
+                blocked.assert_not_called()
 
     def test_rename_keeps_the_folder_and_type_and_never_replaces_a_file(self):
         (self.folder / 'notes').mkdir()

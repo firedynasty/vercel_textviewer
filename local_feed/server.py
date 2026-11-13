@@ -56,6 +56,51 @@ def content_path(folder, relative):
     return resolved
 
 
+def rename_content(folder, relative, name):
+    """Rename a file inside the feed, keeping its folder, type, and any existing file."""
+    if not isinstance(relative, str) or not relative:
+        raise ValueError('Choose a file to rename.')
+    source = content_path(folder, relative)
+    if not isinstance(name, str):
+        raise ValueError('Choose a new filename.')
+    target = name.strip()
+    if not target:
+        raise ValueError('Choose a new filename.')
+    if '/' in target or '\\' in target:
+        raise ValueError('Choose a filename without folders.')
+    if target.startswith('.'):
+        raise ValueError('Choose a filename that does not start with a dot.')
+    if any(ord(character) < 32 or ord(character) == 127 for character in target):
+        raise ValueError('Choose a filename without control characters.')
+    if not Path(target).suffix:
+        target += source.suffix
+    if len(target.encode('utf-8')) > 220:
+        raise ValueError('Choose a shorter filename.')
+    if Path(target).suffix.lower() != source.suffix.lower():
+        raise ValueError(f'Keep the {source.suffix} extension so the feed can read this file.')
+    if target == source.name:
+        return str(source.relative_to(folder))
+    directory = os.open(source.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        if target.lower() == source.name.lower():
+            # A case-only change cannot use link() on a case-insensitive filesystem.
+            os.rename(source.name, target, src_dir_fd=directory, dst_dir_fd=directory)
+        else:
+            # link() then unlink() never replaces an existing file, unlike rename().
+            try:
+                os.link(source.name, target, src_dir_fd=directory, dst_dir_fd=directory, follow_symlinks=False)
+            except FileExistsError:
+                raise ValueError('A file with that name is already in this folder.')
+            try:
+                os.unlink(source.name, dir_fd=directory)
+            except BaseException:
+                os.unlink(target, dir_fd=directory)
+                raise
+    finally:
+        os.close(directory)
+    return str((source.parent / target).relative_to(folder))
+
+
 class Feed:
     def __init__(self, folder, base):
         self.folder, self.base = folder.resolve(), base
@@ -224,7 +269,7 @@ class Handler(BaseHTTPRequestHandler):
                 html = html.replace('</head>', f'<script>window.__LOCAL_FEED__={config};</script></head>')
                 return self.reply(200, html.encode(), 'text/html; charset=utf-8')
             if route == '/api/ping':
-                return self.reply(200, {'folder': str(self.server.feed.folder), 'pid': os.getpid(), 'version': 3})
+                return self.reply(200, {'folder': str(self.server.feed.folder), 'pid': os.getpid(), 'version': 4})
             if route == '/api/feed':
                 return self.reply(200, self.server.feed.snapshot(query.get('recursive') == ['1']))
             if route == '/api/chat/providers':
@@ -269,6 +314,11 @@ class Handler(BaseHTTPRequestHandler):
                     raise ValueError('Expected a note object.')
                 name = save_markdown(self.server.feed.folder, data.get('filename'), data.get('text'))
                 return self.reply(201, {'path': name})
+            if route == '/api/rename':
+                data = self.read_json(64 * 1024)
+                if not isinstance(data, dict):
+                    raise ValueError('Expected a rename object.')
+                return self.reply(200, {'path': rename_content(self.server.feed.folder, data.get('path'), data.get('name'))})
             if route == '/api/chat/ask':
                 payload = validate_chat(self.read_json(CHAT_LIMIT))
                 providers = activity_providers(self.server.chat_url)
@@ -292,6 +342,8 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(400, {'error': str(problem)})
         except (BrokenPipeError, ConnectionResetError):
             pass
+        except (FileNotFoundError, NotADirectoryError):
+            self.reply(404, {'error': 'The file or folder is no longer available.'})
         except (OSError, http.client.HTTPException):
             self.reply(503, {'error': 'Could not reach Activity Island or write the note. Check the connection and folder permissions.'})
 
@@ -424,7 +476,7 @@ def main():
         if args.status:
             print(state['url'] if state else 'No feed is running for this folder.')
             return
-        if state and state.get('version', 1) < 3:
+        if state and state.get('version', 1) < 4:
             request(state, 'stop', 'POST')
             for _ in range(50):
                 if not state_path.exists():

@@ -102,6 +102,18 @@ The source template is [Open Folder Feed.applescript](Open%20Folder%20Feed.apple
 - **PDFs** lists file paths as links that open the original PDF in a new tab or
   window. PDFs load only when clicked; search matches their names and paths.
 - Expand long notes, copy their text, and click images to enlarge.
+- **Sort: Newest / Name A–Z** switches the order between the most recent save and
+  the filename shown in each card header. Filenames sort the way people read
+  them, so `02-history.md` comes before `10-building.md`, and the choice is
+  remembered for the next time you open a feed.
+- **Rename a file** by clicking its name in the card header (PDF cards carry the
+  same control under their link), typing a new one, and pressing Enter or **Save
+  name**; Escape or **Cancel** leaves it alone. The file keeps its folder and its
+  extension — type `Bits and bytes` and a `.md` note becomes `Bits and bytes.md`.
+  An existing file is never replaced: a name already in that folder is refused
+  and reported on the card. Renaming works through the Finder launcher; a folder
+  opened with **Choose a folder** needs a Chrome version that can rename picked
+  files, and says so when it cannot.
 - **TXT>MD** starts on: notes use Markdown typography, bullets, paragraphs, and
   clickable links. Turn it off for the original plain text; expanded previews
   follow the same setting. Formatting does not change your files or copied text.

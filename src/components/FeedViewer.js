@@ -2,7 +2,7 @@ import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import useLiveFeed from '../hooks/useLiveFeed';
 import useFolderChat from '../hooks/useFolderChat';
 import useFolderPractice from '../hooks/useFolderPractice';
-import { changedPaths, filterFeed } from '../utils/feedUtils';
+import { changedPaths, filterFeed, sortItems } from '../utils/feedUtils';
 import { CHAT_MARKER, visibleChatMarkdown } from '../utils/chatUtils';
 import FeedMarkdown from './FeedMarkdown';
 import FeedChat from './FeedChat';
@@ -57,7 +57,39 @@ function Media({ item, onExpand }) {
   </div>;
 }
 
-const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, practice }) {
+// The filename in the card header doubles as the rename control.
+function FileName({ item, onRename, as: Tag = 'h2' }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(item.name);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const submit = async event => {
+    event.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onRename(item, draft);
+      setEditing(false);
+      setError('');
+    } catch (problem) { setError(problem.message); }
+    finally { setBusy(false); }
+  };
+  if (!editing) {
+    return <Tag className="feed-file-name">
+      <button type="button" title={`Rename ${item.name}`} onClick={() => { setDraft(item.name); setError(''); setEditing(true); }}>{item.name}</button>
+    </Tag>;
+  }
+  return <form className="feed-rename" onSubmit={submit}>
+    <input autoFocus value={draft} disabled={busy} aria-label={`New name for ${item.name}`} spellCheck="false"
+      onChange={event => setDraft(event.target.value)}
+      onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); setEditing(false); setError(''); } }} />
+    <button type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save name'}</button>
+    <button type="button" disabled={busy} onClick={() => { setEditing(false); setError(''); }}>Cancel</button>
+    {error && <p className="feed-file-warning" role="alert">{error}</p>}
+  </form>;
+}
+
+const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, practice, onRename }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const copyTimer = useRef(null);
@@ -68,6 +100,7 @@ const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, pract
         <span className="feed-file-icon feed-file-icon--pdf" aria-hidden="true">PDF</span>
         <span className="feed-pdf-path">{item.path}</span><span aria-hidden="true">↗</span>
       </a>
+      <footer className="feed-pdf-rename"><FileName item={item} onRename={onRename} as="div" /></footer>
     </article>;
   }
   const date = new Date(item.modified);
@@ -83,7 +116,7 @@ const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, pract
   return <article className="feed-card" data-feed-path={item.path}>
     <header className="feed-card-heading">
       <span className={`feed-file-icon feed-file-icon--${item.type}`} aria-hidden="true">{item.type === 'note' ? 'Aa' : item.type === 'image' ? '▧' : '▶'}</span>
-      <div><h2>{item.name}</h2><p title={item.path}>{item.path.includes('/') ? item.path.slice(0, item.path.lastIndexOf('/')) + ' · ' : ''}{LABELS[item.type]} <span aria-hidden="true">·</span> <time dateTime={date.toISOString()} title={date.toLocaleString()}>{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</time></p></div>
+      <div><FileName item={item} onRename={onRename} /><p title={item.path}>{item.path.includes('/') ? item.path.slice(0, item.path.lastIndexOf('/')) + ' · ' : ''}{LABELS[item.type]} <span aria-hidden="true">·</span> <time dateTime={date.toISOString()} title={date.toLocaleString()}>{date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}, {date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</time></p></div>
     </header>
     {item.type === 'note'
       ? <><div className={`feed-note${longNote && !expanded ? ' feed-note--clipped' : ''}`} onMouseUp={event => chat.capture(event, item)} onKeyUp={event => chat.capture(event, item)}><Note item={item} formatted={formatted} /></div>
@@ -130,6 +163,7 @@ export default function FeedViewer({ onOpenReader }) {
   const [selected, setSelected] = useState(null);
   const [limit, setLimit] = useState(40);
   const [dark, setDark] = useState(() => localStorage.getItem('feed-dark') === 'true');
+  const [sort, setSort] = useState(() => localStorage.getItem('feed-sort') === 'name' ? 'name' : 'recent');
   const scrolling = useRef(null);
   const sentinel = useRef(null);
   const search = useRef(null);
@@ -146,6 +180,7 @@ export default function FeedViewer({ onOpenReader }) {
   }, [selected, practice.open]);
 
   useEffect(() => { localStorage.setItem('feed-dark', String(dark)); }, [dark]);
+  useEffect(() => { localStorage.setItem('feed-sort', sort); }, [sort]);
   useEffect(() => {
     if (!feed.snapshot) { setItems(null); setPending(null); return; }
     const next = feed.snapshot.items;
@@ -161,11 +196,11 @@ export default function FeedViewer({ onOpenReader }) {
     }
   }, [feed.snapshot, items, selected]);
 
-  const filtered = useMemo(() => filterFeed(items || [], query, filter), [items, query, filter]);
+  const filtered = useMemo(() => sortItems(filterFeed(items || [], query, filter), sort), [items, query, filter, sort]);
   // Bulk add covers the notes matching the current filter and search, minus saved chats and worksheets.
   const collectable = useMemo(() => filtered.filter(item => item.type === 'note' && item.text?.trim()
     && !item.chat && !item.worksheet && !item.text.startsWith(CHAT_MARKER) && !item.text.startsWith(WORKSHEET_MARKER)), [filtered]);
-  useEffect(() => { setLimit(40); scrolling.current?.scrollTo(0, 0); }, [query, filter]);
+  useEffect(() => { setLimit(40); scrolling.current?.scrollTo(0, 0); }, [query, filter, sort]);
   useEffect(() => {
     if (!window.IntersectionObserver || !sentinel.current) return;
     const observer = new IntersectionObserver(entries => {
@@ -180,6 +215,9 @@ export default function FeedViewer({ onOpenReader }) {
     return result;
   }, {}), [items]);
   const openPreview = React.useCallback(item => setSelected(item), []);
+  const renameHandler = useRef(feed.renameItem);
+  renameHandler.current = feed.renameItem;
+  const rename = React.useCallback((item, name) => renameHandler.current(item, name), []);
   const leaveChat = action => {
     if (chat.busy || chat.saving || practice.busy || practice.saving) return;
     if ((!chat.dirty && !practice.dirty) || window.confirm('Leave this folder and discard unsaved chat or worksheet changes?')) action();
@@ -206,7 +244,7 @@ export default function FeedViewer({ onOpenReader }) {
       <header className="feed-topbar"><div><span className={`feed-status-dot${!feed.hasFolder || feed.error || feed.stopped ? ' feed-status-dot--idle' : ''}`} />{feed.stopped ? 'Server stopped' : feed.error ? 'Connection needs attention' : feed.hasFolder ? 'Live folder' : 'Local files'}</div><span>Notes · PDFs · Images · Videos</span></header>
       <div className="feed-scroll" ref={scrolling}>
         <div className="feed-column">
-          <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
+          <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><button className={`feed-sort${sort === 'name' ? ' is-active' : ''}`} onClick={() => setSort(value => value === 'name' ? 'recent' : 'name')} aria-pressed={sort === 'name'} title="Sort by filename or by most recent save">Sort: {sort === 'name' ? 'Name A\u2013Z' : 'Newest'}</button><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
           <label className="feed-search"><span aria-hidden="true">⌕</span><input ref={search} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search filenames, notes, or #tags" aria-label="Search feed" /><kbd>/</kbd></label>
           {feed.error && <div className="feed-notice" role="alert">{feed.error} <button onClick={feed.refresh}>Retry</button></div>}
           {pending && <button className="feed-update" onClick={applyUpdates}>{pending.count} {pending.count === 1 ? 'change' : 'changes'} available · Show updates ↑</button>}
@@ -214,7 +252,7 @@ export default function FeedViewer({ onOpenReader }) {
           {!feed.hasFolder && <div className="feed-empty"><div aria-hidden="true">▤</div><h2>Your folder becomes a feed.</h2><p>Choose a folder of notes, PDFs, images, and videos. Save files in your usual apps and see updates here.</p><button className="feed-primary" onClick={feed.chooseFolder}>Choose a folder</button><small>Files stay on your computer.</small></div>}
           {feed.hasFolder && items === null && feed.loading && <div className="feed-empty" role="status">Reading your folder…</div>}
           {items !== null && filtered.length === 0 && <div className="feed-empty"><h2>{query ? 'No matching files' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename, phrase, or hashtag.' : 'Save a .txt, .md, .docx, .pdf, image, or video in this folder, or include subfolders.'}</p></div>}
-          <div className="feed-cards">{filtered.slice(0, limit).map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} chat={chat} practice={practice} />)}</div>
+          <div className="feed-cards">{filtered.slice(0, limit).map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} chat={chat} practice={practice} onRename={rename} />)}</div>
           {filtered.length > limit && <div ref={sentinel} className="feed-more"><button onClick={() => setLimit(value => value + 40)}>Load more files</button></div>}
           {filtered.length > 0 && filtered.length <= limit && <p className="feed-end">You're all caught up. New saves will appear here.</p>}
         </div>

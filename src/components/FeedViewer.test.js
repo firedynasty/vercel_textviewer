@@ -18,7 +18,8 @@ beforeEach(() => {
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
-  state = { snapshot: { folder: '/notes', items: [original] }, hasFolder: true, isServer: true, refresh: jest.fn(), stop: jest.fn() };
+  localStorage.clear();
+  state = { snapshot: { folder: '/notes', items: [original] }, hasFolder: true, isServer: true, refresh: jest.fn(), stop: jest.fn(), renameItem: jest.fn().mockResolvedValue('renamed.txt') };
   useLiveFeed.mockImplementation(() => state);
 });
 
@@ -141,4 +142,45 @@ test('PDF sidebar filter lists searchable paths that open separately without loa
   expect(container.querySelectorAll('.feed-card')).toHaveLength(1);
   act(() => Simulate.change(container.querySelector('input[type="search"]'), { target: { value: 'missing' } }));
   expect(container.querySelectorAll('.feed-card')).toHaveLength(0);
+});
+
+test('the filename in the header renames the file, reporting what the folder refuses', async () => {
+  render();
+  const title = () => container.querySelector('.feed-file-name button');
+  expect(title().textContent).toBe('note.txt');
+  act(() => Simulate.click(title()));
+  const field = container.querySelector('.feed-rename input');
+  expect(field.value).toBe('note.txt');
+  act(() => Simulate.change(field, { target: { value: 'Bits and bytes' } }));
+  await act(async () => Simulate.submit(container.querySelector('.feed-rename')));
+  expect(state.renameItem).toHaveBeenCalledWith(original, 'Bits and bytes');
+  expect(container.querySelector('.feed-rename')).toBe(null);
+  state.renameItem.mockRejectedValueOnce(new Error('A file with that name is already in this folder.'));
+  act(() => Simulate.click(title()));
+  act(() => Simulate.change(container.querySelector('.feed-rename input'), { target: { value: 'taken.txt' } }));
+  await act(async () => Simulate.submit(container.querySelector('.feed-rename')));
+  expect(container.querySelector('[role="alert"]').textContent).toContain('already in this folder');
+  expect(container.querySelector('.feed-rename input').value).toBe('taken.txt');
+  act(() => Simulate.click([...container.querySelectorAll('.feed-rename button')].find(button => button.textContent === 'Cancel')));
+  expect(container.querySelector('.feed-rename')).toBe(null);
+  expect(title().textContent).toBe('note.txt');
+});
+
+test('the sort button switches between newest saves and filename order, and is remembered', () => {
+  state.snapshot.items = [{ ...original, path: 'other.md', name: 'other.md', modified: 2000 }, original];
+  render();
+  const names = () => [...container.querySelectorAll('.feed-file-name button')].map(button => button.textContent);
+  const sort = () => container.querySelector('.feed-sort');
+  expect(names()).toEqual(['other.md', 'note.txt']);
+  expect(sort().getAttribute('aria-pressed')).toBe('false');
+  act(() => Simulate.click(sort()));
+  expect(names()).toEqual(['note.txt', 'other.md']);
+  expect(sort().textContent).toContain('Name');
+  expect(localStorage.getItem('feed-sort')).toBe('name');
+  act(() => root.unmount());
+  root = createRoot(container);
+  render();
+  expect(names()).toEqual(['note.txt', 'other.md']);
+  act(() => Simulate.click(container.querySelector('.feed-sort')));
+  expect(names()).toEqual(['other.md', 'note.txt']);
 });

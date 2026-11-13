@@ -17,6 +17,29 @@ export function sortFeed(items) {
   return [...items].sort((a, b) => b.modified - a.modified || a.path.localeCompare(b.path));
 }
 
+// Sort the visible feed: newest save first, or by the filename shown in each card header.
+export function sortItems(items, mode) {
+  return mode === 'name'
+    ? [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }) || a.path.localeCompare(b.path))
+    : items;
+}
+
+// Decide the filename a rename should produce, or explain why it cannot.
+export function renameTarget(currentName, input) {
+  const target = (input || '').trim();
+  const suffix = currentName.slice(currentName.lastIndexOf('.'));
+  if (!target) throw new Error('Choose a new filename.');
+  if (/[/\\]/.test(target)) throw new Error('Choose a filename without folders.');
+  if (target.startsWith('.')) throw new Error('Choose a filename that does not start with a dot.');
+  if (/[\u0000-\u001f\u007f]/.test(target)) throw new Error('Choose a filename without control characters.');
+  const named = /\.[^.]+$/.test(target) ? target : target + suffix;
+  if (named.length > 200) throw new Error('Choose a shorter filename.');
+  if (named.slice(named.lastIndexOf('.')).toLowerCase() !== suffix.toLowerCase()) {
+    throw new Error(`Keep the ${suffix} extension so the feed can read this file.`);
+  }
+  return named;
+}
+
 // Hold new ordering and content until the reader chooses to apply the update.
 export function changedPaths(previous, next) {
   // Retrying an unavailable document can change its error without a new save.

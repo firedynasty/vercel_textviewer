@@ -115,6 +115,37 @@ class HTTPTests(unittest.TestCase):
         connection.close()
         return result
 
+    def post(self, path, payload):
+        connection = http.client.HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
+        connection.request('POST', path, body=json.dumps(payload), headers={'Content-Type': 'application/json'})
+        response = connection.getresponse()
+        result = response.status, response.read()
+        connection.close()
+        return result
+
+    def test_rename_keeps_the_folder_and_type_and_never_replaces_a_file(self):
+        (self.folder / 'notes').mkdir()
+        (self.folder / 'notes' / 'first.md').write_text('hello')
+        (self.folder / 'notes' / 'taken.md').write_text('other')
+        status, body = self.post(self.base + '/api/rename', {'path': 'notes/first.md', 'name': ' Bits and bytes '})
+        self.assertEqual((status, json.loads(body)['path']), (200, 'notes/Bits and bytes.md'))
+        self.assertEqual((self.folder / 'notes' / 'Bits and bytes.md').read_text(), 'hello')
+        self.assertFalse((self.folder / 'notes' / 'first.md').exists())
+        for payload, expected in [
+            ({'path': 'notes/Bits and bytes.md', 'name': 'taken.md'}, 400),
+            ({'path': 'notes/Bits and bytes.md', 'name': 'renamed.txt'}, 400),
+            ({'path': 'notes/Bits and bytes.md', 'name': '../escaped.md'}, 400),
+            ({'path': 'notes/Bits and bytes.md', 'name': '.hidden.md'}, 400),
+            ({'path': 'notes/Bits and bytes.md', 'name': 'line\nbreak.md'}, 400),
+            ({'path': 'notes/Bits and bytes.md', 'name': ''}, 400),
+            ({'path': '../private.md', 'name': 'escaped.md'}, 403),
+            ({'path': 'notes/missing.md', 'name': 'anything.md'}, 404),
+        ]:
+            with self.subTest(payload=payload):
+                self.assertEqual(self.post(self.base + '/api/rename', payload)[0], expected)
+        self.assertEqual((self.folder / 'notes' / 'taken.md').read_text(), 'other')
+        self.assertEqual(sorted(path.name for path in (self.folder / 'notes').iterdir()), ['Bits and bytes.md', 'taken.md'])
+
     def test_bootstrap_api_and_public_assets(self):
         status, headers, body = self.get(self.base + '/')
         self.assertEqual(status, 200)

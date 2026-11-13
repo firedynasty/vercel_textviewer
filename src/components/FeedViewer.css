@@ -50,6 +50,15 @@
 .feed-pdf-link:hover .feed-pdf-path { text-decoration: underline; }
 .feed-card-heading h2 { font-size: 13px; font-weight: 600; margin-bottom: 5px; overflow-wrap: anywhere; }
 .feed-card-heading p { font-size: 10px; color: var(--feed-muted); line-height: 1.5; overflow-wrap: anywhere; }
+.feed-file-name > button { font: inherit; color: inherit; background: none; border: 0; padding: 0; text-align: left; overflow-wrap: anywhere; }
+.feed-file-name > button:hover, .feed-file-name > button:focus-visible { color: var(--feed-accent); text-decoration: underline; }
+.feed-rename { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-bottom: 5px; }
+.feed-rename input { flex: 1 1 180px; min-width: 0; font: inherit; font-size: 13px; color: var(--feed-ink); background: var(--feed-bg); border: 1px solid var(--feed-accent); border-radius: 6px; padding: 6px 8px; }
+.feed-rename button { font-size: 11px; padding: 6px 9px; border: 1px solid var(--feed-line); border-radius: 6px; background: var(--feed-panel); }
+.feed-rename .feed-file-warning { flex: 1 0 100%; padding: 0; color: #bc4646; }
+.feed-pdf-rename { padding: 0 23px 15px; font-size: 11px; color: var(--feed-muted); }
+.feed-app .feed-sort { padding: 7px 10px; border: 1px solid var(--feed-line); border-radius: 6px; background: var(--feed-panel); color: var(--feed-muted); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.feed-app .feed-sort.is-active, .feed-app .feed-sort:hover { color: var(--feed-accent); border-color: var(--feed-accent); background: var(--feed-bg); }
 .feed-card-heading p span { padding: 0 4px; }
 .feed-note { padding: 0 23px 10px; }
 .feed-note--clipped { max-height: 320px; overflow: hidden; mask-image: linear-gradient(#000 85%, #0000); }

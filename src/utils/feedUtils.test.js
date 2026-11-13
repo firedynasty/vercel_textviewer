@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { TextDecoder } from 'util';
-import { changedPaths, feedType, filterFeed, loadServerNotes, NOTE_LIMIT, scanDirectory, sortFeed } from './feedUtils';
+import { changedPaths, feedType, filterFeed, loadServerNotes, NOTE_LIMIT, renameTarget, scanDirectory, sortFeed, sortItems } from './feedUtils';
 
 // Exercise the same real parser used by Webpack rather than Mammoth's Node I/O.
 jest.mock('mammoth', () => jest.requireActual('mammoth/mammoth.browser'));
@@ -144,4 +144,20 @@ test('PDF folder entries keep their path and a PDF-typed URL without reading or 
   expect(filterFeed(first.items, 'references guide', 'pdf')).toEqual(first.items);
   expect(filterFeed(first.items, '', 'note')).toEqual([]);
   expect((await loadServerNotes(first.items)).items[0]).toBe(first.items[0]);
+});
+
+test('sorting by name reads filenames the way people do, and leaves recent order untouched', () => {
+  const items = ['10-building.md', '02-history.md', 'Zebra.txt', 'apple.txt'].map((name, index) => ({ name, path: name, modified: index }));
+  expect(sortItems(items, 'name').map(item => item.name)).toEqual(['02-history.md', '10-building.md', 'apple.txt', 'Zebra.txt']);
+  expect(sortItems(items, 'recent')).toBe(items);
+});
+
+test('renaming keeps the extension and rejects folders, dots, control characters, and empty names', () => {
+  expect(renameTarget('first.md', '  Bits and bytes  ')).toBe('Bits and bytes.md');
+  expect(renameTarget('photo.PNG', 'court')).toBe('court.PNG');
+  expect(renameTarget('notes.md', 'notes.MD')).toBe('notes.MD');
+  for (const [name, message] of [['', 'Choose a new filename'], ['   ', 'Choose a new filename'], ['sub/name.md', 'without folders'],
+    ['.hidden.md', 'start with a dot'], ['line\nbreak.md', 'control characters'], ['name.txt', 'Keep the .md extension'], ['x'.repeat(240), 'shorter filename']]) {
+    expect(() => renameTarget('first.md', name)).toThrow(message);
+  }
 });

@@ -2,6 +2,7 @@ import http.client
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -183,7 +184,8 @@ class LauncherUpgradeTests(unittest.TestCase):
             build.mkdir()
             (build / 'index.html').write_text('<html><head></head></html>')
             current = Path(__file__).with_name('server.py')
-            source = current.read_text().replace("'pid': os.getpid(), 'version': 3", "'pid': os.getpid(), 'version': 1")
+            # Downgrade whichever API version this checkout serves, so the test survives later bumps.
+            source = re.sub(r"('pid': os\.getpid\(\), 'version': )\d+", r"\g<1>1", current.read_text())
             source = source.replace('from chat import ', f'sys.path.insert(0, {str(current.parent)!r})\nfrom chat import ', 1)
             old = root / 'old_server.py'
             old.write_text(source)
@@ -194,7 +196,7 @@ class LauncherUpgradeTests(unittest.TestCase):
                 self.assertEqual(before['version'], 1)
                 second = subprocess.check_output([sys.executable, str(current), *options], text=True, timeout=10).strip()
                 after = request({'url': second})
-                self.assertEqual(after['version'], 3)
+                self.assertEqual(after['version'], int(re.search(r"'version': (\d+)\}", current.read_text()).group(1)))
                 self.assertNotEqual(before['pid'], after['pid'])
             finally:
                 subprocess.run([sys.executable, str(current), *options, '--stop'], check=True, capture_output=True, timeout=10)

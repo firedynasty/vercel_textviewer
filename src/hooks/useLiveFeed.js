@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { loadServerNotes, scanDirectory, sortFeed } from '../utils/feedUtils';
+import { loadServerNotes, renameTarget, scanDirectory, sortFeed } from '../utils/feedUtils';
 import { CHAT_MARKER, hasControlCharacters } from '../utils/chatUtils';
 import { WORKSHEET_MARKER } from '../utils/worksheetUtils';
 
@@ -135,6 +135,42 @@ export default function useLiveFeed(recursive, retainedItems) {
     return path;
   };
 
+  // Rename a file in place: same folder, same extension, never replacing another file.
+  const renameItem = async (item, name) => {
+    if (stopped) throw new Error('Reopen the folder to reconnect before renaming.');
+    const target = renameTarget(item.name, name);
+    let path;
+    if (target === item.name) return item.path;
+    if (server) {
+      const response = await fetch(`${server.base}/api/rename`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: item.path, name: target }),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Could not rename this file.');
+      path = result.path;
+    } else {
+      if (!directory) throw new Error('Choose a folder before renaming.');
+      const parts = item.path.split('/');
+      let parent = directory;
+      for (const part of parts.slice(0, -1)) parent = await parent.getDirectoryHandle(part);
+      const handle = await parent.getFileHandle(parts[parts.length - 1]);
+      if (typeof handle.move !== 'function') throw new Error('This browser cannot rename files. Open the folder with the Finder launcher.');
+      if (await directory.requestPermission({ mode: 'readwrite' }) !== 'granted') throw new Error('Allow write access to rename files in this folder.');
+      let taken = true;
+      try { await parent.getFileHandle(target); }
+      catch (problem) {
+        if (problem.name !== 'NotFoundError') throw problem;
+        taken = false;
+      }
+      if (taken) throw new Error('A file with that name is already in this folder.');
+      await handle.move(target);
+      path = [...parts.slice(0, -1), target].join('/');
+    }
+    cache.current.delete(item.path);
+    setRefreshKey(value => value + 1);
+    return path;
+  };
+
   const readSaved = async (item, kind, marker) => {
     let text;
     if (server) {
@@ -155,7 +191,7 @@ export default function useLiveFeed(recursive, retainedItems) {
   };
 
   return {
-    snapshot, error, loading, stopped, chooseFolder, stop, saveNote,
+    snapshot, error, loading, stopped, chooseFolder, stop, saveNote, renameItem,
     readChat: item => readSaved(item, 'chat', CHAT_MARKER),
     readWorksheet: item => readSaved(item, 'practice', WORKSHEET_MARKER),
     refresh: () => {

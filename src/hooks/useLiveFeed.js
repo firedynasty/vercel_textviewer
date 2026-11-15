@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { loadServerNotes, renameTarget, scanDirectory, sortFeed } from '../utils/feedUtils';
+import { scanDropbox } from '../utils/dropboxFeed';
+import { readCache, writeCache } from '../utils/dropboxCache';
+import { FEED_ROOT } from './useDropboxFeed';
 import { CHAT_MARKER, hasControlCharacters } from '../utils/chatUtils';
 import { WORKSHEET_MARKER } from '../utils/worksheetUtils';
 
-export default function useLiveFeed(recursive, retainedItems) {
+export default function useLiveFeed(recursive, retainedItems, dropbox) {
   const server = window.__LOCAL_FEED__;
+  const dropboxToken = dropbox?.token || null;
+  const hydrated = useRef(false);
+  // The hook returns a fresh object each render, so the scan tracks the token and reads the rest by ref.
+  const dropboxRef = useRef(dropbox);
+  dropboxRef.current = dropbox;
   const [directory, setDirectory] = useState(null);
   const [snapshot, setSnapshot] = useState(null);
   const [error, setError] = useState('');
@@ -44,7 +52,7 @@ export default function useLiveFeed(recursive, retainedItems) {
   }, []);
 
   useEffect(() => {
-    if ((!server && !directory) || stopped) return;
+    if ((!server && !directory && !dropboxToken) || stopped) return;
     let cancelled = false;
     let timer;
     const controller = new AbortController();
@@ -62,12 +70,31 @@ export default function useLiveFeed(recursive, retainedItems) {
           if (cancelled) return;
           cache.current = result.cache;
           next.items = sortFeed(result.items);
-        } else {
+        } else if (directory) {
           const result = await scanDirectory(directory, recursive, cache.current);
           for (const item of result.items) if (item.url) allocatedUrls.current.add(item.url);
           if (cancelled) return;
           cache.current = result.cache;
           next = { folder: directory.name, items: result.items };
+        } else {
+          // Notes cached from an earlier visit mean a reopened feed re-reads only what changed.
+          if (!hydrated.current) {
+            cache.current = await readCache(FEED_ROOT);
+            hydrated.current = true;
+          }
+          let result;
+          try {
+            result = await scanDropbox(dropboxToken, FEED_ROOT, cache.current, controller.signal);
+          } catch (problem) {
+            if (!problem.expired) throw problem;
+            const renewed = await dropboxRef.current.renew();
+            if (!renewed) throw problem;
+            result = await scanDropbox(renewed, FEED_ROOT, cache.current, controller.signal);
+          }
+          if (cancelled) return;
+          cache.current = result.cache;
+          writeCache(FEED_ROOT, result.cache);
+          next = { folder: 'Dropbox', items: result.items };
         }
         if (!cancelled) {
           setSnapshot(next);
@@ -78,7 +105,7 @@ export default function useLiveFeed(recursive, retainedItems) {
       } finally {
         if (!cancelled) {
           setLoading(false);
-          timer = setTimeout(scan, 2000);
+          timer = setTimeout(scan, server || directory ? 2000 : 30000);
         }
       }
     };
@@ -88,7 +115,7 @@ export default function useLiveFeed(recursive, retainedItems) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [directory, recursive, refreshKey, stopped, server]);
+  }, [directory, recursive, refreshKey, stopped, server, dropboxToken]);
 
   const stop = async () => {
     if (!server) return;
@@ -210,6 +237,7 @@ export default function useLiveFeed(recursive, retainedItems) {
       cache.current = new Map();
       setRefreshKey(value => value + 1);
     },
-    isServer: Boolean(server), hasFolder: Boolean(server || directory),
+    isServer: Boolean(server), hasFolder: Boolean(server || directory || dropboxToken),
+    isDropbox: Boolean(!server && !directory && dropboxToken),
   };
 }

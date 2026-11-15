@@ -61,6 +61,36 @@ export function filterFeed(items, query, type) {
   });
 }
 
+// Limit the feed to one subfolder and everything beneath it. An empty scope is the whole folder.
+export function scopeItems(items, scope) {
+  if (!scope) return items;
+  const prefix = `${scope}/`;
+  return items.filter(item => item.path.startsWith(prefix));
+}
+
+// Name the folders sitting directly inside a scope, with the file count beneath each one.
+export function childFolders(items, scope) {
+  const prefix = scope ? `${scope}/` : '';
+  const counts = new Map();
+  for (const item of items) {
+    if (prefix && !item.path.startsWith(prefix)) continue;
+    const rest = item.path.slice(prefix.length);
+    const slash = rest.indexOf('/');
+    if (slash <= 0) continue; // The file sits directly in this folder, not in a subfolder.
+    const name = rest.slice(0, slash);
+    counts.set(name, (counts.get(name) || 0) + 1);
+  }
+  return [...counts]
+    .map(([name, count]) => ({ name, count, path: prefix + name }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }));
+}
+
+// Break a scope into the steps of a breadcrumb, each one a scope of its own.
+export function scopeTrail(scope) {
+  const parts = (scope || '').split('/').filter(Boolean);
+  return parts.map((name, index) => ({ name, path: parts.slice(0, index + 1).join('/') }));
+}
+
 export function isDocxNote(item) {
   return item.type === 'note' && /\.docx$/i.test(item.name);
 }

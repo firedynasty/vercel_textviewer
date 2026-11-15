@@ -38,6 +38,21 @@
 .feed-search > span { font-size: 22px; line-height: 16px; }
 .feed-search input { border: none; background: transparent; color: var(--feed-ink); width: 100%; min-width: 0; font: inherit; font-size: 13px; outline: none; }
 .feed-search kbd { font-size: 10px; border: 1px solid var(--feed-line); border-radius: 3px; padding: 1px 5px; }
+/* .feed-empty > div sets the big glyph size, so this row resets what it would inherit. */
+.feed-empty > .feed-empty-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; font-size: 13px; color: var(--feed-muted); }
+.feed-app .feed-connect { background: var(--feed-panel); color: var(--feed-accent) !important; border: 1px solid var(--feed-accent); }
+.feed-app .feed-connect:disabled { opacity: 0.6; }
+.feed-tree { margin: -9px 0 25px; display: flex; flex-direction: column; gap: 11px; }
+.feed-crumbs { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12px; color: var(--feed-muted); }
+.feed-app .feed-crumb { border: 0; background: none; padding: 0; font-size: 12px; font-weight: 600; color: var(--feed-accent); }
+.feed-app .feed-crumb:disabled { color: var(--feed-ink); cursor: default; }
+.feed-app .feed-crumb:not(:disabled):hover { text-decoration: underline; }
+.feed-folders { display: flex; flex-wrap: wrap; gap: 7px; }
+.feed-app .feed-folder-chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid var(--feed-line); border-radius: 6px; background: var(--feed-panel); color: var(--feed-muted); font-size: 11px; font-weight: 600; }
+.feed-app .feed-folder-chip:hover { color: var(--feed-accent); border-color: var(--feed-accent); background: var(--feed-bg); }
+.feed-app .feed-folder-chip span { padding: 1px 5px; border-radius: 4px; background: var(--feed-bg); font-size: 10px; }
+.feed-app .feed-folder-chip:hover span { background: var(--feed-panel); }
+.feed-app .feed-folder-up { color: var(--feed-ink); }
 .feed-card { background: var(--feed-panel); border: 1px solid var(--feed-line); border-radius: 12px; margin-bottom: 20px; overflow: hidden; box-shadow: 0 2px 3px #172d1510; }
 .feed-card-heading { display: flex; align-items: center; gap: 12px; padding: 20px 23px; }
 .feed-card-heading > div { min-width: 0; }
@@ -109,4 +124,4 @@
 .feed-dialog img { max-width: 100%; display: block; margin: auto; }
 .feed-dialog-content > a { display: inline-block; margin-top: 20px; font-size: 12px; }
 @media (max-width: 850px) { .feed-sidebar { width: 200px; padding: 28px 15px 20px; } .feed-column { padding: 35px 22px; } .feed-topbar { padding: 0 25px; } }
-@media (max-width: 600px) { .feed-app { flex-direction: column; } .feed-sidebar { width: 100%; padding: 15px; border-right: 0; border-bottom: 1px solid var(--feed-line); display: grid; grid-template-columns: 1fr auto; gap: 10px; } .feed-brand { margin: 0; font-size: 16px; } .feed-brand small, .feed-source-label, .feed-folder { display: none; } .feed-open-folder { margin: 0; gap: 8px; font-size: 11px !important; } .feed-sidebar nav { grid-column: 1 / -1; flex-direction: row; margin: 0; gap: 3px; } .feed-sidebar nav button { flex: 1; padding: 9px 6px; font-size: 11px; gap: 5px; } .feed-recursive { font-size: 11px; } .feed-sidebar-bottom { margin: 0; padding: 0; flex-direction: row; gap: 12px; flex-wrap: wrap; justify-content: flex-end; } .feed-sidebar-bottom button { font-size: 10px; } .feed-main { min-height: 0; } .feed-topbar { height: 42px; padding: 0 17px; font-size: 10px; } .feed-column { padding: 27px 13px; } .feed-page-heading h1 { font-size: 30px; } .feed-card-heading { padding: 17px; } .feed-note { padding: 0 17px 10px; } .feed-card-footer { padding: 13px 17px; flex-wrap: wrap; } .feed-search input { font-size: 12px; } }
+@media (max-width: 600px) { .feed-app { flex-direction: column; } .feed-sidebar { width: 100%; padding: 15px; border-right: 0; border-bottom: 1px solid var(--feed-line); display: grid; grid-template-columns: 1fr auto; gap: 10px; } .feed-brand { margin: 0; font-size: 16px; } .feed-brand small, .feed-source-label, .feed-folder { display: none; } .feed-open-folder { margin: 0; gap: 8px; font-size: 11px !important; } .feed-sidebar nav { grid-column: 1 / -1; flex-direction: row; margin: 0; gap: 3px; } .feed-sidebar nav button { flex: 1; padding: 9px 6px; font-size: 11px; gap: 5px; } .feed-recursive { font-size: 11px; } .feed-sidebar-bottom { margin: 0; padding: 0; flex-direction: row; gap: 12px; flex-wrap: wrap; justify-content: flex-end; } .feed-sidebar-bottom button { font-size: 10px; } .feed-main { min-height: 0; } .feed-topbar { height: 42px; padding: 0 17px; font-size: 10px; } .feed-column { padding: 27px 13px; } .feed-page-heading h1 { font-size: 30px; } .feed-card-heading { padding: 17px; } .feed-note { padding: 0 17px 10px; } .feed-card-footer { padding: 13px 17px; flex-wrap: wrap; } .feed-search input { font-size: 12px; } .feed-tree { margin: -4px 0 18px; } .feed-app .feed-folder-chip { padding: 6px 9px; font-size: 10px; } }

@@ -1,27 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
+import { generateCodeChallenge, generateCodeVerifier } from '../utils/dropboxAuth';
 
 const APP_KEY = process.env.REACT_APP_DROPBOX_APP_KEY;
 const REDIRECT_URI = window.location.origin;
 
-// PKCE helpers using crypto.subtle
-const generateCodeVerifier = () => {
-  const array = new Uint8Array(64);
-  crypto.getRandomValues(array);
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-};
-
-const generateCodeChallenge = async (verifier) => {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-};
 
 export function useDropbox() {
   const [accessToken, setAccessToken] = useState(null);

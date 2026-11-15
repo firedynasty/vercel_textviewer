@@ -2,7 +2,8 @@ import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import useLiveFeed from '../hooks/useLiveFeed';
 import useFolderChat from '../hooks/useFolderChat';
 import useFolderPractice from '../hooks/useFolderPractice';
-import { changedPaths, filterFeed, sortItems } from '../utils/feedUtils';
+import useDropboxFeed from '../hooks/useDropboxFeed';
+import { changedPaths, childFolders, filterFeed, scopeItems, scopeTrail, sortItems } from '../utils/feedUtils';
 import { CHAT_MARKER, visibleChatMarkdown } from '../utils/chatUtils';
 import FeedMarkdown from './FeedMarkdown';
 import FeedChat from './FeedChat';
@@ -12,6 +13,11 @@ import './FeedViewer.css';
 
 const FILTERS = [['all', 'Everything'], ['note', 'Notes'], ['pdf', 'PDFs'], ['image', 'Images'], ['video', 'Videos']];
 const LABELS = { note: 'Note', image: 'Image', video: 'Video' };
+
+// The drill-down scope travels in the URL, so a folder stays bookmarkable and survives a reload.
+function readScope() {
+  return (new URLSearchParams(window.location.search).get('p') || '').replace(/^\/+|\/+$/g, '');
+}
 
 function Note({ item, formatted }) {
   return formatted && item.text
@@ -172,9 +178,11 @@ function PreviewDialog({ item, onClose }) {
 }
 
 export default function FeedViewer({ onOpenReader }) {
-  const [recursive, setRecursive] = useState(false);
+  const [recursive, setRecursive] = useState(true);
+  const [scope, setScope] = useState(() => readScope());
   const [items, setItems] = useState(null);
-  const feed = useLiveFeed(recursive, items);
+  const dropbox = useDropboxFeed();
+  const feed = useLiveFeed(recursive, items, dropbox);
   const chat = useFolderChat(feed);
   const practice = useFolderPractice(feed, chat);
   const [pending, setPending] = useState(null);
@@ -189,6 +197,30 @@ export default function FeedViewer({ onOpenReader }) {
   const scrolling = useRef(null);
   const sentinel = useRef(null);
   const search = useRef(null);
+
+  // Descending is a filter over paths already scanned, so it costs no reads and no requests.
+  const goTo = React.useCallback(path => {
+    const next = (path || '').replace(/^\/+|\/+$/g, '');
+    setScope(next);
+    const url = new URL(window.location.href);
+    if (next) url.searchParams.set('p', next); else url.searchParams.delete('p');
+    window.history.pushState(null, '', url);
+  }, []);
+  const up = () => goTo(trail.length > 1 ? trail[trail.length - 2].path : '');
+
+  useEffect(() => {
+    const onPop = () => setScope(readScope());
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, []);
+
+  // A different folder has different subfolders, so the old scope would hide everything.
+  const opened = useRef(feed.snapshot?.folder);
+  useEffect(() => {
+    const folder = feed.snapshot?.folder;
+    if (folder && opened.current && folder !== opened.current) goTo('');
+    if (folder) opened.current = folder;
+  }, [feed.snapshot?.folder, goTo]);
 
   useEffect(() => {
     const focusSearch = event => {
@@ -219,11 +251,14 @@ export default function FeedViewer({ onOpenReader }) {
     }
   }, [feed.snapshot, items, selected]);
 
-  const filtered = useMemo(() => sortItems(filterFeed(items || [], query, filter), sort), [items, query, filter, sort]);
+  const scoped = useMemo(() => scopeItems(items || [], scope), [items, scope]);
+  const folders = useMemo(() => childFolders(scoped, scope), [scoped, scope]);
+  const trail = useMemo(() => scopeTrail(scope), [scope]);
+  const filtered = useMemo(() => sortItems(filterFeed(scoped, query, filter), sort), [scoped, query, filter, sort]);
   // Bulk add covers the notes matching the current filter and search, minus saved chats and worksheets.
   const collectable = useMemo(() => filtered.filter(item => item.type === 'note' && item.text?.trim()
     && !item.chat && !item.worksheet && !item.text.startsWith(CHAT_MARKER) && !item.text.startsWith(WORKSHEET_MARKER)), [filtered]);
-  useEffect(() => { setLimit(40); scrolling.current?.scrollTo(0, 0); }, [query, filter, sort]);
+  useEffect(() => { setLimit(40); scrolling.current?.scrollTo(0, 0); }, [query, filter, sort, scope]);
   useEffect(() => {
     if (!window.IntersectionObserver || !sentinel.current) return;
     const observer = new IntersectionObserver(entries => {
@@ -233,10 +268,10 @@ export default function FeedViewer({ onOpenReader }) {
     return () => observer.disconnect();
   }, [filtered.length, limit]);
 
-  const counts = useMemo(() => (items || []).reduce((result, item) => {
+  const counts = useMemo(() => scoped.reduce((result, item) => {
     result[item.type] = (result[item.type] || 0) + 1;
     return result;
-  }, {}), [items]);
+  }, {}), [scoped]);
   const openPreview = React.useCallback(item => setSelected(item), []);
   const renameHandler = useRef(feed.renameItem);
   renameHandler.current = feed.renameItem;
@@ -260,11 +295,11 @@ export default function FeedViewer({ onOpenReader }) {
       <div className="feed-source-label">YOUR FOLDER</div>
       <div className="feed-folder" title={feed.snapshot?.folder}>{feed.snapshot?.folder?.split('/').filter(Boolean).pop() || 'Choose a folder'}</div>
       {!feed.isServer && <button className="feed-open-folder" onClick={() => leaveChat(feed.chooseFolder)}>{feed.hasFolder ? 'Change folder' : 'Open folder'} <span aria-hidden="true">↗</span></button>}
-      <nav aria-label="File types">{FILTERS.map(([type, label]) => <button key={type} className={filter === type ? 'is-active' : ''} onClick={() => setFilter(type)} aria-pressed={filter === type}><span>{label}</span><span>{type === 'all' ? items?.length || 0 : counts[type] || 0}</span></button>)}</nav>
-      <label className="feed-recursive"><input type="checkbox" checked={recursive} onChange={event => setRecursive(event.target.checked)} /> Include subfolders</label>
+      <nav aria-label="File types">{FILTERS.map(([type, label]) => <button key={type} className={filter === type ? 'is-active' : ''} onClick={() => setFilter(type)} aria-pressed={filter === type}><span>{label}</span><span>{type === 'all' ? scoped.length : counts[type] || 0}</span></button>)}</nav>
+      <label className="feed-recursive"><input type="checkbox" checked={recursive} onChange={event => { setRecursive(event.target.checked); if (!event.target.checked) goTo(''); }} /> Include subfolders</label>
       {feed.hasFolder && <button className="feed-chat-launch" aria-expanded={chat.open} onClick={() => chat.setOpen(value => !value)}>Context & chat · {chat.session.context.filter(item => item.enabled !== false).length}</button>}
       <button className="feed-practice-launch" aria-haspopup="dialog" onClick={practice.launch}>Practice worksheets ↗</button>
-      <div className="feed-sidebar-bottom"><button onClick={() => leaveChat(onOpenReader)}>Open file reader ↗</button><button onClick={() => setDark(value => !value)}>{dark ? 'Light appearance' : 'Dark appearance'}</button>{feed.isServer && !feed.stopped && <button onClick={() => leaveChat(feed.stop)}>Stop local server</button>}</div>
+      <div className="feed-sidebar-bottom"><button onClick={() => leaveChat(onOpenReader)}>Open file reader ↗</button><button onClick={() => setDark(value => !value)}>{dark ? 'Light appearance' : 'Dark appearance'}</button>{feed.isServer && !feed.stopped && <button onClick={() => leaveChat(feed.stop)}>Stop local server</button>}{feed.isDropbox && <button onClick={() => leaveChat(dropbox.signOut)}>Sign out of Dropbox</button>}</div>
     </aside>
     <main className="feed-main">
       <header className="feed-topbar"><div><span className={`feed-status-dot${!feed.hasFolder || feed.error || feed.stopped ? ' feed-status-dot--idle' : ''}`} />{feed.stopped ? 'Server stopped' : feed.error ? 'Connection needs attention' : feed.hasFolder ? 'Live folder' : 'Local files'}</div><span>Notes · PDFs · Images · Videos</span></header>
@@ -272,12 +307,26 @@ export default function FeedViewer({ onOpenReader }) {
         <div className="feed-column">
           <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><button className={`feed-sort${sort === 'name' ? ' is-active' : ''}`} onClick={() => setSort(value => value === 'name' ? 'recent' : 'name')} aria-pressed={sort === 'name'} title="Sort by filename or by most recent save">Sort: {sort === 'name' ? 'Name A\u2013Z' : 'Newest'}</button><button className={`feed-expand-all${expandAll ? ' is-active' : ''}`} onClick={() => setExpandAll(value => !value)} aria-pressed={expandAll} title="Show every long note in full, instead of clipping it behind Read more">{expandAll ? 'Collapse all' : 'Expand all'}</button><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
           <label className="feed-search"><span aria-hidden="true">⌕</span><input ref={search} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search filenames, notes, or #tags" aria-label="Search feed" /><kbd>/</kbd></label>
+          {feed.hasFolder && (scope || folders.length > 0) && <div className="feed-tree">
+            <nav className="feed-crumbs" aria-label="Folder path">
+              <button className="feed-crumb" onClick={() => goTo('')} disabled={!scope}>{feed.snapshot?.folder?.split('/').filter(Boolean).pop() || 'Folder'}</button>
+              {trail.map((step, index) => <React.Fragment key={step.path}>
+                <span aria-hidden="true">/</span>
+                <button className="feed-crumb" onClick={() => goTo(step.path)} disabled={index === trail.length - 1}>{step.name}</button>
+              </React.Fragment>)}
+            </nav>
+            <div className="feed-folders">
+              {scope && <button className="feed-folder-chip feed-folder-up" onClick={up}>↑ up</button>}
+              {folders.map(folder => <button key={folder.path} className="feed-folder-chip" onClick={() => goTo(folder.path)} title={`Show only ${folder.name}`}>{folder.name} <span>{folder.count}</span></button>)}
+            </div>
+          </div>}
+          {dropbox.error && <div className="feed-notice" role="alert">{dropbox.error}</div>}
           {feed.error && <div className="feed-notice" role="alert">{feed.error} <button onClick={feed.refresh}>Retry</button></div>}
           {pending && <button className="feed-update" onClick={applyUpdates}>{pending.count} {pending.count === 1 ? 'change' : 'changes'} available · Show updates ↑</button>}
           {feed.stopped && <div className="feed-notice">The local server has stopped. Run the launcher again to reconnect.</div>}
-          {!feed.hasFolder && <div className="feed-empty"><div aria-hidden="true">▤</div><h2>Your folder becomes a feed.</h2><p>Choose a folder of notes, PDFs, images, and videos. Save files in your usual apps and see updates here.</p><button className="feed-primary" onClick={feed.chooseFolder}>Choose a folder</button><small>Files stay on your computer.</small></div>}
+          {!feed.hasFolder && <div className="feed-empty"><div aria-hidden="true">▤</div><h2>Your folder becomes a feed.</h2><p>Choose a folder of notes, PDFs, and images. Save files in your usual apps and see updates here.</p><div className="feed-empty-actions"><button className="feed-primary" onClick={feed.chooseFolder}>Choose a folder</button>{dropbox.configured && <button className="feed-primary feed-connect" onClick={dropbox.signIn} disabled={dropbox.restoring}>{dropbox.restoring ? 'Connecting\u2026' : 'Connect Dropbox'}</button>}</div><small>A chosen folder stays on this computer. Dropbox reads only this app's own folder.</small></div>}
           {feed.hasFolder && items === null && feed.loading && <div className="feed-empty" role="status">Reading your folder…</div>}
-          {items !== null && filtered.length === 0 && <div className="feed-empty"><h2>{query ? 'No matching files' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename, phrase, or hashtag.' : 'Save a .txt, .md, .docx, .pdf, image, or video in this folder, or include subfolders.'}</p></div>}
+          {items !== null && filtered.length === 0 && <div className="feed-empty"><h2>{query ? 'No matching files' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename, phrase, or hashtag.' : 'Save a .txt, .md, .docx, .pdf, image, or video in this folder, or include subfolders.'}</p>{scope && <button className="feed-primary" onClick={() => goTo('')}>Show the whole folder</button>}</div>}
           <div className="feed-cards">{filtered.slice(0, limit).map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} chat={chat} practice={practice} onRename={rename} onOpen={openInApp} expandAll={expandAll} />)}</div>
           {filtered.length > limit && <div ref={sentinel} className="feed-more"><button onClick={() => setLimit(value => value + 40)}>Load more files</button></div>}
           {filtered.length > 0 && filtered.length <= limit && <p className="feed-end">You're all caught up. New saves will appear here.</p>}

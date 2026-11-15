@@ -1,6 +1,6 @@
 import JSZip from 'jszip';
 import { TextDecoder } from 'util';
-import { changedPaths, feedType, filterFeed, loadServerNotes, NOTE_LIMIT, renameTarget, scanDirectory, sortFeed, sortItems } from './feedUtils';
+import { changedPaths, childFolders, feedType, filterFeed, loadServerNotes, NOTE_LIMIT, renameTarget, scanDirectory, scopeItems, scopeTrail, sortFeed, sortItems } from './feedUtils';
 
 // Exercise the same real parser used by Webpack rather than Mammoth's Node I/O.
 jest.mock('mammoth', () => jest.requireActual('mammoth/mammoth.browser'));
@@ -160,4 +160,52 @@ test('renaming keeps the extension and rejects folders, dots, control characters
     ['.hidden.md', 'start with a dot'], ['line\nbreak.md', 'control characters'], ['name.txt', 'Keep the .md extension'], ['x'.repeat(240), 'shorter filename']]) {
     expect(() => renameTarget('first.md', name)).toThrow(message);
   }
+});
+
+const tree = [
+  { path: 'lunch.txt', type: 'note' },
+  { path: 'cooking/stock.txt', type: 'note' },
+  { path: 'cooking/braise.md', type: 'note' },
+  { path: 'cooking/sauces/roux.txt', type: 'note' },
+  { path: 'nutrition/protein.txt', type: 'note' },
+  { path: 'cookingware.txt', type: 'note' },
+];
+
+test('a scope keeps a subfolder and everything beneath it', () => {
+  expect(scopeItems(tree, 'cooking').map(item => item.path))
+    .toEqual(['cooking/stock.txt', 'cooking/braise.md', 'cooking/sauces/roux.txt']);
+});
+
+test('a scope matches whole folder names, not name prefixes', () => {
+  // 'cookingware.txt' starts with 'cooking' but is not inside it.
+  expect(scopeItems(tree, 'cooking').some(item => item.path === 'cookingware.txt')).toBe(false);
+});
+
+test('an empty scope is the whole folder', () => {
+  expect(scopeItems(tree, '')).toBe(tree);
+});
+
+test('child folders count every file beneath them and ignore loose files', () => {
+  expect(childFolders(tree, '')).toEqual([
+    { name: 'cooking', count: 3, path: 'cooking' },
+    { name: 'nutrition', count: 1, path: 'nutrition' },
+  ]);
+});
+
+test('child folders descend with the scope', () => {
+  expect(childFolders(scopeItems(tree, 'cooking'), 'cooking'))
+    .toEqual([{ name: 'sauces', count: 1, path: 'cooking/sauces' }]);
+});
+
+test('child folders sort the way people read numbered folders', () => {
+  const numbered = [{ path: '10-late/a.txt' }, { path: '02-early/b.txt' }];
+  expect(childFolders(numbered, '').map(folder => folder.name)).toEqual(['02-early', '10-late']);
+});
+
+test('a trail names each step of a scope as a scope of its own', () => {
+  expect(scopeTrail('cooking/sauces')).toEqual([
+    { name: 'cooking', path: 'cooking' },
+    { name: 'sauces', path: 'cooking/sauces' },
+  ]);
+  expect(scopeTrail('')).toEqual([]);
 });

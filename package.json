@@ -19,7 +19,7 @@
     "build": "react-scripts build",
     "build:feed": "BUILD_PATH=dist/local-feed react-scripts build",
     "feed": "python3 local_feed/server.py",
-    "vercel-build": "CI=false react-scripts build",
+    "vercel-build": "CI=false REACT_APP_DROPBOX_FEED_APP_KEY=$DROPBOX_FEED_APP_KEY react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

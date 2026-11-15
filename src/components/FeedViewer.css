@@ -19,6 +19,15 @@
 .feed-sidebar-bottom { margin-top: auto; padding-top: 25px; display: flex; flex-direction: column; align-items: flex-start; gap: 18px; }
 .feed-sidebar-bottom button { border: 0; background: none; color: var(--feed-muted); font-size: 12px; }
 .feed-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+/* The toggle floats over the corner so it stays reachable with the sidebar hidden. */
+.feed-app .feed-sidebar-toggle { position: fixed; top: 12px; left: 12px; z-index: 20; width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 1px solid var(--feed-line); border-radius: 8px; background: var(--feed-panel); color: var(--feed-muted); font-size: 15px; line-height: 1; }
+.feed-app .feed-sidebar-toggle:hover { color: var(--feed-accent); border-color: var(--feed-accent); }
+.feed-app:not(.feed-collapsed) .feed-sidebar { padding-top: 58px; }
+.feed-app.feed-collapsed .feed-sidebar { display: none; }
+.feed-font-size { display: inline-flex; gap: 4px; }
+.feed-app .feed-font-size button { padding: 7px 9px; border: 1px solid var(--feed-line); border-radius: 6px; background: var(--feed-panel); color: var(--feed-muted); font-size: 11px; font-weight: 600; }
+.feed-app .feed-font-size button:hover:not(:disabled) { color: var(--feed-accent); border-color: var(--feed-accent); background: var(--feed-bg); }
+.feed-app .feed-font-size button:disabled { opacity: .4; cursor: default; }
 .feed-topbar { height: 67px; flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; padding: 0 40px; border-bottom: 1px solid var(--feed-line); font-size: 12px; color: var(--feed-muted); }
 .feed-topbar > div { display: flex; align-items: center; gap: 8px; }
 .feed-status-dot { width: 7px; height: 7px; background: #77a77c; border-radius: 100%; box-shadow: 0 0 0 4px #77a77c12; }
@@ -77,8 +86,8 @@
 .feed-card-heading p span { padding: 0 4px; }
 .feed-note { padding: 0 23px 10px; }
 .feed-note--clipped { max-height: 320px; overflow: hidden; mask-image: linear-gradient(#000 85%, #0000); }
-.feed-plain-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace; font-size: 13px; line-height: 1.85; }
-.feed-markdown { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif; font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.feed-plain-text { white-space: pre-wrap; overflow-wrap: anywhere; font-family: ui-monospace, 'SFMono-Regular', Consolas, monospace; font-size: calc(13px * var(--feed-note-scale, 1)); line-height: 1.85; }
+.feed-markdown { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif; font-size: calc(14px * var(--feed-note-scale, 1)); line-height: 1.8; overflow-wrap: anywhere; }
 .feed-markdown p, .feed-markdown ul, .feed-markdown ol, .feed-markdown pre, .feed-markdown blockquote { margin: 0 0 12px; }
 .feed-markdown ul, .feed-markdown ol { padding-left: 23px; }
 .feed-markdown li p { margin-bottom: 4px; }
@@ -124,4 +133,4 @@
 .feed-dialog img { max-width: 100%; display: block; margin: auto; }
 .feed-dialog-content > a { display: inline-block; margin-top: 20px; font-size: 12px; }
 @media (max-width: 850px) { .feed-sidebar { width: 200px; padding: 28px 15px 20px; } .feed-column { padding: 35px 22px; } .feed-topbar { padding: 0 25px; } }
-@media (max-width: 600px) { .feed-app { flex-direction: column; } .feed-sidebar { width: 100%; padding: 15px; border-right: 0; border-bottom: 1px solid var(--feed-line); display: grid; grid-template-columns: 1fr auto; gap: 10px; } .feed-brand { margin: 0; font-size: 16px; } .feed-brand small, .feed-source-label, .feed-folder { display: none; } .feed-open-folder { margin: 0; gap: 8px; font-size: 11px !important; } .feed-sidebar nav { grid-column: 1 / -1; flex-direction: row; margin: 0; gap: 3px; } .feed-sidebar nav button { flex: 1; padding: 9px 6px; font-size: 11px; gap: 5px; } .feed-recursive { font-size: 11px; } .feed-sidebar-bottom { margin: 0; padding: 0; flex-direction: row; gap: 12px; flex-wrap: wrap; justify-content: flex-end; } .feed-sidebar-bottom button { font-size: 10px; } .feed-main { min-height: 0; } .feed-topbar { height: 42px; padding: 0 17px; font-size: 10px; } .feed-column { padding: 27px 13px; } .feed-page-heading h1 { font-size: 30px; } .feed-card-heading { padding: 17px; } .feed-note { padding: 0 17px 10px; } .feed-card-footer { padding: 13px 17px; flex-wrap: wrap; } .feed-search input { font-size: 12px; } .feed-tree { margin: -4px 0 18px; } .feed-app .feed-folder-chip { padding: 6px 9px; font-size: 10px; } }
+@media (max-width: 600px) { .feed-app { flex-direction: column; } .feed-sidebar { width: 100%; padding: 15px; border-right: 0; border-bottom: 1px solid var(--feed-line); display: grid; grid-template-columns: 1fr auto; gap: 10px; } .feed-brand { margin: 0; font-size: 16px; } .feed-brand small, .feed-source-label, .feed-folder { display: none; } .feed-open-folder { margin: 0; gap: 8px; font-size: 11px !important; } .feed-sidebar nav { grid-column: 1 / -1; flex-direction: row; margin: 0; gap: 3px; } .feed-sidebar nav button { flex: 1; padding: 9px 6px; font-size: 11px; gap: 5px; } .feed-recursive { font-size: 11px; } .feed-sidebar-bottom { margin: 0; padding: 0; flex-direction: row; gap: 12px; flex-wrap: wrap; justify-content: flex-end; } .feed-sidebar-bottom button { font-size: 10px; } .feed-main { min-height: 0; } .feed-topbar { height: 42px; padding: 0 17px; font-size: 10px; } .feed-column { padding: 27px 13px; } .feed-page-heading h1 { font-size: 30px; } .feed-card-heading { padding: 17px; } .feed-note { padding: 0 17px 10px; } .feed-card-footer { padding: 13px 17px; flex-wrap: wrap; } .feed-search input { font-size: 12px; } .feed-app:not(.feed-collapsed) .feed-sidebar { padding-top: 56px; } .feed-tree { margin: -4px 0 18px; } .feed-app .feed-folder-chip { padding: 6px 9px; font-size: 10px; } }

@@ -194,6 +194,11 @@ export default function FeedViewer({ onOpenReader }) {
   const [dark, setDark] = useState(() => localStorage.getItem('feed-dark') === 'true');
   const [sort, setSort] = useState(() => localStorage.getItem('feed-sort') === 'name' ? 'name' : 'recent');
   const [expandAll, setExpandAll] = useState(() => localStorage.getItem('feed-expand') === 'true');
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('feed-collapsed') === 'true');
+  const [noteScale, setNoteScale] = useState(() => {
+    const saved = Number(localStorage.getItem('feed-font'));
+    return saved >= 0.8 && saved <= 2 ? saved : 1;
+  });
   const scrolling = useRef(null);
   const sentinel = useRef(null);
   const search = useRef(null);
@@ -236,6 +241,8 @@ export default function FeedViewer({ onOpenReader }) {
   useEffect(() => { localStorage.setItem('feed-dark', String(dark)); }, [dark]);
   useEffect(() => { localStorage.setItem('feed-sort', sort); }, [sort]);
   useEffect(() => { localStorage.setItem('feed-expand', String(expandAll)); }, [expandAll]);
+  useEffect(() => { localStorage.setItem('feed-collapsed', String(collapsed)); }, [collapsed]);
+  useEffect(() => { localStorage.setItem('feed-font', String(noteScale)); }, [noteScale]);
   useEffect(() => {
     if (!feed.snapshot) { setItems(null); setPending(null); return; }
     const next = feed.snapshot.items;
@@ -289,7 +296,13 @@ export default function FeedViewer({ onOpenReader }) {
     scrolling.current?.scrollTo({ top: 0 });
   };
 
-  return <div className={`feed-app${dark ? ' feed-dark' : ''}${chat.open ? ' feed-app--chat' : ''}`}>
+  const resize = step => setNoteScale(value => Math.min(2, Math.max(0.8, Math.round((value + step) * 10) / 10)));
+
+  return <div className={`feed-app${dark ? ' feed-dark' : ''}${chat.open ? ' feed-app--chat' : ''}${collapsed ? ' feed-collapsed' : ''}`}
+    style={{ '--feed-note-scale': noteScale }}>
+    <button className="feed-sidebar-toggle" onClick={() => setCollapsed(value => !value)} aria-expanded={!collapsed}
+      aria-label={collapsed ? 'Show the sidebar' : 'Hide the sidebar for more reading room'}
+      title={collapsed ? 'Show the sidebar' : 'Hide the sidebar for more reading room'}>{collapsed ? '\u2630' : '\u00d7'}</button>
     <aside className="feed-sidebar">
       <div className="feed-brand"><span aria-hidden="true">▤</span><div>Folder feed<small>Your files, in the flow.</small></div></div>
       <div className="feed-source-label">YOUR FOLDER</div>
@@ -302,10 +315,9 @@ export default function FeedViewer({ onOpenReader }) {
       <div className="feed-sidebar-bottom"><button onClick={() => leaveChat(onOpenReader)}>Open file reader ↗</button><button onClick={() => setDark(value => !value)}>{dark ? 'Light appearance' : 'Dark appearance'}</button>{feed.isServer && !feed.stopped && <button onClick={() => leaveChat(feed.stop)}>Stop local server</button>}{feed.isDropbox && <button onClick={() => leaveChat(dropbox.signOut)}>Sign out of Dropbox</button>}</div>
     </aside>
     <main className="feed-main">
-      <header className="feed-topbar"><div><span className={`feed-status-dot${!feed.hasFolder || feed.error || feed.stopped ? ' feed-status-dot--idle' : ''}`} />{feed.stopped ? 'Server stopped' : feed.error ? 'Connection needs attention' : feed.hasFolder ? 'Live folder' : 'Local files'}</div><span>Notes · PDFs · Images · Videos</span></header>
       <div className="feed-scroll" ref={scrolling}>
         <div className="feed-column">
-          <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><button className={`feed-sort${sort === 'name' ? ' is-active' : ''}`} onClick={() => setSort(value => value === 'name' ? 'recent' : 'name')} aria-pressed={sort === 'name'} title="Sort by filename or by most recent save">Sort: {sort === 'name' ? 'Name A\u2013Z' : 'Newest'}</button><button className={`feed-expand-all${expandAll ? ' is-active' : ''}`} onClick={() => setExpandAll(value => !value)} aria-pressed={expandAll} title="Show every long note in full, instead of clipping it behind Read more">{expandAll ? 'Collapse all' : 'Expand all'}</button><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
+          <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><span className="feed-font-size"><button onClick={() => resize(-0.1)} disabled={noteScale <= 0.8} aria-label="Smaller note text" title="Smaller note text">A−</button><button onClick={() => resize(0.1)} disabled={noteScale >= 2} aria-label="Larger note text" title="Larger note text">A+</button></span><button className={`feed-sort${sort === 'name' ? ' is-active' : ''}`} onClick={() => setSort(value => value === 'name' ? 'recent' : 'name')} aria-pressed={sort === 'name'} title="Sort by filename or by most recent save">Sort: {sort === 'name' ? 'Name A\u2013Z' : 'Newest'}</button><button className={`feed-expand-all${expandAll ? ' is-active' : ''}`} onClick={() => setExpandAll(value => !value)} aria-pressed={expandAll} title="Show every long note in full, instead of clipping it behind Read more">{expandAll ? 'Collapse all' : 'Expand all'}</button><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
           <label className="feed-search"><span aria-hidden="true">⌕</span><input ref={search} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search filenames, notes, or #tags" aria-label="Search feed" /><kbd>/</kbd></label>
           {feed.hasFolder && (scope || folders.length > 0) && <div className="feed-tree">
             <nav className="feed-crumbs" aria-label="Folder path">

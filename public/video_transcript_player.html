@@ -73,9 +73,22 @@
 
   /* Divider */
   #divider {
-    width: 4px; background: #222; cursor: col-resize; flex-shrink: 0;
+    width: 10px; background: #222; cursor: col-resize; flex-shrink: 0;
+    position: relative; touch-action: none; user-select: none;
+    border-left: 1px solid #2a2a2a; border-right: 1px solid #2a2a2a;
   }
-  #divider:hover { background: #2563eb; }
+  /* grip dots so it is obvious it can be dragged */
+  #divider::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    width: 2px; height: 36px; transform: translate(-50%, -50%);
+    background: #555; border-radius: 1px;
+  }
+  #divider:hover, #divider.drag { background: #2563eb; }
+  #divider:hover::after, #divider.drag::after { background: #fff; }
+  /* Full-screen shield while dragging so the YouTube iframe / video can't steal pointer events */
+  #dragShield { position: fixed; inset: 0; z-index: 200; display: none; cursor: col-resize; }
+  body.dragging #dragShield { display: block; }
+  body.dragging #videoPane, body.dragging #transcriptPane { pointer-events: none; }
 
   /* Right: transcript */
   #transcriptPane {
@@ -270,7 +283,7 @@
   </div>
 
   <!-- Divider -->
-  <div id="divider"></div>
+  <div id="divider" title="Drag to resize · double-click to reset · ←/→ when focused" tabindex="0" role="separator" aria-orientation="vertical"></div>
 
   <!-- Right: transcript -->
   <div id="transcriptPane">
@@ -289,6 +302,8 @@
     </div>
   </div>
 </div>
+
+<div id="dragShield"></div>
 
 <!-- Word popup -->
 <div id="wordPopup">
@@ -1281,23 +1296,49 @@ document.addEventListener('keydown', e => {
 // ── Draggable divider ─────────────────────────────────────────────────────────
 const divider = document.getElementById('divider');
 const transcriptPane = document.getElementById('transcriptPane');
-let dragging = false;
-
-divider.addEventListener('mousedown', () => {
-  dragging = true;
-  document.body.style.cursor = 'col-resize';
-  document.body.style.userSelect = 'none';
-});
-document.addEventListener('mousemove', e => {
-  if (!dragging) return;
-  const w = Math.max(200, Math.min(700, window.innerWidth - e.clientX - 2));
+const DEFAULT_W = 380;
+function clampW(w) { return Math.round(Math.max(200, Math.min(window.innerWidth * 0.75, w))); }
+function setPaneW(w, save) {
+  w = clampW(w);
   transcriptPane.style.width = w + 'px';
+  if (save) { try { localStorage.setItem('vtp.paneW', w); } catch (e) {} }
+  return w;
+}
+try { const sw = +localStorage.getItem('vtp.paneW'); if (sw) setPaneW(sw); } catch (e) {}
+
+let dragging = false, rafId = 0, pendingW = null;
+divider.addEventListener('pointerdown', e => {
+  dragging = true;
+  try { divider.setPointerCapture(e.pointerId); } catch (_) {}
+  divider.classList.add('drag');
+  document.body.classList.add('dragging');
+  e.preventDefault();
 });
-document.addEventListener('mouseup', () => {
+divider.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  pendingW = window.innerWidth - e.clientX - 5;
+  if (!rafId) rafId = requestAnimationFrame(() => {   // one layout per frame -> smooth
+    rafId = 0;
+    if (pendingW !== null) setPaneW(pendingW);
+  });
+});
+function endDrag() {
+  if (!dragging) return;
   dragging = false;
-  document.body.style.cursor = '';
-  document.body.style.userSelect = '';
+  divider.classList.remove('drag');
+  document.body.classList.remove('dragging');
+  setPaneW(parseInt(transcriptPane.style.width) || DEFAULT_W, true);
+}
+divider.addEventListener('pointerup', endDrag);
+divider.addEventListener('pointercancel', endDrag);
+window.addEventListener('blur', endDrag);
+divider.addEventListener('dblclick', () => setPaneW(DEFAULT_W, true));
+divider.addEventListener('keydown', e => {
+  const cur = transcriptPane.getBoundingClientRect().width;
+  if (e.code === 'ArrowLeft')  { e.preventDefault(); e.stopPropagation(); setPaneW(cur + 30, true); }
+  if (e.code === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); setPaneW(cur - 30, true); }
 });
+window.addEventListener('resize', () => setPaneW(transcriptPane.getBoundingClientRect().width));
 </script>
 </body>
 </html>

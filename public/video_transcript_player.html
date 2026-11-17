@@ -303,7 +303,7 @@
     <option value="tl">Filipino</option>
   </select>
   <button class="btn" id="vocabBtn">Vocab</button>
-  <button class="btn" id="askClaudeBtn" title="Copy the whole transcript with the current time, ready to paste into Claude">Copy for Claude</button>
+  <button class="btn" id="askClaudeBtn" title="Copy the whole transcript (Chinese + English, your line marked ▶, link at this moment), ready to paste into Claude">Copy whole transcript</button>
   <span id="statusMsg"></span>
   <input type="file" id="videoFileInput" accept="video/*,.mp4,.mov,.webm,.mkv">
   <input type="file" id="srtFileInput" accept=".srt,.txt,.vtt">
@@ -375,6 +375,7 @@
       <button class="btn" id="gmPrev" title="Previous line (←)">◀ Prev</button>
       <button class="btn" id="gmPlay" title="Play this line from the video, then pause (Space)">▶ Play line</button>
       <button class="btn" id="gmNext" title="Next line (→)">Next ▶</button>
+      <button class="btn" id="gmAsk" title="Copy this line, its word gloss and 5 lines either side, ready to paste into Claude (A)">Ask Claude</button>
       <span class="gmSp"></span>
       <span id="gmTts" style="font-size:0.7rem;color:#555">pinyin = Mandarin · 粵 = Cantonese · ☆ saves to Vocab</span>
     </div>
@@ -1300,19 +1301,47 @@ document.getElementById('vocabCopyAll').addEventListener('click', async () => {
 });
 
 // Whole transcript + current time, ready to paste into a Claude chat
-document.getElementById('askClaudeBtn').addEventListener('click', async () => {
+// ── Copy for Claude ──────────────────────────────────────────────────────────
+// Header: title + YouTube link at the current moment (when embedded)
+function claudeHeader(t) {
+  const d = mode === 'yt' && yt && yt.getVideoData ? (yt.getVideoData() || {}) : {};
+  const title = d.title || (name1 || 'video').replace(/\.[^.]+$/, '');
+  const link = d.video_id ? `\nLink: https://www.youtube.com/watch?v=${d.video_id}&t=${Math.floor(t)}s` : '';
+  return `Video: ${title}${link}\nI'm at ${fmtTime(t)}.`;
+}
+// One transcript line: Chinese, then its English (Subs 2) on the same line
+function claudeLine(i, mark) {
+  const c = cues[i];
+  const en = pairedText(c);
+  return `${mark ? '▶ ' : ''}[${fmtTime(c.start)}] ${c.text.replace(/\s*\n\s*/g, ' ')}${en ? ' — ' + en : ''}`;
+}
+async function copyForClaude(text, msg) {
+  try { await navigator.clipboard.writeText(text); setStatus(msg); }
+  catch (e) { setStatus('Copy failed — clipboard blocked by the browser'); }
+}
+
+document.getElementById('askClaudeBtn').addEventListener('click', () => {
   if (!cues.length) { setStatus('Load Subs 1 first'); return; }
-  const title = (name1 || 'video').replace(/\.[^.]+$/, '');
-  const text = `Video: ${title}\nI'm watching at ${fmtTime(ctl.time)}.\n\nTranscript:\n`
-    + cues.map(c => `[${fmtTime(c.start)}] ${c.text.replace(/\s*\n\s*/g, ' ')}`).join('\n')
-    + '\n\nMy question about this moment: ';
-  try {
-    await navigator.clipboard.writeText(text);
-    setStatus(`Copied ${cues.length} lines for Claude (at ${fmtTime(ctl.time)})`);
-  } catch (e) {
-    setStatus('Copy failed — clipboard blocked by the browser');
-  }
+  const t = ctl.time, now = cueIndexNow();
+  const text = `${claudeHeader(t)} The line I'm on is marked ▶.\n\nFull transcript:\n`
+    + cues.map((c, i) => claudeLine(i, i === now)).join('\n')
+    + '\n\nMy question: ';
+  copyForClaude(text, `Copied ${cues.length} lines for Claude (at ${fmtTime(t)}) — paste into Claude`);
 });
+
+// Gloss card: this line + its word gloss + 5 lines either side
+function copyLineForClaude() {
+  const i = gIdx, g = glossByCue[i];
+  const lo = Math.max(0, i - 5), hi = Math.min(cues.length - 1, i + 5);
+  const ctx = [];
+  for (let k = lo; k <= hi; k++) ctx.push(claudeLine(k, k === i));
+  const words = g && g.words.length
+    ? '\n\nWord gloss for that line:\n' + g.words.map(w =>
+        `${w.zh}${w.fix ? ` (likely mis-transcribed; probably ${w.fix})` : ''}  ${w.pinyin}  — ${w.en}`).join('\n')
+    : '';
+  const text = `${claudeHeader(cues[i].start)}\n\nI'm studying this line (▶) of the transcript:\n${ctx.join('\n')}${words}\n\nMy question: `;
+  copyForClaude(text, `Copied line ${i + 1} with context for Claude`);
+}
 
 document.getElementById('vocabExport').addEventListener('click', () => {
   const lines = vocab.map(v =>
@@ -1687,6 +1716,7 @@ document.getElementById('gmClose').addEventListener('click', closeGloss);
 document.getElementById('gmPrev').addEventListener('click', () => glossStep(-1));
 document.getElementById('gmNext').addEventListener('click', () => glossStep(1));
 document.getElementById('gmPlay').addEventListener('click', glossPlayLine);
+document.getElementById('gmAsk').addEventListener('click', copyLineForClaude);
 const gmLine = () => document.getElementById('gmZh').textContent;
 document.getElementById('gmZh').addEventListener('click', () => zhTTS.speak(gmLine(), 'zh-CN'));
 document.getElementById('gmSayMan').addEventListener('click', () => zhTTS.speak(gmLine(), 'zh-CN'));
@@ -1719,6 +1749,7 @@ document.addEventListener('keydown', e => {
     Space: glossPlayLine, KeyR: glossPlayLine,
     KeyS: () => zhTTS.speak(gmLine(), 'zh-CN'),
     KeyC: () => zhTTS.speak(gmLine(), 'zh-HK'),
+    KeyA: copyLineForClaude,
   }[e.code];
   e.stopPropagation();          // nothing else reacts while the card is open
   if (act) { e.preventDefault(); act(); }

@@ -45,16 +45,25 @@ for d in sorted(p for p in SRC.iterdir() if p.is_dir()):
     srts = {f.name for f in d.glob("*.srt")}
     if not srts:
         continue
-    merged = next((m for f in srts if (m := re.fullmatch(re.escape(vid) + r"_([a-z]{2})_([a-z]{2})\.srt", f))), None)
+    # <id>_zh_en.srt marks a translated pair; prefer the _shifted set (shift_srt.py) when present
+    pairs = [m for f in srts if (m := re.fullmatch(re.escape(vid) + r"_([a-z]{2})_([a-z]{2})(_shifted)?\.srt", f))]
+    merged = max(pairs, key=lambda m: bool(m[3]), default=None)
     if merged:
-        sub1, sub2, lang = f"{vid}_{merged[1]}.srt", f"{vid}_{merged[2]}.srt", merged[1]
+        suf = merged[3] or ""
+        sub1, sub2, lang = f"{vid}_{merged[1]}{suf}.srt", f"{vid}_{merged[2]}{suf}.srt", merged[1]
+        if sub1 not in srts or sub2 not in srts:  # only the merged file was shifted
+            sub1, sub2 = merged[0], None
     elif f"{vid}.srt" in srts:
         sub1, sub2, lang = f"{vid}.srt", None, None
     else:
         sub1, sub2, lang = sorted(srts)[0], None, None
     title = old.get(vid, {}).get("title") or fetch_title(vid)
-    entries.append({"id": vid, "title": title, "lang": lang, "sub1": read(d, sub1), "sub2": read(d, sub2)})
-    print(f"{vid}  {title}")
+    # Word-by-word gloss from gloss_srt.py (the player's G modal); prefer the one made from sub1's set
+    glosses = sorted(d.glob("*.gloss.json"), key=lambda f: ("_shifted" in sub1) != ("_shifted" in f.name))
+    gloss = {"name": glosses[0].name, "data": json.loads(glosses[0].read_text(encoding="utf-8"))} if glosses else None
+    entries.append({"id": vid, "title": title, "lang": lang, "sub1": read(d, sub1), "sub2": read(d, sub2),
+                    **({"gloss": gloss} if gloss else {})})
+    print(f"{vid}  {sub1}{' + ' + sub2 if sub2 else ''}{' + ' + gloss['name'] if gloss else ''}  {title}")
 
 OUT.write_text(json.dumps(entries, ensure_ascii=False), encoding="utf-8")
 print(f"{len(entries)} videos -> {OUT} ({OUT.stat().st_size // 1024} KB)")

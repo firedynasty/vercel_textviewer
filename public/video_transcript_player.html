@@ -220,6 +220,51 @@
     padding: 8px 14px; border-top: 1px solid #2a2a2a; display: flex; gap: 6px;
   }
   #vocabEmpty { padding: 30px 20px; color: #444; font-size: 0.82rem; text-align: center; }
+
+  /* ── Gloss modal (G): one card per subtitle line, word-by-word ── */
+  #glossModal {
+    position: fixed; inset: 0; z-index: 150; display: none;
+    background: rgba(0,0,0,0.55); align-items: center; justify-content: center; padding: 12px;
+  }
+  #glossModal.open { display: flex; }
+  #gmCard {
+    width: min(780px, 100%); max-height: 88vh; display: flex; flex-direction: column;
+    background: #181818; border: 1px solid #333; border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.7); overflow: hidden;
+  }
+  #gmHead, #gmFoot {
+    display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+    background: #1c1c1c; flex-shrink: 0;
+  }
+  #gmHead { border-bottom: 1px solid #2a2a2a; }
+  #gmFoot { border-top: 1px solid #2a2a2a; }
+  #gmTime { font-size: 0.8rem; color: #60a5fa; font-variant-numeric: tabular-nums; }
+  #gmPos { font-size: 0.75rem; color: #666; }
+  .gmSp { flex: 1; }
+  #gmBody { overflow-y: auto; padding: 14px 18px 18px; font-size: calc(var(--gms, 1) * 16px); }
+  #gmZh { font-size: 1.7em; line-height: 1.45; color: #fbbf24; cursor: pointer; }
+  #gmZh:hover { color: #fcd34d; }
+  #gmEn { font-size: 0.95em; color: #9db4d6; margin: 4px 0 12px; line-height: 1.4; }
+  #gmWords { width: 100%; border-collapse: collapse; }
+  #gmWords td { padding: 6px 10px 6px 0; border-top: 1px solid #242424; vertical-align: top; }
+  #gmWords .gz { font-size: 1.35em; white-space: nowrap; color: #eee; }
+  #gmWords .gp { white-space: nowrap; color: #93c5fd; cursor: pointer; }
+  #gmWords .gp:hover { text-decoration: underline; }
+  .gmSay {
+    background: #222; border: 1px solid #3a3a3a; border-radius: 4px; color: #aaa;
+    cursor: pointer; font-size: 0.72em; padding: 1px 6px; margin-left: 6px; vertical-align: middle;
+  }
+  .gmSay:hover { background: #2d2d2d; color: #fff; }
+  .gmSay.yue { color: #f9a8d4; border-color: #6b2148; }
+  .gmSay.yue:hover { background: #3b1029; }
+  #gmSayRow { margin: 2px 0 6px; }
+  #gmWords .ge { color: #bbb; line-height: 1.35; }
+  #gmWords .gfix { display: block; font-size: 0.62em; color: #f59e0b; white-space: nowrap; }
+  #gmWords .gsave { background: none; border: none; color: #555; cursor: pointer; font-size: 1em; }
+  #gmWords .gsave:hover, #gmWords .gsave.on { color: #f59e0b; }
+  #gmNone { color: #666; font-size: 0.9em; padding: 10px 0; }
+  .cue .ts.g { cursor: pointer; text-decoration: underline dotted #3b82f6; }
+  .cue .ts.g:hover { color: #93c5fd; }
 </style>
 </head>
 <body>
@@ -232,6 +277,7 @@
   <select class="langSel" id="librarySel" title="Videos with ready-made subtitles (python3 video_transcript_player/workflow/build_library.py)"><option value="">Library…</option></select>
   <button class="btn" id="loadSrtBtn" title="Main subtitle track (clickable words). Loading again REPLACES it.">Load Subs 1</button>
   <button class="btn" id="loadSrt2Btn" title="Second track (e.g. English), shown under the main one. Loading again replaces it.">+ Subs 2</button>
+  <button class="btn" id="loadGlossBtn" title="Word-by-word gloss: <name>.gloss.json from workflow/gloss_srt.py. Embeds its YouTube video (id from the file), and with no Subs loaded fills Subs 1 + 2 too.">+ Gloss</button>
   <label for="srcLang" style="font-size:0.72rem;color:#666">Subs</label>
   <select class="langSel" id="srcLang" title="Transcript language">
     <option value="zh-CN">中文</option>
@@ -262,6 +308,7 @@
   <input type="file" id="videoFileInput" accept="video/*,.mp4,.mov,.webm,.mkv">
   <input type="file" id="srtFileInput" accept=".srt,.txt,.vtt">
   <input type="file" id="srt2FileInput" accept=".srt,.txt,.vtt">
+  <input type="file" id="glossFileInput" accept=".json">
 </div>
 
 <div id="main">
@@ -277,6 +324,7 @@
       <button class="ctrlBtn" id="playPauseBtn" title="Play/Pause (Space)">▶</button>
       <button class="ctrlBtn" id="replayBtn" title="Replay current line (R)">⟲</button>
       <button class="ctrlBtn" id="loopBtn" title="Loop current line (L)">Loop</button>
+      <button class="ctrlBtn" id="glossBtn" title="Gloss the current line word by word (G)">Gloss</button>
       <input type="range" id="seekBar" min="0" max="1000" value="0">
       <span id="timeDisplay">0:00 / 0:00</span>
     </div>
@@ -304,6 +352,34 @@
 </div>
 
 <div id="dragShield"></div>
+
+<!-- Gloss modal -->
+<div id="glossModal">
+  <div id="gmCard" role="dialog" aria-label="Gloss">
+    <div id="gmHead">
+      <span id="gmTime"></span><span id="gmPos"></span><span class="gmSp"></span>
+      <button class="hBtn" id="gmFontDec" title="Smaller">A−</button>
+      <button class="hBtn" id="gmFontInc" title="Bigger">A+</button>
+      <button class="hBtn" id="gmClose" title="Close (Esc or G)">✕</button>
+    </div>
+    <div id="gmBody">
+      <div id="gmZh" title="Click to hear the line in Mandarin (S)"></div>
+      <div id="gmSayRow">
+        <button class="gmSay" id="gmSayMan" style="margin-left:0" title="Hear the line in Mandarin (S)">🔊 普通話</button>
+        <button class="gmSay yue" id="gmSayYue" title="Hear the line in Cantonese (C)">🔊 粵語</button>
+      </div>
+      <div id="gmEn"></div>
+      <table id="gmWords"></table>
+    </div>
+    <div id="gmFoot">
+      <button class="btn" id="gmPrev" title="Previous line (←)">◀ Prev</button>
+      <button class="btn" id="gmPlay" title="Play this line from the video, then pause (Space)">▶ Play line</button>
+      <button class="btn" id="gmNext" title="Next line (→)">Next ▶</button>
+      <span class="gmSp"></span>
+      <span id="gmTts" style="font-size:0.7rem;color:#555">pinyin = Mandarin · 粵 = Cantonese · ☆ saves to Vocab</span>
+    </div>
+  </div>
+</div>
 
 <!-- Word popup -->
 <div id="wordPopup">
@@ -367,6 +443,8 @@ let loopLine      = false;
 let fontSize      = 0.85; // rem
 let videoBlobUrl  = null;
 let popupCtx      = null; // {word, cueIdx}
+let glossData = null, glossName = '', glossByCue = [], gIdx = -1; // gloss modal (G)
+let stopAt        = null; // gloss "Play line": pause here
 
 // ── Player adapter (local file or YouTube embed) ─────────────────────────────
 let mode = 'file';        // 'file' | 'yt'
@@ -509,6 +587,11 @@ function renderTranscript(list) {
     const tsDiv = document.createElement('div');
     tsDiv.className = 'ts';
     tsDiv.textContent = fmtTime(cue.start);
+    if (glossByCue[origIdx]) {
+      tsDiv.classList.add('g');
+      tsDiv.title = 'Gloss this line (G)';
+      tsDiv.addEventListener('click', ev => { ev.stopPropagation(); hidePopup(); openGloss(origIdx); });
+    }
     const txtDiv = document.createElement('div');
     txtDiv.className = 'txt';
     fillWords(txtDiv, cue.text, origIdx);
@@ -590,6 +673,7 @@ function renderStrip(idx) {
 
 // ── Video events ─────────────────────────────────────────────────────────────
 function tick() {
+  if (stopAt !== null && ctl.time >= stopAt) { stopAt = null; ctl.pause(); }  // gloss "Play line"
   updateActiveCue();
   // Loop the active line: jump back when the cue ends
   if (loopLine && activeIndex >= 0 && !ctl.paused) {
@@ -779,6 +863,7 @@ librarySel.addEventListener('change', async () => {
   await embedYoutube(e.id);
   cues = parseSrt(e.sub1.text); name1 = e.sub1.name;
   cues2 = e.sub2 ? parseSrt(e.sub2.text) : []; name2 = e.sub2 ? e.sub2.name : '';
+  glossData = e.gloss ? e.gloss.data : null; glossName = e.gloss ? e.gloss.name : '';
   const sel = { zh: 'zh-TW', ko: 'ko', en: 'en' }[e.lang];
   if (sel) srcLangSel.value = sel;
   tracksChanged();
@@ -828,10 +913,22 @@ function renderTrackInfo() {
     chip.appendChild(x);
     trackInfo.appendChild(chip);
   });
+  if (glossName) {
+    const chip = document.createElement('span');
+    chip.className = 'chip';
+    const n = glossByCue.filter(Boolean).length;
+    chip.innerHTML = '<span class="chipLabel"></span><button class="chipX" title="Clear gloss">✕</button>';
+    chip.firstChild.textContent = `Gloss: ${glossName} (${n}/${cues.length} lines)`;
+    chip.firstChild.title = glossName;
+    chip.lastChild.addEventListener('click', clearGloss);
+    trackInfo.appendChild(chip);
+    trackInfo.style.display = 'flex';
+  }
 }
 
 // Redraw list, strip, header and chips after either track changes
 function tracksChanged() {
+  attachGloss();
   activeIndex = -1;
   renderStrip(-1);
   if (cues.length) {
@@ -1292,6 +1389,340 @@ document.addEventListener('keydown', e => {
     case 'Escape':     hidePopup(); break;
   }
 });
+
+// ── Mandarin / Cantonese TTS for the gloss card ──────────────────────────────
+// Ported unchanged from useful_html_javascript/mandarin_cantonese_tts.html (see its
+// header for why): ranks Google > Enhanced/Premium > Siri > plain voices, never the
+// macOS novelty voices (Eddy, Grandma…), and never mixes Cantonese with Mandarin.
+// Wrapped so its pickVoice/voices don't collide with the word popup's own.
+const zhTTS = (function () {
+  var voices = [];
+  var speechTimer = null, speechRequest = 0, speechUtterance = null;
+  var onSpeechStatus = null;
+
+  function refreshVoices() {
+    try { voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : []; } catch (e) { voices = []; }
+  }
+  if (window.speechSynthesis) {
+    refreshVoices();
+    window.speechSynthesis.onvoiceschanged = refreshVoices;
+  }
+
+  // macOS ships a family of novelty voices - Eddy, Flo, Grandma, Grandpa, Reed,
+  // Rocko, Sandy, Shelley - in every language it supports, so they are a perfect
+  // tag match for zh-CN and sound like cartoons. On a Mac with no Google or
+  // Enhanced Chinese voice every candidate otherwise ties, and the stable sort
+  // hands zh-CN to "Eddy (Chinese (China mainland))" rather than Tingting, the
+  // one real Mandarin voice. Rank them below every genuine voice; they stay
+  // selectable as a last resort if nothing else exists.
+  var NOVELTY_VOICE = /^(Albert|Bad News|Bahh|Bells|Boing|Bubbles|Cellos|Eddy|Flo|Fred|Good News|Grandma|Grandpa|Jester|Junior|Kathy|Organ|Reed|Rocko|Sandy|Shelley|Superstar|Trinoids|Whisper|Wobble|Zarvox)\b/i;
+
+  // Prefer higher quality voices within the requested language.
+  function voiceRank(v) {
+    var n = (v.name || '');
+    if (NOVELTY_VOICE.test(n)) return 5;
+    if (/Google/i.test(n)) return 0;
+    if (/Enhanced|Premium|Neural|Natural/i.test(n)) return 1;
+    if (/Siri/i.test(n)) return 2;
+    return 3;
+  }
+
+  // yue / zh-yue / zh-HK / zh-Hant-HK are Cantonese; zh-CN and zh-TW are Mandarin.
+  function isCantonese(lang) {
+    return /^(yue(?:-|$)|zh-yue(?:-|$)|zh-(?:hant-)?hk$)/.test(lang);
+  }
+
+  function pickVoice(lang) {
+    var want = lang.replace(/_/g, '-').toLowerCase(), base = want.slice(0, 2);
+    var cantonese = isCantonese(want);
+    var exact = [], loose = [];
+    for (var i = 0; i < voices.length; i++) {
+      var vl = (voices[i].lang || '').replace(/_/g, '-').toLowerCase();
+      // Never mix Cantonese and Mandarin voices in either direction.
+      if (cantonese) {
+        if (isCantonese(vl)) exact.push(voices[i]);
+      } else if (isCantonese(vl)) continue;
+      else if (vl === want) exact.push(voices[i]);
+      else if (vl.indexOf(base) === 0) loose.push(voices[i]);
+    }
+    var pool = exact.length ? exact : loose;
+    if (!pool.length) return null;
+    pool.sort(function (a, b) {
+      // An installed Cantonese voice (e.g. Sinji) works without a network service.
+      if (cantonese && a.localService !== b.localService) return a.localService ? -1 : 1;
+      return voiceRank(a) - voiceRank(b);
+    });
+    return pool[0];
+  }
+
+  function speechStatus(message) {
+    if (onSpeechStatus) onSpeechStatus(message);
+  }
+
+  function stopSpeech() {
+    speechRequest++;
+    clearTimeout(speechTimer);
+    speechUtterance = null;
+    try { if (window.speechSynthesis) window.speechSynthesis.cancel(); } catch (e) {}
+    speechStatus('');
+  }
+
+  function speak(text, lang, rate) {
+    if (!text) return false;
+    var request = ++speechRequest;            // invalidates every older callback
+    clearTimeout(speechTimer);
+    speechUtterance = null;
+    var label = isCantonese(lang.replace(/_/g, '-').toLowerCase()) ? 'Cantonese' : 'Mandarin';
+    if (!window.speechSynthesis || !window.SpeechSynthesisUtterance) {
+      speechStatus('Speech playback is unavailable in this browser.');
+      return false;
+    }
+    var synth = window.speechSynthesis, attempts = 0;
+    try {
+      synth.cancel();
+    } catch (e) { speechStatus('Could not start speech: ' + e.message); return false; }
+    speechStatus('Loading ' + label + ' voice…');
+    function start() {
+      if (request !== speechRequest) return;
+      refreshVoices();
+      var v = pickVoice(lang);
+      if (!v) {
+        // Chrome can populate voices only after the first gesture. Wait; never
+        // speak with an unassigned voice, which may silently substitute the
+        // wrong language.
+        if (attempts++ < 20) { speechTimer = setTimeout(start, 100); return; }
+        speechStatus(voices.length
+          ? 'Chrome has no ' + label + ' voice available. On a Mac, add a ' +
+            (label === 'Cantonese' ? 'Chinese (Hong Kong) voice such as Sinji' : 'Chinese (China mainland) voice') +
+            ' in System Settings → Accessibility → Read & Speak (Spoken Content on older macOS) → System Voice, then restart Chrome.'
+          : 'Chrome has not made any speech voices available. Restart Chrome and try again.');
+        return;
+      }
+      var u = new window.SpeechSynthesisUtterance(text);
+      speechUtterance = u; // Keep a reference until playback finishes, or Chrome may GC it mid-sentence.
+      u.rate = rate || 0.8;
+      u.voice = v;
+      u.lang = v.lang;     // align lang with the chosen voice
+      u.onstart = function () {
+        if (request === speechRequest) speechStatus(label + ' · ' + v.name + ' (' + v.lang + ')');
+      };
+      u.onend = function () { if (request === speechRequest) speechUtterance = null; };
+      u.onerror = function (e) {
+        if (request !== speechRequest) return;
+        speechUtterance = null;
+        if (e.error === 'canceled' || e.error === 'interrupted') return;
+        speechStatus(label + ' playback failed (' + (e.error || 'unknown error') + '). Voice: ' + v.name +
+          (e.error === 'not-allowed' ? '. Interact with the page first to enable playback.' : '. Try again or restart Chrome.'));
+      };
+      speechStatus('Starting ' + label + ' · ' + v.name + ' (' + v.lang + ')…');
+      // The ~40 ms gap after cancel() works around Chrome's stuck-speaking bug.
+      speechTimer = setTimeout(function () {
+        if (request !== speechRequest) return;
+        try {
+          if (synth.paused) synth.resume();
+          synth.speak(u);
+        } catch (e) { speechUtterance = null; speechStatus('Could not play ' + label + ': ' + e.message); }
+      }, 40);
+    }
+    start();
+    return true;
+  }
+  onSpeechStatus = function (msg) { var el = document.getElementById('gmTts'); if (el && msg) el.textContent = msg; };
+  return { speak: function (text, lang) { return speak(text, lang, 0.8); }, stop: stopSpeech };
+})();
+
+// ── Gloss modal (G) ──────────────────────────────────────────────────────────
+// <name>.gloss.json from workflow/gloss_srt.py: {cues:[{start,end,zh,en,words:[{zh,pinyin,en,fix?}]}]}
+// Paired to Subs 1 by the line's Chinese text (nearest start wins for repeats), so it
+// still lines up after shift_srt.py or with a different .srt of the same transcript.
+const glossModal = document.getElementById('glossModal');
+const gmBody = document.getElementById('gmBody');
+const gmWords = document.getElementById('gmWords');
+const zhKey = t => (t.match(/[㐀-鿿豈-﫿]/g) || []).join('');
+
+function attachGloss() {
+  glossByCue = [];
+  if (!glossData) return;
+  const byText = new Map();
+  for (const g of glossData.cues) {
+    const k = zhKey(g.zh);
+    if (!byText.has(k)) byText.set(k, []);
+    byText.get(k).push(g);
+  }
+  glossByCue = cues.map(c => {
+    const list = byText.get(zhKey(c.text));
+    if (!list) return null;
+    return list.reduce((a, b) => Math.abs(b.start - c.start) < Math.abs(a.start - c.start) ? b : a);
+  });
+}
+
+function clearGloss() {
+  glossData = null; glossName = ''; closeGloss();
+  tracksChanged(); setStatus('Gloss cleared', false);
+}
+
+// YouTube id of a gloss file: its "videoId" field (gloss_srt.py writes the folder name),
+// else the 11-character prefix of the filename, e.g. RmL8mEMebgo_zh_en_shifted.gloss.json
+function glossVideoId(data, name) {
+  if (data.videoId && /^[\w-]{11}$/.test(data.videoId)) return data.videoId;
+  const m = (data.src || name || '').match(/^([\w-]{11})(?=[_.])/);
+  return m ? m[1] : null;
+}
+
+async function loadGlossData(data, name) {
+  if (!data || !Array.isArray(data.cues)) { setStatus('Not a .gloss.json file'); return; }
+  // Embed its video unless that video is already showing
+  const id = glossVideoId(data, name);
+  const showing = mode === 'yt' && yt && yt.getVideoData && (yt.getVideoData() || {}).video_id;
+  if (id && showing !== id) await embedYoutube(id);
+  glossData = data; glossName = name;
+  if (!/^(zh|yue)/.test(srcLangSel.value)) srcLangSel.value = 'zh-TW';
+  // No subtitles loaded yet: the gloss file carries both lines, so use it for Subs 1 + 2
+  if (!cues.length) {
+    cues  = data.cues.map(g => ({ start: g.start, end: g.end, text: g.zh }));
+    cues2 = data.cues.filter(g => g.en).map(g => ({ start: g.start, end: g.end, text: g.en }));
+    name1 = name + ' (zh)'; name2 = cues2.length ? name + ' (en)' : '';
+  }
+  tracksChanged();
+  const n = glossByCue.filter(Boolean).length;
+  setStatus(n ? `Gloss: ${n}/${cues.length} lines${id ? ` · video ${id}` : ''} — press G`
+              : 'Gloss loaded, but no line matches Subs 1 — wrong file?', !!n);
+}
+
+document.getElementById('loadGlossBtn').addEventListener('click', () =>
+  document.getElementById('glossFileInput').click());
+document.getElementById('glossFileInput').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try { loadGlossData(JSON.parse(ev.target.result), file.name); }
+    catch (err) { setStatus('Gloss: bad JSON — ' + err.message); }
+  };
+  reader.readAsText(file, 'utf-8');
+  e.target.value = '';
+});
+
+// Line at the playhead, or the last one that started before it (between lines)
+function cueIndexNow() {
+  if (activeIndex >= 0) return activeIndex;
+  const t = ctl.time;
+  let i = -1;
+  for (let lo = 0, hi = cues.length - 1; lo <= hi;) {
+    const mid = (lo + hi) >> 1;
+    if (cues[mid].start <= t) { i = mid; lo = mid + 1; } else hi = mid - 1;
+  }
+  return Math.max(0, i);
+}
+
+function openGloss(i) {
+  if (!glossData) { document.getElementById('glossFileInput').click(); return; }
+  if (!cues.length) return;
+  stopAt = null;
+  ctl.pause();
+  gIdx = i === undefined ? cueIndexNow() : i;
+  ctl.time = cues[gIdx].start;
+  renderGloss();
+  glossModal.classList.add('open');
+}
+function closeGloss() { glossModal.classList.remove('open'); stopAt = null; zhTTS.stop(); }
+const glossOpen = () => glossModal.classList.contains('open');
+
+function renderGloss() {
+  const cue = cues[gIdx], g = glossByCue[gIdx];
+  document.getElementById('gmTime').textContent = fmtTime(cue.start);
+  document.getElementById('gmPos').textContent = `${gIdx + 1} / ${cues.length}`;
+  document.getElementById('gmZh').textContent = g ? g.zh : cue.text;
+  document.getElementById('gmEn').textContent = (g && g.en) || pairedText(cue) || '';
+  gmWords.innerHTML = '';
+  if (!g || !g.words.length) {
+    gmWords.innerHTML = '<tr><td id="gmNone">No gloss for this line.</td></tr>';
+  } else {
+    for (const w of g.words) {
+      const tr = document.createElement('tr');
+      const z = document.createElement('td'); z.className = 'gz'; z.textContent = w.zh;
+      if (w.fix) {
+        const f = document.createElement('span'); f.className = 'gfix';
+        f.textContent = `likely ${w.fix}${w.fixPinyin ? ' ' + w.fixPinyin : ''}`;
+        f.title = 'Speech recognition probably mis-heard this; the gloss is for the corrected word';
+        z.appendChild(f);
+      }
+      const p = document.createElement('td'); p.className = 'gp'; p.textContent = w.pinyin;
+      p.title = 'Hear it in Mandarin'; p.addEventListener('click', () => zhTTS.speak(w.fix || w.zh, 'zh-CN'));
+      const yue = document.createElement('button'); yue.className = 'gmSay yue'; yue.textContent = '粵';
+      yue.title = 'Hear it in Cantonese';
+      yue.addEventListener('click', ev => { ev.stopPropagation(); zhTTS.speak(w.fix || w.zh, 'zh-HK'); });
+      p.appendChild(yue);
+      const en = document.createElement('td'); en.className = 'ge'; en.textContent = w.en;
+      const sv = document.createElement('td');
+      const b = document.createElement('button'); b.className = 'gsave';
+      const word = w.fix || w.zh;
+      const mark = () => { const on = vocabHas(word); b.textContent = on ? '★' : '☆'; b.classList.toggle('on', on); };
+      b.title = 'Save to Vocab'; mark();
+      b.addEventListener('click', () => {
+        if (!vocabHas(word)) vocabAdd(word, `${w.pinyin} — ${w.en}`, g.zh);
+        document.querySelectorAll('.w').forEach(el => { if (el.textContent === word) el.classList.add('saved'); });
+        mark(); setStatus(`Saved: ${word}`);
+      });
+      sv.appendChild(b);
+      tr.append(z, p, en, sv);
+      gmWords.appendChild(tr);
+    }
+  }
+  gmBody.scrollTop = 0;
+}
+
+function glossStep(d) {
+  gIdx = Math.max(0, Math.min(cues.length - 1, gIdx + d));
+  stopAt = null; ctl.pause(); ctl.time = cues[gIdx].start;
+  renderGloss();
+}
+function glossPlayLine() {
+  const c = cues[gIdx];
+  ctl.time = c.start; stopAt = c.end; ctl.play();
+}
+
+document.getElementById('glossBtn').addEventListener('click', () => openGloss());
+document.getElementById('gmClose').addEventListener('click', closeGloss);
+document.getElementById('gmPrev').addEventListener('click', () => glossStep(-1));
+document.getElementById('gmNext').addEventListener('click', () => glossStep(1));
+document.getElementById('gmPlay').addEventListener('click', glossPlayLine);
+const gmLine = () => document.getElementById('gmZh').textContent;
+document.getElementById('gmZh').addEventListener('click', () => zhTTS.speak(gmLine(), 'zh-CN'));
+document.getElementById('gmSayMan').addEventListener('click', () => zhTTS.speak(gmLine(), 'zh-CN'));
+document.getElementById('gmSayYue').addEventListener('click', () => zhTTS.speak(gmLine(), 'zh-HK'));
+glossModal.addEventListener('mousedown', e => { if (e.target === glossModal) closeGloss(); });
+
+let glossScale = 1;
+try { glossScale = +localStorage.getItem('vtp.glossScale') || 1; } catch (e) {}
+function setGlossScale(v) {
+  glossScale = Math.max(0.7, Math.min(2.2, +v.toFixed(2)));
+  gmBody.style.setProperty('--gms', glossScale);
+  try { localStorage.setItem('vtp.glossScale', glossScale); } catch (e) {}
+}
+setGlossScale(glossScale);
+document.getElementById('gmFontDec').addEventListener('click', () => setGlossScale(glossScale - 0.1));
+document.getElementById('gmFontInc').addEventListener('click', () => setGlossScale(glossScale + 0.1));
+
+// Capture phase, so while the card is open ←/→/Space step the card instead of seeking the video
+document.addEventListener('keydown', e => {
+  const tag = document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!glossOpen()) {
+    if (e.code === 'KeyG') { e.preventDefault(); e.stopPropagation(); openGloss(); }
+    return;
+  }
+  const act = {
+    Escape: closeGloss, KeyG: closeGloss, KeyQ: closeGloss,
+    ArrowLeft: () => glossStep(-1), ArrowUp: () => glossStep(-1),
+    ArrowRight: () => glossStep(1), ArrowDown: () => glossStep(1),
+    Space: glossPlayLine, KeyR: glossPlayLine,
+    KeyS: () => zhTTS.speak(gmLine(), 'zh-CN'),
+    KeyC: () => zhTTS.speak(gmLine(), 'zh-HK'),
+  }[e.code];
+  e.stopPropagation();          // nothing else reacts while the card is open
+  if (act) { e.preventDefault(); act(); }
+}, true);
 
 // ── Draggable divider ─────────────────────────────────────────────────────────
 const divider = document.getElementById('divider');

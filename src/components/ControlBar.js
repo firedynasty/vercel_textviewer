@@ -902,7 +902,7 @@ function ControlBar({
 
       <button
         className="drop-folder-btn"
-        onClick={() => window.open('/video_transcript_player.html', '_blank')}
+        onClick={() => window.open('https://vercel-video-viewer.vercel.app/', '_blank')}
         title="Open Video Transcript Player"
       >
         Video T

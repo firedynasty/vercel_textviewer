@@ -105,16 +105,18 @@ const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, pract
   // Follow the feed-wide Expand all toggle; a click on this card's own button still wins afterwards.
   useEffect(() => { setExpanded(expandAll); }, [expandAll]);
   // Open the file the way double-clicking it would: Typora for Markdown, Word for DOCX, Preview for a PDF.
-  const openInApp = async () => {
+  const openInApp = async options => {
     if (opening) return;
     setOpening(true);
     try {
-      await onOpen(item);
+      await (options ? onOpen(item, options) : onOpen(item));
       setOpenError('');
     } catch (problem) { setOpenError(problem.message); }
     finally { setOpening(false); }
   };
-  const openButton = <button disabled={opening} title={`Open ${item.name} in the app this Mac uses for it`} onClick={openInApp}>{opening ? 'Opening…' : 'Open in app'}</button>;
+  const openButton = <button disabled={opening} title={`Open ${item.name} in the app this Mac uses for it`} onClick={() => openInApp()}>{opening ? 'Opening…' : 'Open in app'}</button>;
+  const editable = /\.(txt|md|markdown)$/i.test(item.name);
+  const editButton = editable && <button disabled={opening} title={`Edit ${item.name} in CotEditor`} onClick={() => openInApp({ editor: true })}>Edit in CotEditor</button>;
   const openFailure = openError && <p className="feed-file-warning" role="alert">{openError}</p>;
   if (item.type === 'pdf') {
     return <article className="feed-card" data-feed-path={item.path}>
@@ -146,7 +148,7 @@ const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, pract
         <NoteWarnings item={item} />
         <footer className="feed-card-footer"><div className="feed-tags">{tags.map(tag => <span key={tag}>{tag}</span>)}</div><div className="feed-card-actions">
           {longNote && <button onClick={() => setExpanded(value => !value)}>{expanded ? 'Collapse' : 'Read more'}</button>}
-          {openButton}<button onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
+          {openButton}{editButton}<button onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
           <button disabled={chat.busy || chat.saving || !item.text?.trim()} onClick={() => chat.add(item)}>Add note</button>
           <button disabled={chat.busy || chat.saving || !item.text?.trim()} title="Open Context & chat with only this note checked" onClick={() => chat.focus(item)}>Ask about this</button>
           {chat.selection?.path === item.path && <button disabled={chat.busy || chat.saving} onClick={() => chat.add(item, chat.selection.text)}>Add selection</button>}
@@ -285,7 +287,7 @@ export default function FeedViewer({ onOpenReader }) {
   const rename = React.useCallback((item, name) => renameHandler.current(item, name), []);
   const openHandler = useRef(feed.openExternally);
   openHandler.current = feed.openExternally;
-  const openInApp = React.useCallback(item => openHandler.current(item), []);
+  const openInApp = React.useCallback((item, options) => (options ? openHandler.current(item, options) : openHandler.current(item)), []);
   const leaveChat = action => {
     if (chat.busy || chat.saving || practice.busy || practice.saving) return;
     if ((!chat.dirty && !practice.dirty) || window.confirm('Leave this folder and discard unsaved chat or worksheet changes?')) action();

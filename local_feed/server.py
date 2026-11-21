@@ -31,6 +31,8 @@ TYPES = {
     **dict.fromkeys(('.mp4', '.webm', '.mov', '.m4v', '.ogv'), 'video'),
 }
 IGNORED = {'node_modules', '__pycache__'}
+EDITOR_APP = 'CotEditor'
+EDITABLE = ('.txt', '.md', '.markdown')
 
 
 def visible(relative):
@@ -101,11 +103,23 @@ def rename_content(folder, relative, name):
     return str((source.parent / target).relative_to(folder))
 
 
-def open_in_desktop_app(folder, relative):
-    """Hand a file in the feed to the desktop app that owns it, the way Finder does."""
+def open_in_desktop_app(folder, relative, editor=False):
+    """Hand a file in the feed to the desktop app that owns it, the way Finder does.
+
+    With editor=True a plain-text note opens in EDITOR_APP instead (a new tab when it is already open)."""
     if not isinstance(relative, str) or not relative:
         raise ValueError('Choose a file to open.')
     path = content_path(folder, relative)
+    if editor:
+        if path.suffix.lower() not in EDITABLE:
+            raise ValueError(f'Only .txt and .md notes open in {EDITOR_APP}.')
+        if sys.platform != 'darwin':
+            raise ValueError(f'{EDITOR_APP} is only available on macOS.')
+        command = ['/usr/bin/open', '-a', EDITOR_APP, '--', str(path)]
+        result = subprocess.run(command, capture_output=True, text=True, timeout=20)
+        if result.returncode != 0:
+            raise ValueError((result.stderr.strip().splitlines() or [f'Could not open {EDITOR_APP}.'])[-1][:300])
+        return str(path.relative_to(folder))
     if os.name == 'nt':
         os.startfile(str(path))
         return str(path.relative_to(folder))
@@ -339,7 +353,7 @@ class Handler(BaseHTTPRequestHandler):
                 data = self.read_json(64 * 1024)
                 if not isinstance(data, dict):
                     raise ValueError('Expected a file object.')
-                return self.reply(200, {'path': open_in_desktop_app(self.server.feed.folder, data.get('path'))})
+                return self.reply(200, {'path': open_in_desktop_app(self.server.feed.folder, data.get('path'), data.get('editor') is True)})
             if route == '/api/rename':
                 data = self.read_json(64 * 1024)
                 if not isinstance(data, dict):

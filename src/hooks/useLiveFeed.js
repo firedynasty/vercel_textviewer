@@ -163,11 +163,12 @@ export default function useLiveFeed(recursive, retainedItems, dropbox) {
   };
 
   // Let the desktop decide which app owns this file, the way double-clicking it would.
-  const openExternally = async item => {
+  // { editor: true } opens a .txt/.md note in CotEditor instead of its default app.
+  const openExternally = async (item, { editor = false } = {}) => {
     if (!server) throw new Error('Open this folder with the Finder Quick Action to open files in their desktop app.');
     if (stopped) throw new Error('Reopen the folder to reconnect before opening files.');
     const response = await fetch(`${server.base}/api/open`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: item.path }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(editor ? { path: item.path, editor: true } : { path: item.path }),
     });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || 'Could not open this file in a desktop app.');

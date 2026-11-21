@@ -141,6 +141,20 @@ class HTTPTests(unittest.TestCase):
                 self.assertEqual(self.post(self.base + '/api/open', payload)[0], expected)
                 blocked.assert_not_called()
 
+    @unittest.skipUnless(sys.platform == 'darwin', 'CotEditor is macOS-only')
+    def test_editor_opens_text_notes_in_coteditor_only(self):
+        (self.folder / 'note.md').write_text('hello')
+        (self.folder / 'photo.png').write_bytes(b'png')
+        with mock.patch('server.subprocess.run', return_value=subprocess.CompletedProcess([], 0, '', '')) as opener:
+            status, body = self.post(self.base + '/api/open', {'path': 'note.md', 'editor': True})
+        self.assertEqual((status, json.loads(body)['path']), (200, 'note.md'))
+        self.assertEqual(opener.call_args[0][0], ['/usr/bin/open', '-a', 'CotEditor', '--', str((self.folder / 'note.md').resolve())])
+        with mock.patch('server.subprocess.run') as blocked:
+            status, body = self.post(self.base + '/api/open', {'path': 'photo.png', 'editor': True})
+            blocked.assert_not_called()
+        self.assertEqual(status, 400)
+        self.assertIn('CotEditor', json.loads(body)['error'])
+
     def test_rename_keeps_the_folder_and_type_and_never_replaces_a_file(self):
         (self.folder / 'notes').mkdir()
         (self.folder / 'notes' / 'first.md').write_text('hello')

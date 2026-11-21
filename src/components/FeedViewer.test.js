@@ -102,6 +102,8 @@ test('copying keeps the original source and Open in app hands the file to the de
   state.openExternally.mockRejectedValueOnce(new Error('No desktop app is set up to open this file.'));
   await act(async () => Simulate.click(action('Open in app')));
   expect(container.querySelector('[role="alert"]').textContent).toContain('No desktop app');
+  await act(async () => Simulate.click(action('Edit in CotEditor')));
+  expect(state.openExternally).toHaveBeenLastCalledWith(state.snapshot.items[0], { editor: true });
 });
 
 test('DOCX appears under Notes with searchable, copyable text and an original link in its preview', async () => {

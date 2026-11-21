@@ -189,6 +189,18 @@ class HTTPTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(json.loads(body)['items'][0]['name'], 'clip.mp4')
 
+    def test_feed_answers_unchanged_until_a_file_changes(self):
+        (self.folder / 'a.md').write_text('one')
+        first = json.loads(self.get(self.base + '/api/feed')[2])
+        print_ = first['fingerprint']
+        self.assertEqual(json.loads(self.get(self.base + f'/api/feed?since={print_}')[2]), {'unchanged': True, 'fingerprint': print_})
+        (self.folder / 'a.md').write_text('one, edited')
+        changed = json.loads(self.get(self.base + f'/api/feed?since={print_}')[2])
+        self.assertNotEqual(changed['fingerprint'], print_)
+        self.assertEqual(next(item for item in changed['items'] if item['name'] == 'a.md')['text'], 'one, edited')
+        (self.folder / 'b.md').write_text('new')
+        self.assertIn('items', json.loads(self.get(self.base + f"/api/feed?since={changed['fingerprint']}")[2]))
+
     def test_access_controls(self):
         for path, headers in [
             ('/_feed/wrong/api/feed', {}),

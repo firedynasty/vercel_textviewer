@@ -152,6 +152,15 @@ test('sorting by name reads filenames the way people do, and leaves recent order
   expect(sortItems(items, 'recent')).toBe(items);
 });
 
+test('folder sort walks the tree: folders A-Z, files A-Z inside, a folder\'s own files before its subfolders', () => {
+  const paths = ['devotional_daily/b.md', 'bible-study_new-testament/z.md', 'root.md', 'devotional_daily/a.md',
+    'bible-study_new-testament/acts/1.md', 'bible-study_new-testament/a.md', 'Church/x.md', '10-misc/a.md', '2-misc/a.md'];
+  const items = paths.map((path, index) => ({ path, name: path.split('/').pop(), modified: index }));
+  expect(sortItems(items, 'folder').map(item => item.path)).toEqual(['root.md', '2-misc/a.md', '10-misc/a.md',
+    'bible-study_new-testament/a.md', 'bible-study_new-testament/z.md', 'bible-study_new-testament/acts/1.md',
+    'Church/x.md', 'devotional_daily/a.md', 'devotional_daily/b.md']);
+});
+
 test('renaming keeps the extension and rejects folders, dots, control characters, and empty names', () => {
   expect(renameTarget('first.md', '  Bits and bytes  ')).toBe('Bits and bytes.md');
   expect(renameTarget('photo.PNG', 'court')).toBe('court.PNG');

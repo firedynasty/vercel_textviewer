@@ -56,20 +56,26 @@ export default function useLiveFeed(recursive, retainedItems, dropbox) {
     let cancelled = false;
     let timer;
     const controller = new AbortController();
+    let since = ''; // Last server fingerprint: an unchanged folder answers in a few bytes instead of every note.
     setLoading(true);
     const scan = async () => {
       try {
         let next;
         if (server) {
-          const response = await fetch(`${server.base}/api/feed?recursive=${recursive ? '1' : '0'}`, {
+          const response = await fetch(`${server.base}/api/feed?recursive=${recursive ? '1' : '0'}${since ? `&since=${since}` : ''}`, {
             signal: controller.signal, cache: 'no-store',
           });
           if (!response.ok) throw new Error(`Folder unavailable (${response.status}). Reopen it with the feed launcher.`);
           next = await response.json();
+          if (next.unchanged) {
+            if (!cancelled) setError('');
+            return;
+          }
           const result = await loadServerNotes(next.items, cache.current, controller.signal);
           if (cancelled) return;
           cache.current = result.cache;
           next.items = sortFeed(result.items);
+          since = next.fingerprint || '';
         } else if (directory) {
           const result = await scanDirectory(directory, recursive, cache.current);
           for (const item of result.items) if (item.url) allocatedUrls.current.add(item.url);

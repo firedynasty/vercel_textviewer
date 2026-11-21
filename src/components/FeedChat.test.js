@@ -41,8 +41,9 @@ afterEach(() => {
 });
 
 test('only checked passages are sent and copied; a saved conversation restores history and sources', async () => {
-  await click(container.querySelectorAll('.feed-card-actions button')[2]);
-  await click([...container.querySelectorAll('.feed-card')][1].querySelectorAll('.feed-card-actions button')[2]);
+  const addNote = card => [...card.querySelectorAll('.feed-card-actions button')].find(button => button.textContent === 'Add note');
+  await click(addNote(container.querySelectorAll('.feed-card')[0]));
+  await click(addNote(container.querySelectorAll('.feed-card')[1]));
   const excluded = container.querySelectorAll('.feed-context-source input')[1];
   act(() => Simulate.change(excluded, { target: { checked: false } }));
   await click(button('Copy context'));

@@ -197,15 +197,18 @@ test('the sort button switches between newest saves and filename order, and is r
   render();
   expect(names()).toEqual(['note.txt', 'other.md']);
   act(() => Simulate.click(container.querySelector('.feed-sort')));
+  expect(sort().textContent).toBe('Sort: Folder');
+  expect(container.querySelector('.feed-navbar select option').textContent).toBe('1–2 · (top level)');
+  act(() => Simulate.click(container.querySelector('.feed-sort')));
   expect(names()).toEqual(['other.md', 'note.txt']);
 });
 
-test('Expand all opens every clipped note, is remembered, and still lets one card collapse', () => {
+test('one navbar button toggles Expand all / Collapse all across every card and is remembered', () => {
   const long = { ...original, path: 'long.md', name: 'long.md', modified: 2000, text: 'Line\n'.repeat(40) };
   state.snapshot.items = [long, original];
   render();
   const clipped = () => container.querySelectorAll('.feed-note--clipped').length;
-  const toggle = () => container.querySelector('.feed-expand-all');
+  const toggle = () => container.querySelector('.feed-navbar .feed-expand-all');
   const cardButton = () => [...container.querySelectorAll('.feed-card-actions button')].find(button => /Read more|Collapse/.test(button.textContent));
   expect(clipped()).toBe(1);
   expect(toggle().textContent).toBe('Expand all');
@@ -220,8 +223,41 @@ test('Expand all opens every clipped note, is remembered, and still lets one car
   expect(clipped()).toBe(0);
   act(() => Simulate.click(cardButton()));
   expect(clipped()).toBe(1);
-  expect(toggle().textContent).toBe('Collapse all');
   act(() => Simulate.click(toggle()));
   expect(clipped()).toBe(1);
+  expect(toggle().textContent).toBe('Expand all');
   expect(localStorage.getItem('feed-expand')).toBe('false');
+  act(() => Simulate.click(cardButton()));
+  expect(clipped()).toBe(0);
+  act(() => Simulate.click(toggle()));
+  act(() => Simulate.click(toggle()));
+  expect(clipped()).toBe(1);
+});
+
+test('the navbar shows 15 files per chunk with Prev, Next, and a chunk picker', () => {
+  state.snapshot.items = Array.from({ length: 32 }, (_, index) => ({ ...original, path: `n${index}.txt`, name: `n${index}.txt`, modified: 1000 - index }));
+  render();
+  const cards = () => [...container.querySelectorAll('.feed-card h2')].map(heading => heading.textContent);
+  const nav = label => container.querySelector(`.feed-navbar [aria-label="${label}"]`);
+  expect(cards()).toHaveLength(15);
+  expect(cards()[0]).toBe('n0.txt');
+  expect(nav('Previous chunk').disabled).toBe(true);
+  act(() => Simulate.click(nav('Next chunk')));
+  expect(cards()[0]).toBe('n15.txt');
+  act(() => Simulate.change(nav('Chunk'), { target: { value: '2' } }));
+  expect(cards()).toEqual(['n30.txt', 'n31.txt']);
+  expect(nav('Next chunk').disabled).toBe(true);
+  expect(document.activeElement).toBe(container.querySelector('.feed-scroll'));
+  const press = (key, target = document.body) => act(() => { target.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true })); });
+  press('ArrowLeft');
+  expect(cards()[0]).toBe('n15.txt');
+  press('ArrowRight');
+  expect(cards()[0]).toBe('n30.txt');
+  press('ArrowRight');
+  expect(cards()[0]).toBe('n30.txt');
+  press('ArrowLeft', container.querySelector('input[type="search"]'));
+  expect(cards()[0]).toBe('n30.txt');
+  act(() => Simulate.click(container.querySelector('.feed-chunk-toggle')));
+  expect(cards()).toHaveLength(32);
+  expect(localStorage.getItem('feed-chunked')).toBe('false');
 });

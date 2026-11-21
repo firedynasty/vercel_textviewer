@@ -188,6 +188,14 @@ class Feed:
             return {'folder': str(self.folder), 'items': sorted(items, key=lambda item: (-item['modified'], item['path']))}
 
 
+def fingerprint(snapshot):
+    """Short digest of the folder and every file's path, size, and mtime; any save, rename, or delete changes it."""
+    digest = hashlib.sha256(snapshot['folder'].encode())
+    for item in snapshot['items']:
+        digest.update(f"\0{item['path']}\0{item['size']}\0{item['modified']}".encode())
+    return digest.hexdigest()[:32]
+
+
 def byte_range(header, size):
     if not header:
         return 0, size - 1, False
@@ -306,7 +314,12 @@ class Handler(BaseHTTPRequestHandler):
             if route == '/api/ping':
                 return self.reply(200, {'folder': str(self.server.feed.folder), 'pid': os.getpid(), 'version': 5})
             if route == '/api/feed':
-                return self.reply(200, self.server.feed.snapshot(query.get('recursive') == ['1']))
+                snapshot = self.server.feed.snapshot(query.get('recursive') == ['1'])
+                snapshot['fingerprint'] = fingerprint(snapshot)
+                # The 2-second poll sends back the last fingerprint; skip resending every note when nothing changed.
+                if query.get('since') == [snapshot['fingerprint']]:
+                    return self.reply(200, {'unchanged': True, 'fingerprint': snapshot['fingerprint']})
+                return self.reply(200, snapshot)
             if route == '/api/chat/providers':
                 try:
                     return self.reply(200, activity_providers(self.server.chat_url))

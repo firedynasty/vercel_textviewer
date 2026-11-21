@@ -18,10 +18,23 @@ export function sortFeed(items) {
 }
 
 // Sort the visible feed: newest save first, or by the filename shown in each card header.
+const byReading = (a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+
+// 'folder' walks the tree: folders A–Z, each folder's own files A–Z before its subfolders.
+function folderOrder(a, b) {
+  const left = a.path.split('/').slice(0, -1);
+  const right = b.path.split('/').slice(0, -1);
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    const step = byReading(left[index], right[index]);
+    if (step) return step;
+  }
+  return left.length - right.length || byReading(a.name, b.name) || a.path.localeCompare(b.path);
+}
+
 export function sortItems(items, mode) {
-  return mode === 'name'
-    ? [...items].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }) || a.path.localeCompare(b.path))
-    : items;
+  if (mode === 'name') return [...items].sort((a, b) => byReading(a.name, b.name) || a.path.localeCompare(b.path));
+  if (mode === 'folder') return [...items].sort(folderOrder);
+  return items;
 }
 
 // Decide the filename a rename should produce, or explain why it cannot.

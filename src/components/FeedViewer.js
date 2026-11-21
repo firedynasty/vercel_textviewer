@@ -95,15 +95,15 @@ function FileName({ item, onRename, as: Tag = 'h2' }) {
   </form>;
 }
 
-const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, practice, onRename, onOpen, expandAll }) {
+const FeedCard = memo(function FeedCard({ item, onExpand, formatted, chat, practice, onRename, onOpen, expandAll, expandEpoch }) {
   const [expanded, setExpanded] = useState(expandAll);
   const [copied, setCopied] = useState(false);
   const [opening, setOpening] = useState(false);
   const [openError, setOpenError] = useState('');
   const copyTimer = useRef(null);
   useEffect(() => () => clearTimeout(copyTimer.current), []);
-  // Follow the feed-wide Expand all toggle; a click on this card's own button still wins afterwards.
-  useEffect(() => { setExpanded(expandAll); }, [expandAll]);
+  // Follow the navbar's Expand all / Collapse all (each click bumps expandEpoch); a card's own button still wins afterwards.
+  useEffect(() => { setExpanded(expandAll); }, [expandAll, expandEpoch]);
   // Open the file the way double-clicking it would: Typora for Markdown, Word for DOCX, Preview for a PDF.
   const openInApp = async options => {
     if (opening) return;
@@ -179,6 +179,10 @@ function PreviewDialog({ item, onClose }) {
   </dialog>;
 }
 
+const CHUNK = 15;
+const folderOf = path => (path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '(top level)');
+const SORTS = { recent: { label: 'Newest', next: 'name' }, name: { label: 'Name A\u2013Z', next: 'folder' }, folder: { label: 'Folder', next: 'recent' } };
+
 export default function FeedViewer({ onOpenReader }) {
   const [recursive, setRecursive] = useState(true);
   const [scope, setScope] = useState(() => readScope());
@@ -194,8 +198,13 @@ export default function FeedViewer({ onOpenReader }) {
   const [selected, setSelected] = useState(null);
   const [limit, setLimit] = useState(40);
   const [dark, setDark] = useState(() => localStorage.getItem('feed-dark') === 'true');
-  const [sort, setSort] = useState(() => localStorage.getItem('feed-sort') === 'name' ? 'name' : 'recent');
+  const [sort, setSort] = useState(() => SORTS[localStorage.getItem('feed-sort')] ? localStorage.getItem('feed-sort') : 'recent');
   const [expandAll, setExpandAll] = useState(() => localStorage.getItem('feed-expand') === 'true');
+  const [expandEpoch, setExpandEpoch] = useState(0);
+  const expandEvery = value => { setExpandAll(value); setExpandEpoch(epoch => epoch + 1); };
+  // Chunks: show CHUNK files at a time with Prev/Next instead of one endless scroll.
+  const [chunked, setChunked] = useState(() => localStorage.getItem('feed-chunked') !== 'false');
+  const [chunk, setChunk] = useState(0);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem('feed-collapsed') === 'true');
   const [noteScale, setNoteScale] = useState(() => {
     const saved = Number(localStorage.getItem('feed-font'));
@@ -244,6 +253,7 @@ export default function FeedViewer({ onOpenReader }) {
   useEffect(() => { localStorage.setItem('feed-sort', sort); }, [sort]);
   useEffect(() => { localStorage.setItem('feed-expand', String(expandAll)); }, [expandAll]);
   useEffect(() => { localStorage.setItem('feed-collapsed', String(collapsed)); }, [collapsed]);
+  useEffect(() => { localStorage.setItem('feed-chunked', String(chunked)); }, [chunked]);
   useEffect(() => { localStorage.setItem('feed-font', String(noteScale)); }, [noteScale]);
   useEffect(() => {
     if (!feed.snapshot) { setItems(null); setPending(null); return; }
@@ -267,7 +277,33 @@ export default function FeedViewer({ onOpenReader }) {
   // Bulk add covers the notes matching the current filter and search, minus saved chats and worksheets.
   const collectable = useMemo(() => filtered.filter(item => item.type === 'note' && item.text?.trim()
     && !item.chat && !item.worksheet && !item.text.startsWith(CHAT_MARKER) && !item.text.startsWith(WORKSHEET_MARKER)), [filtered]);
-  useEffect(() => { setLimit(40); scrolling.current?.scrollTo(0, 0); }, [query, filter, sort, scope]);
+  useEffect(() => { setLimit(40); setChunk(0); scrolling.current?.scrollTo(0, 0); }, [query, filter, sort, scope]);
+  const chunkCount = Math.max(1, Math.ceil(filtered.length / CHUNK));
+  const currentChunk = Math.min(chunk, chunkCount - 1);
+  // Focus moves to the feed itself, so Space scrolls the new chunk instead of pressing Next again.
+  const goToChunk = index => {
+    setChunk(Math.min(Math.max(index, 0), chunkCount - 1));
+    scrolling.current?.scrollTo(0, 0);
+    scrolling.current?.focus({ preventScroll: true });
+  };
+  const chunkKeys = useRef(null);
+  chunkKeys.current = chunked && !selected && !practice.open ? goToChunk : null;
+  const chunkIndex = useRef(currentChunk);
+  chunkIndex.current = currentChunk;
+  // ← / → step through chunks unless you are typing or a dialog is open.
+  useEffect(() => {
+    const step = event => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      if (!chunkKeys.current || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || event.defaultPrevented) return;
+      const target = event.target;
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable) return;
+      event.preventDefault();
+      chunkKeys.current(chunkIndex.current + (event.key === 'ArrowRight' ? 1 : -1));
+    };
+    window.addEventListener('keydown', step);
+    return () => window.removeEventListener('keydown', step);
+  }, []);
+  const shown = chunked ? filtered.slice(currentChunk * CHUNK, (currentChunk + 1) * CHUNK) : filtered.slice(0, limit);
   useEffect(() => {
     if (!window.IntersectionObserver || !sentinel.current) return;
     const observer = new IntersectionObserver(entries => {
@@ -317,9 +353,21 @@ export default function FeedViewer({ onOpenReader }) {
       <div className="feed-sidebar-bottom"><button onClick={() => leaveChat(onOpenReader)}>Open file reader ↗</button><button onClick={() => setDark(value => !value)}>{dark ? 'Light appearance' : 'Dark appearance'}</button>{feed.isServer && !feed.stopped && <button onClick={() => leaveChat(feed.stop)}>Stop local server</button>}{feed.isDropbox && <button onClick={() => leaveChat(dropbox.signOut)}>Sign out of Dropbox</button>}</div>
     </aside>
     <main className="feed-main">
-      <div className="feed-scroll" ref={scrolling}>
+      {items !== null && filtered.length > 0 && <nav className="feed-navbar" aria-label="Feed controls">
+        {chunked && <>
+          <button onClick={() => goToChunk(currentChunk - 1)} disabled={currentChunk === 0} aria-label="Previous chunk" title="Previous chunk (←)">‹ Prev</button>
+          <select value={currentChunk} onChange={event => goToChunk(Number(event.target.value))} aria-label="Chunk">
+            {Array.from({ length: chunkCount }, (_, index) => <option key={index} value={index}>{index * CHUNK + 1}–{Math.min((index + 1) * CHUNK, filtered.length)}{sort === 'folder' ? ` · ${folderOf(filtered[index * CHUNK].path)}` : ''}</option>)}
+          </select>
+          <span className="feed-navbar-count">of {filtered.length}</span>
+          <button onClick={() => goToChunk(currentChunk + 1)} disabled={currentChunk >= chunkCount - 1} aria-label="Next chunk" title="Next chunk (→)">Next ›</button>
+        </>}
+        <button className={`feed-chunk-toggle${chunked ? ' is-active' : ''}`} onClick={() => setChunked(value => !value)} aria-pressed={chunked} title={`Show ${CHUNK} files at a time, or scroll through everything`}>{chunked ? `Chunks of ${CHUNK}` : 'Scroll all'}</button>
+        <button className="feed-expand-all" onClick={() => expandEvery(!expandAll)} aria-pressed={expandAll} title={expandAll ? 'Clip every long note back behind Read more' : 'Show every long note in full'}>{expandAll ? 'Collapse all' : 'Expand all'}</button>
+      </nav>}
+      <div className="feed-scroll" ref={scrolling} tabIndex={-1}>
         <div className="feed-column">
-          <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><span className="feed-font-size"><button onClick={() => resize(-0.1)} disabled={noteScale <= 0.8} aria-label="Smaller note text" title="Smaller note text">A−</button><button onClick={() => resize(0.1)} disabled={noteScale >= 2} aria-label="Larger note text" title="Larger note text">A+</button></span><button className={`feed-sort${sort === 'name' ? ' is-active' : ''}`} onClick={() => setSort(value => value === 'name' ? 'recent' : 'name')} aria-pressed={sort === 'name'} title="Sort by filename or by most recent save">Sort: {sort === 'name' ? 'Name A\u2013Z' : 'Newest'}</button><button className={`feed-expand-all${expandAll ? ' is-active' : ''}`} onClick={() => setExpandAll(value => !value)} aria-pressed={expandAll} title="Show every long note in full, instead of clipping it behind Read more">{expandAll ? 'Collapse all' : 'Expand all'}</button><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
+          <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><span className="feed-font-size"><button onClick={() => resize(-0.1)} disabled={noteScale <= 0.8} aria-label="Smaller note text" title="Smaller note text">A−</button><button onClick={() => resize(0.1)} disabled={noteScale >= 2} aria-label="Larger note text" title="Larger note text">A+</button></span><button className={`feed-sort${sort !== 'recent' ? ' is-active' : ''}`} onClick={() => setSort(value => SORTS[value].next)} aria-pressed={sort !== 'recent'} title="Cycle: newest save, filename A–Z, or folder by folder (folders A–Z, files A–Z inside)">Sort: {SORTS[sort].label}</button><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
           <label className="feed-search"><span aria-hidden="true">⌕</span><input ref={search} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search filenames, notes, or #tags" aria-label="Search feed" /><kbd>/</kbd></label>
           {feed.hasFolder && (scope || folders.length > 0) && <div className="feed-tree">
             <nav className="feed-crumbs" aria-label="Folder path">
@@ -341,9 +389,10 @@ export default function FeedViewer({ onOpenReader }) {
           {!feed.hasFolder && <div className="feed-empty"><div aria-hidden="true">▤</div><h2>Your folder becomes a feed.</h2><p>Choose a folder of notes, PDFs, and images. Save files in your usual apps and see updates here.</p><div className="feed-empty-actions"><button className="feed-primary" onClick={feed.chooseFolder}>Choose a folder</button>{dropbox.configured && <button className="feed-primary feed-connect" onClick={dropbox.signIn} disabled={dropbox.restoring}>{dropbox.restoring ? 'Connecting\u2026' : 'Connect Dropbox'}</button>}</div><small>A chosen folder stays on this computer. Dropbox reads only this app's own folder.</small></div>}
           {feed.hasFolder && items === null && feed.loading && <div className="feed-empty" role="status">Reading your folder…</div>}
           {items !== null && filtered.length === 0 && <div className="feed-empty"><h2>{query ? 'No matching files' : 'Nothing here yet'}</h2><p>{query ? 'Try another filename, phrase, or hashtag.' : 'Save a .txt, .md, .docx, .pdf, image, or video in this folder, or include subfolders.'}</p>{scope && <button className="feed-primary" onClick={() => goTo('')}>Show the whole folder</button>}</div>}
-          <div className="feed-cards">{filtered.slice(0, limit).map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} chat={chat} practice={practice} onRename={rename} onOpen={openInApp} expandAll={expandAll} />)}</div>
-          {filtered.length > limit && <div ref={sentinel} className="feed-more"><button onClick={() => setLimit(value => value + 40)}>Load more files</button></div>}
-          {filtered.length > 0 && filtered.length <= limit && <p className="feed-end">You're all caught up. New saves will appear here.</p>}
+          <div className="feed-cards">{shown.map(item => <FeedCard key={item.path} item={item} onExpand={openPreview} formatted={formattedNotes} chat={chat} practice={practice} onRename={rename} onOpen={openInApp} expandAll={expandAll} expandEpoch={expandEpoch} />)}</div>
+          {chunked && chunkCount > 1 && <div className="feed-more"><button onClick={() => goToChunk(currentChunk + 1)} disabled={currentChunk >= chunkCount - 1}>{currentChunk >= chunkCount - 1 ? 'Last chunk' : `Next ${CHUNK} files ›`}</button></div>}
+          {!chunked && filtered.length > limit && <div ref={sentinel} className="feed-more"><button onClick={() => setLimit(value => value + 40)}>Load more files</button></div>}
+          {!chunked && filtered.length > 0 && filtered.length <= limit && <p className="feed-end">You're all caught up. New saves will appear here.</p>}
         </div>
       </div>
     </main>

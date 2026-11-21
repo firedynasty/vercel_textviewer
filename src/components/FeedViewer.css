@@ -43,6 +43,7 @@
 .feed-status-dot--idle { background: #aaa38c; }
 .feed-scroll { flex: 1; overflow-y: auto; overflow-anchor: auto; }
 .feed-scroll:focus { outline: none; }
+.feed-app .feed-reading { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 30; padding: 9px 16px; border: 1px solid var(--feed-accent); border-radius: 999px; background: var(--feed-panel); color: var(--feed-accent); font-size: 12px; font-weight: 600; box-shadow: 0 4px 14px #0002; }
 .feed-column { max-width: 790px; padding: 47px 32px 35px; margin: 0 auto; }
 .feed-page-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26px; }
 .feed-page-heading p { font-size: 10px; font-weight: 600; color: var(--feed-accent); letter-spacing: 1.8px; margin-bottom: 13px; }

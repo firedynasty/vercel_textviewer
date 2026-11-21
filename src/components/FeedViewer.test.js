@@ -203,7 +203,7 @@ test('the sort button switches between newest saves and filename order, and is r
   expect(names()).toEqual(['other.md', 'note.txt']);
 });
 
-test('one navbar button toggles Expand all / Collapse all across every card and is remembered', () => {
+test('one navbar State button toggles every card between Collapsed and Expanded across every card and is remembered', () => {
   const long = { ...original, path: 'long.md', name: 'long.md', modified: 2000, text: 'Line\n'.repeat(40) };
   state.snapshot.items = [long, original];
   render();
@@ -211,10 +211,10 @@ test('one navbar button toggles Expand all / Collapse all across every card and 
   const toggle = () => container.querySelector('.feed-navbar .feed-expand-all');
   const cardButton = () => [...container.querySelectorAll('.feed-card-actions button')].find(button => /Read more|Collapse/.test(button.textContent));
   expect(clipped()).toBe(1);
-  expect(toggle().textContent).toBe('Expand all');
+  expect(toggle().textContent).toBe('State: Collapsed');
   act(() => Simulate.click(toggle()));
   expect(clipped()).toBe(0);
-  expect(toggle().textContent).toBe('Collapse all');
+  expect(toggle().textContent).toBe('State: Expanded');
   expect(cardButton().textContent).toBe('Collapse');
   expect(localStorage.getItem('feed-expand')).toBe('true');
   act(() => root.unmount());
@@ -225,7 +225,7 @@ test('one navbar button toggles Expand all / Collapse all across every card and 
   expect(clipped()).toBe(1);
   act(() => Simulate.click(toggle()));
   expect(clipped()).toBe(1);
-  expect(toggle().textContent).toBe('Expand all');
+  expect(toggle().textContent).toBe('State: Collapsed');
   expect(localStorage.getItem('feed-expand')).toBe('false');
   act(() => Simulate.click(cardButton()));
   expect(clipped()).toBe(0);
@@ -260,4 +260,42 @@ test('the navbar shows 15 files per chunk with Prev, Next, and a chunk picker', 
   act(() => Simulate.click(container.querySelector('.feed-chunk-toggle')));
   expect(cards()).toHaveLength(32);
   expect(localStorage.getItem('feed-chunked')).toBe('false');
+});
+
+test('right-clicking highlighted note text reads it aloud; while reading, right-click (even on a selection) or Esc stops', async () => {
+  jest.useFakeTimers();
+  const spoken = [];
+  const synth = { speak: jest.fn(utterance => spoken.push(utterance.text)), cancel: jest.fn(), getVoices: () => [{ name: 'Ava (Premium)', lang: 'en-US' }], speaking: false, paused: false };
+  Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: synth });
+  window.SpeechSynthesisUtterance = function (text) { this.text = text; };
+  try {
+    state.snapshot.items = [{ ...original, text: 'Be still. And know that I am God.' }];
+    render();
+    const note = container.querySelector('.feed-note');
+    const rightClick = target => {
+      const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+      act(() => { target.dispatchEvent(event); });
+      return event.defaultPrevented;
+    };
+    expect(rightClick(note)).toBe(false);
+    const range = document.createRange();
+    range.selectNodeContents(note);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(range);
+    expect(rightClick(note)).toBe(true);
+    act(() => { jest.advanceTimersByTime(50); });
+    expect(spoken).toEqual(['Be still.']);
+    expect(container.querySelector('.feed-reading').textContent).toContain('Reading aloud');
+    expect(rightClick(note)).toBe(true);
+    expect(container.querySelector('.feed-reading')).toBe(null);
+    expect(rightClick(note)).toBe(true);
+    expect(container.querySelector('.feed-reading')).not.toBe(null);
+    act(() => { document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
+    expect(container.querySelector('.feed-reading')).toBe(null);
+    window.getSelection().removeAllRanges();
+  } finally {
+    jest.useRealTimers();
+    delete window.SpeechSynthesisUtterance;
+    Object.defineProperty(window, 'speechSynthesis', { configurable: true, value: undefined });
+  }
 });

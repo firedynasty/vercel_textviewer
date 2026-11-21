@@ -3,6 +3,7 @@ import useLiveFeed from '../hooks/useLiveFeed';
 import useFolderChat from '../hooks/useFolderChat';
 import useFolderPractice from '../hooks/useFolderPractice';
 import useDropboxFeed from '../hooks/useDropboxFeed';
+import useReadAloud from '../hooks/useReadAloud';
 import { changedPaths, childFolders, filterFeed, scopeItems, scopeTrail, sortItems } from '../utils/feedUtils';
 import { CHAT_MARKER, visibleChatMarkdown } from '../utils/chatUtils';
 import FeedMarkdown from './FeedMarkdown';
@@ -286,6 +287,28 @@ export default function FeedViewer({ onOpenReader }) {
     scrolling.current?.scrollTo(0, 0);
     scrolling.current?.focus({ preventScroll: true });
   };
+  // Right-click (or two-finger click): while reading, it stops; otherwise highlighted text is read aloud.
+  const readAloud = useReadAloud();
+  const readSelection = event => {
+    if (readAloud.speaking) {
+      event.preventDefault();
+      readAloud.stop();
+      return;
+    }
+    const selection = window.getSelection();
+    const text = selection?.toString().trim();
+    if (text && readAloud.supported && selection.rangeCount && scrolling.current?.contains(selection.anchorNode)) {
+      event.preventDefault();
+      readAloud.speak(text);
+    }
+  };
+  const stopReading = useRef(null);
+  stopReading.current = readAloud.speaking ? readAloud.stop : null;
+  useEffect(() => {
+    const escape = event => { if (event.key === 'Escape' && stopReading.current) stopReading.current(); };
+    window.addEventListener('keydown', escape);
+    return () => window.removeEventListener('keydown', escape);
+  }, []);
   const chunkKeys = useRef(null);
   chunkKeys.current = chunked && !selected && !practice.open ? goToChunk : null;
   const chunkIndex = useRef(currentChunk);
@@ -363,9 +386,9 @@ export default function FeedViewer({ onOpenReader }) {
           <button onClick={() => goToChunk(currentChunk + 1)} disabled={currentChunk >= chunkCount - 1} aria-label="Next chunk" title="Next chunk (→)">Next ›</button>
         </>}
         <button className={`feed-chunk-toggle${chunked ? ' is-active' : ''}`} onClick={() => setChunked(value => !value)} aria-pressed={chunked} title={`Show ${CHUNK} files at a time, or scroll through everything`}>{chunked ? `Chunks of ${CHUNK}` : 'Scroll all'}</button>
-        <button className="feed-expand-all" onClick={() => expandEvery(!expandAll)} aria-pressed={expandAll} title={expandAll ? 'Clip every long note back behind Read more' : 'Show every long note in full'}>{expandAll ? 'Collapse all' : 'Expand all'}</button>
+        <button className="feed-expand-all" onClick={() => expandEvery(!expandAll)} aria-pressed={expandAll} title={expandAll ? 'Long notes are shown in full. Click to clip them all behind Read more' : 'Long notes are clipped. Click to show them all in full'}>State: {expandAll ? 'Expanded' : 'Collapsed'}</button>
       </nav>}
-      <div className="feed-scroll" ref={scrolling} tabIndex={-1}>
+      <div className="feed-scroll" ref={scrolling} tabIndex={-1} onContextMenu={readSelection}>
         <div className="feed-column">
           <div className="feed-page-heading"><div><p>YOUR PERSONAL STREAM</p><h1>{FILTERS.find(([type]) => type === filter)[1]}</h1><div className="feed-subtitle">A little space for everything you save.</div></div><div className="feed-heading-actions"><span className="feed-font-size"><button onClick={() => resize(-0.1)} disabled={noteScale <= 0.8} aria-label="Smaller note text" title="Smaller note text">A−</button><button onClick={() => resize(0.1)} disabled={noteScale >= 2} aria-label="Larger note text" title="Larger note text">A+</button></span><button className={`feed-sort${sort !== 'recent' ? ' is-active' : ''}`} onClick={() => setSort(value => SORTS[value].next)} aria-pressed={sort !== 'recent'} title="Cycle: newest save, filename A–Z, or folder by folder (folders A–Z, files A–Z inside)">Sort: {SORTS[sort].label}</button><button className={`txt-md-toggle-btn feed-format-toggle${formattedNotes ? ' active' : ''}`} onClick={() => setFormattedNotes(value => !value)} aria-pressed={formattedNotes} title="Toggle formatted view (bullets * lines, auto-link, paragraphs)">TXT&gt;MD</button>{feed.hasFolder && !feed.stopped && <button className="feed-refresh" onClick={feed.refresh} aria-label="Refresh folder" title="Refresh folder">↻</button>}</div></div>
           <label className="feed-search"><span aria-hidden="true">⌕</span><input ref={search} type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Search filenames, notes, or #tags" aria-label="Search feed" /><kbd>/</kbd></label>
@@ -396,6 +419,7 @@ export default function FeedViewer({ onOpenReader }) {
         </div>
       </div>
     </main>
+    {readAloud.speaking && <button className="feed-reading" onClick={readAloud.stop} title="Stop reading (right-click or Esc)">🔊 Reading aloud · Stop</button>}
     <FeedChat chat={chat} folder={feed.snapshot?.folder} stopped={feed.stopped} onPractice={practice.launch} notes={collectable} />
     <FeedPractice practice={practice} chat={chat} folder={feed.snapshot?.folder} stopped={feed.stopped} />
     {selected && <PreviewDialog item={selected} onClose={() => setSelected(null)} />}
